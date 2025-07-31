@@ -1,0 +1,55 @@
+name: app_vendita
+description: "Applicazione Flutter per la gestione vendite con calendario e filtri"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  
+  # Firebase
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.15.3
+  cloud_firestore: ^4.13.6
+  firebase_storage: ^11.5.6
+  
+  # State Management
+  flutter_riverpod: ^2.4.9
+  riverpod_annotation: ^2.3.3
+  
+  # Data Models & Serialization
+  freezed_annotation: ^2.4.1
+  json_annotation: ^4.8.1
+  
+  # UI Components
+  table_calendar: ^3.0.9
+  intl: ^0.18.1
+  
+  # Excel Import
+  excel: ^2.1.0
+  
+  # Utilities
+  logging: ^1.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  
+  # Code Generation
+  build_runner: ^2.4.7
+  freezed: ^2.4.6
+  json_serializable: ^6.7.1
+  riverpod_generator: ^2.3.9
+  
+  # Testing
+  mockito: ^5.4.4
+  build_test: ^2.4.1
+
+flutter:
+  uses-material-design: true 
