@@ -20,11 +20,13 @@ interface FocusReferenceData {
 
 interface FocusReferencesFormProps {
   selectedDate: string;
+  existingData?: FocusReferenceData[];
   onDataChange?: (data: FocusReferenceData[]) => void;
 }
 
 const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
   selectedDate,
+  existingData,
   onDataChange,
 }) => {
   const {
@@ -38,16 +40,19 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
   // Carica le referenze focus quando cambia la data
   useEffect(() => {
     if (focusReferences.length > 0) {
-      const initialData = focusReferences.map(ref => ({
-        referenceId: ref.id,
-        orderedPieces: '',
-        soldPieces: '',
-        stockPieces: '',
-        soldVsStockPercentage: '',
-      }));
+      // Se abbiamo dati esistenti, li utilizziamo, altrimenti creiamo dati vuoti
+      const initialData = existingData && existingData.length > 0 
+        ? existingData 
+        : focusReferences.map(ref => ({
+            referenceId: ref.id,
+            orderedPieces: '',
+            soldPieces: '',
+            stockPieces: '',
+            soldVsStockPercentage: '',
+          }));
       setFocusData(initialData);
     }
-  }, [focusReferences]);
+  }, [focusReferences, existingData]);
 
   // Notifica il cambio dati solo quando focusData cambia effettivamente
   useEffect(() => {

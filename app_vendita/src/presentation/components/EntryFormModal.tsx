@@ -163,9 +163,8 @@ export default function EntryFormModal({
         timestamp: new Date(),
       };
       chatNotes = [...existingChatNotes, newChatNote];
-      console.log('💬 EntryFormModal: Aggiunto nuovo messaggio alla chat. Totale messaggi:', chatNotes.length);
     } else {
-      console.log('💬 EntryFormModal: Nessun nuovo messaggio, mantenuti i chatNotes esistenti:', existingChatNotes.length);
+      // Nessun nuovo messaggio, mantenuti i chatNotes esistenti
     }
 
     const entryToSave: CalendarEntry = {
