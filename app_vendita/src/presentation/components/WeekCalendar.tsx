@@ -13,7 +13,6 @@ interface WeekCalendarProps {
   selectedDate: string;
   onDayPress: (date: string) => void;
   onTooltipPress?: (type: 'stock' | 'notes' | 'info' | 'images', date: string, entry?: CalendarEntry) => void;
-  onSellInChange?: (date: string, sellIn: number) => void;
 }
 
 export default function WeekCalendar({
@@ -22,14 +21,12 @@ export default function WeekCalendar({
   selectedDate,
   onDayPress,
   onTooltipPress,
-  onSellInChange,
 }: WeekCalendarProps) {
-  // Rimuoviamo questo log che causa re-render continui
-  // console.log('📅 WeekCalendar: Componente inizializzato con:', {
-  //   currentDate: currentDate.toISOString(),
-  //   entriesCount: entries.length,
-  //   selectedDate,
-  // });
+  console.log('📅 WeekCalendar: Componente inizializzato con:', {
+    currentDate: currentDate.toISOString(),
+    entriesCount: entries.length,
+    selectedDate,
+  });
 
   // Genera le date della settimana corrente
   const getWeekDates = (date: Date): Date[] => {
@@ -50,75 +47,28 @@ export default function WeekCalendar({
   const weekDates = getWeekDates(currentDate);
   const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 
-  // Rimuoviamo questo log che causa re-render continui
-  // console.log(
-  //   '📅 WeekCalendar: Date settimana generate:',
-  //   weekDates.map(d => d.toISOString().split('T')[0])
-  // );
+  console.log(
+    '📅 WeekCalendar: Date settimana generate:',
+    weekDates.map(d => d.toISOString().split('T')[0])
+  );
 
   const getEntryForDate = (date: Date): CalendarEntry | undefined => {
     const dateStr = date.toISOString().split('T')[0];
-    
-    // Trova tutti gli entries per questa data
-    const entriesForDate = entries.filter(entry => {
+    const entry = entries.find(entry => {
       const entryDate = new Date(entry.date).toISOString().split('T')[0];
       return entryDate === dateStr;
     });
 
-    if (entriesForDate.length === 0) {
-      return undefined;
-    }
-
-    // Se c'è solo un entry, usalo
-    if (entriesForDate.length === 1) {
-      const entry = entriesForDate[0];
+    if (entry) {
       console.log('📅 WeekCalendar: Entry trovata per', dateStr, ':', {
-        id: entry?.id,
-        sales: entry?.sales?.length || 0,
-        actions: entry?.actions?.length || 0,
-        hasProblem: entry?.hasProblem || false,
-        notes: entry?.notes?.substring(0, 20) + '...',
-        focusReferencesData: entry?.focusReferencesData?.length || 0,
+        sales: entry.sales.length,
+        actions: entry.actions.length,
+        hasProblem: entry.hasProblem,
+        notes: entry.notes?.substring(0, 20) + '...',
       });
-      return entry;
     }
 
-    // Se ci sono multiple entries, combina i dati
-    const latestEntry = entriesForDate.reduce((latest, current) => {
-      // Estrai il timestamp dall'ID (formato: timestamp + random string)
-      const latestTimestamp = parseInt(latest.id?.split(/[a-z]/)[0] || '0');
-      const currentTimestamp = parseInt(current.id?.split(/[a-z]/)[0] || '0');
-      return currentTimestamp > latestTimestamp ? current : latest;
-    });
-
-    // Trova l'entry con più tag
-    const entryWithMostTags = entriesForDate.reduce((mostTags, current) => {
-      const currentTagsCount = current.tags?.length || 0;
-      const mostTagsCount = mostTags.tags?.length || 0;
-      return currentTagsCount > mostTagsCount ? current : mostTags;
-    });
-
-    // Combina i dati: focus references dal più recente, tag da quello con più tag
-    const combinedEntry = {
-      ...latestEntry,
-      tags: entryWithMostTags.tags || latestEntry.tags || []
-    };
-
-    // Rimuoviamo questo log che causa re-render continui
-    // console.log('📅 WeekCalendar: Multiple entries per', dateStr, '(', entriesForDate.length, 'entries), combinati:', {
-    //   latestEntryId: latestEntry.id,
-    //   latestEntryFocusData: latestEntry.focusReferencesData?.length || 0,
-    //   entryWithMostTagsId: entryWithMostTags.id,
-    //   entryWithMostTagsTags: entryWithMostTags.tags?.length || 0,
-    //   combinedEntryTags: combinedEntry.tags?.length || 0,
-    //   allEntries: entriesForDate.map(e => ({ 
-    //     id: e.id, 
-    //     focusReferencesData: e.focusReferencesData?.length || 0,
-    //     tags: e.tags?.length || 0
-    //   }))
-    // });
-
-    return combinedEntry;
+    return entry;
   };
 
   const isToday = (date: Date): boolean => {
@@ -131,8 +81,7 @@ export default function WeekCalendar({
     return dateStr === selectedDate;
   };
 
-  // Rimuoviamo questo log che causa re-render continui
-  // console.log('🎨 WeekCalendar: Rendering calendario settimanale');
+  // Log rimosso per performance - non necessario in produzione
 
   return (
     <View style={styles.container}>
@@ -161,8 +110,6 @@ export default function WeekCalendar({
         {weekDates.map((date) => {
           const entry = getEntryForDate(date);
           const dateStr = date.toISOString().split('T')[0];
-          
-
 
           return (
             <CustomCalendarCell
@@ -172,12 +119,10 @@ export default function WeekCalendar({
               isSelected={isSelected(date)}
               isToday={isToday(date)}
               onPress={() => {
-                console.log('📅 WeekCalendar: Cliccato giorno:', dateStr);
                 onDayPress(dateStr || '');
               }}
               isWeekView={true}
               onTooltipPress={onTooltipPress || undefined}
-              onSellInChange={onSellInChange}
             />
           );
         })}

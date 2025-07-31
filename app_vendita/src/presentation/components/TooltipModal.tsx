@@ -49,12 +49,8 @@ export default function TooltipModal({
   onClose,
   onUpdateEntry,
   activeFilters,
-  users = [],
-  salesPoints = [],
-  agents = [],
-  excelRows = [],
 }: TooltipModalProps) {
-  const { focusReferences, getFocusReferenceById } = useFocusReferences();
+  const { getFocusReferenceById } = useFocusReferences();
   const scrollViewRef = useRef<ScrollView>(null);
   const [newMessage, setNewMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -193,7 +189,7 @@ export default function TooltipModal({
               showsVerticalScrollIndicator={false}
             >
               {entry?.chatNotes && entry.chatNotes.length > 0 ? (
-                entry.chatNotes.map((note, index) => {
+                entry.chatNotes.map((note) => {
                   const isCurrentUser = note.userId === 'default_user'; // TODO: Usare utente corrente
                   const userInitials = (note.userName || note.userId).substring(0, 2).toUpperCase();
                   

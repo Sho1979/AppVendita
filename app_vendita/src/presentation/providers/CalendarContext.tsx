@@ -1,12 +1,13 @@
-import React, { createContext, useContext, useReducer, ReactNode, useEffect, useState } from 'react';
-import { View, Text } from 'react-native';
+import React, { createContext, useContext, ReactNode, useEffect, useState } from 'react';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { User } from '../../data/models/User';
 import { SalesPoint } from '../../data/models/SalesPoint';
 import { useProgressiveIntegration } from '../../hooks/useProgressiveIntegration';
 import { ProgressiveCalculationService } from '../../services/ProgressiveCalculationService';
+import { useCalendarStore } from '../../stores/calendarStore';
+import { logger } from '../../utils/logger';
 
-// Tipi per lo stato
+// Manteniamo le stesse interfacce per compatibilità
 export interface ActiveFilters {
   userId: string;
   salesPointId: string;
@@ -20,10 +21,10 @@ export interface CalendarState {
   activeFilters: ActiveFilters;
   isLoading: boolean;
   error: string | null;
-  lastSyncTimestamp: number; // Timestamp dell'ultima sincronizzazione
+  lastSyncTimestamp: number;
 }
 
-// Azioni per il reducer
+// Manteniamo le stesse azioni per compatibilità
 export type CalendarAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
@@ -35,133 +36,6 @@ export type CalendarAction =
   | { type: 'UPDATE_ENTRY'; payload: CalendarEntry }
   | { type: 'DELETE_ENTRY'; payload: string }
   | { type: 'UPDATE_SYNC_TIMESTAMP'; payload: number };
-
-// Stato iniziale
-const initialState: CalendarState = {
-  entries: [],
-  users: [],
-  salesPoints: [],
-  activeFilters: {
-    userId: '',
-    salesPointId: '',
-    selectedDate: null,
-  },
-  isLoading: false,
-  error: null,
-  lastSyncTimestamp: 0,
-};
-
-// Reducer
-function calendarReducer(
-  state: CalendarState,
-  action: CalendarAction
-): CalendarState {
-  console.log(
-    '🔄 CalendarReducer: Azione ricevuta:',
-    action.type,
-    action.payload
-  );
-
-  let newState: CalendarState;
-
-  switch (action.type) {
-    case 'SET_LOADING':
-      newState = { ...state, isLoading: action.payload };
-      console.log('⏳ CalendarReducer: Loading impostato a:', action.payload);
-      break;
-
-    case 'SET_ERROR':
-      newState = { ...state, error: action.payload };
-      console.log('❌ CalendarReducer: Errore impostato:', action.payload);
-      break;
-
-    case 'SET_ENTRIES':
-      newState = { ...state, entries: action.payload };
-      console.log(
-        '📅 CalendarReducer: Entries aggiornati:',
-        action.payload.length,
-        'entries'
-      );
-      break;
-
-    case 'SET_USERS':
-      newState = { ...state, users: action.payload };
-      console.log(
-        '👥 CalendarReducer: Utenti aggiornati:',
-        action.payload.length,
-        'utenti'
-      );
-      break;
-
-    case 'SET_SALES_POINTS':
-      newState = { ...state, salesPoints: action.payload };
-      console.log(
-        '🏪 CalendarReducer: Punti vendita aggiornati:',
-        action.payload.length,
-        'punti vendita'
-      );
-      break;
-
-    case 'UPDATE_FILTERS':
-      newState = {
-        ...state,
-        activeFilters: { ...state.activeFilters, ...action.payload },
-      };
-      console.log('🔍 CalendarReducer: Filtri aggiornati:', action.payload);
-      break;
-
-    case 'ADD_ENTRY':
-      newState = {
-        ...state,
-        entries: [...state.entries, action.payload],
-      };
-      console.log('➕ CalendarReducer: Entry aggiunta:', action.payload.id);
-      break;
-
-    case 'UPDATE_ENTRY':
-      newState = {
-        ...state,
-        entries: state.entries.map(entry =>
-          entry.id === action.payload.id ? action.payload : entry
-        ),
-      };
-      console.log('✏️ CalendarReducer: Entry aggiornata:', action.payload.id);
-      break;
-
-    case 'DELETE_ENTRY':
-      newState = {
-        ...state,
-        entries: state.entries.filter(entry => entry.id !== action.payload),
-      };
-      console.log('🗑️ CalendarReducer: Entry eliminata:', action.payload);
-      break;
-
-    case 'UPDATE_SYNC_TIMESTAMP':
-      newState = {
-        ...state,
-        lastSyncTimestamp: action.payload,
-      };
-      console.log('🔄 CalendarReducer: Timestamp sincronizzazione aggiornato:', action.payload);
-      break;
-
-    default: {
-      const neverAction = action as never;
-      console.log('❓ CalendarReducer: Azione sconosciuta:', neverAction);
-      return state;
-    }
-  }
-
-  console.log('📊 CalendarReducer: Nuovo stato:', {
-    entriesCount: newState.entries.length,
-    usersCount: newState.users.length,
-    salesPointsCount: newState.salesPoints.length,
-    isLoading: newState.isLoading,
-    error: newState.error,
-    activeFilters: newState.activeFilters,
-  });
-
-  return newState;
-}
 
 // Context
 interface CalendarContextType {
@@ -184,141 +58,173 @@ interface CalendarProviderProps {
 }
 
 export function CalendarProvider({ children }: CalendarProviderProps) {
-  console.log('🏗️ CalendarProvider: Provider inizializzato');
+  logger.init('CalendarProvider: Provider inizializzato');
 
-  try {
-    const [state, dispatch] = useReducer(calendarReducer, initialState);
-    console.log('✅ CalendarProvider: useReducer inizializzato con successo');
+  // Usa il calendar store di Zustand
+  const calendarStore = useCalendarStore();
+  
+  // Crea un'istanza condivisa del servizio progressivo
+  const [sharedProgressiveService] = useState(() => new ProgressiveCalculationService());
 
-    // Crea un'istanza condivisa del servizio progressivo
-    const [sharedProgressiveService] = useState(() => new ProgressiveCalculationService());
+  // Inizializza il sistema progressivo con l'istanza condivisa
+  const {
+    isInitialized,
+    initializeWithExistingData,
+    updateEntryWithProgressiveSync,
+    getDisplayDataForDate
+  } = useProgressiveIntegration(sharedProgressiveService);
 
-    // Inizializza il sistema progressivo con l'istanza condivisa
-    const {
+  // Force re-render when isInitialized changes
+  const [forceUpdate, setForceUpdate] = useState(0);
+
+  logger.init('CalendarProvider: Stato iniziale del provider', {
+    entriesCount: calendarStore.entries.length,
+    usersCount: calendarStore.users.length,
+    salesPointsCount: calendarStore.salesPoints.length,
+    isLoading: calendarStore.isLoading,
+    error: calendarStore.error,
+    isInitialized,
+    forceUpdate,
+  });
+
+  // Inizializza il sistema progressivo quando i dati cambiano
+  useEffect(() => {
+    logger.sync('CalendarProvider: useEffect triggered', {
+      entriesCount: calendarStore.entries.length,
       isInitialized,
-      initializeWithExistingData,
-      updateEntryWithProgressiveSync,
-      getDisplayDataForDate
-    } = useProgressiveIntegration(sharedProgressiveService);
-
-    // Force re-render when isInitialized changes
-    const [forceUpdate, setForceUpdate] = useState(0);
-
-    console.log('📊 CalendarProvider: Stato iniziale del provider:', {
-      entriesCount: state.entries.length,
-      usersCount: state.users.length,
-      salesPointsCount: state.salesPoints.length,
-      isLoading: state.isLoading,
-      error: state.error,
-      isInitialized,
-      forceUpdate,
+      hasEntries: calendarStore.entries.length > 0,
+      shouldInitialize: calendarStore.entries.length > 0 && !isInitialized
     });
-
-    // Inizializza il sistema progressivo quando i dati cambiano
-    useEffect(() => {
-      console.log('🔄 CalendarProvider: useEffect triggered:', {
-        entriesCount: state.entries.length,
-        isInitialized,
-        hasEntries: state.entries.length > 0,
-        shouldInitialize: state.entries.length > 0 && !isInitialized
-      });
+    
+    if (calendarStore.entries.length > 0 && !isInitialized) {
+      logger.init('CalendarProvider: Inizializzazione sistema progressivo...');
+      logger.data('CalendarProvider: Entries da processare', calendarStore.entries.map(entry => ({
+        id: entry.id,
+        date: entry.date,
+        focusReferencesCount: entry.focusReferencesData?.length || 0
+      })));
       
-      if (state.entries.length > 0 && !isInitialized) {
-        console.log('🔄 CalendarProvider: Inizializzazione sistema progressivo...');
-        console.log('📊 CalendarProvider: Entries da processare:', state.entries.map(entry => ({
-          id: entry.id,
-          date: entry.date,
-          focusReferencesCount: entry.focusReferencesData?.length || 0
-        })));
-        
-        try {
-          initializeWithExistingData(state.entries);
-          console.log('✅ CalendarProvider: Sistema progressivo inizializzato');
-          // Force re-render after initialization
-          setForceUpdate(prev => prev + 1);
-        } catch (error) {
-          console.error('❌ CalendarProvider: Errore inizializzazione progressivo:', error);
-        }
-      } else if (state.entries.length === 0) {
-        console.log('⚠️ CalendarProvider: Nessuna entry disponibile per l\'inizializzazione');
-      } else if (isInitialized) {
-        console.log('✅ CalendarProvider: Sistema progressivo già inizializzato');
-      }
-    }, [state.entries, isInitialized, initializeWithExistingData]);
-
-    // Force re-render when isInitialized changes
-    useEffect(() => {
-      if (isInitialized) {
-        console.log('🔄 CalendarProvider: isInitialized changed to true, forcing re-render');
+      try {
+        initializeWithExistingData(calendarStore.entries);
+        logger.init('CalendarProvider: Sistema progressivo inizializzato');
+        // Force re-render after initialization
         setForceUpdate(prev => prev + 1);
+      } catch (error) {
+        logger.error('init', 'CalendarProvider: Errore inizializzazione progressivo', error);
       }
-    }, [isInitialized]);
+    } else if (calendarStore.entries.length === 0) {
+      logger.warn('init', 'CalendarProvider: Nessuna entry disponibile per l\'inizializzazione');
+    } else if (isInitialized) {
+      logger.init('CalendarProvider: Sistema progressivo già inizializzato');
+    }
+  }, [calendarStore.entries, isInitialized, initializeWithExistingData]);
 
-    // Sincronizza le nuove entries con il sistema progressivo
-    useEffect(() => {
-      if (isInitialized && state.entries.length > 0) {
-        console.log('🔄 CalendarProvider: Sincronizzazione entries con sistema progressivo...');
-        
-        // Trova le entries che sono state modificate dopo l'ultima sincronizzazione
-        const currentTimestamp = Date.now();
-        const entriesToSync = state.entries.filter(entry => {
-          // Sincronizza se l'entry è stata creata o modificata dopo l'ultima sincronizzazione
-          const entryTimestamp = new Date(entry.updatedAt || entry.createdAt).getTime();
-          return entryTimestamp > state.lastSyncTimestamp;
+  // Force re-render when isInitialized changes
+  useEffect(() => {
+    if (isInitialized) {
+      logger.sync('CalendarProvider: isInitialized changed to true, forcing re-render');
+      setForceUpdate(prev => prev + 1);
+    }
+  }, [isInitialized]);
+
+  // Sincronizza le nuove entries con il sistema progressivo
+  useEffect(() => {
+    if (isInitialized && calendarStore.entries.length > 0) {
+      logger.sync('CalendarProvider: Sincronizzazione entries con sistema progressivo...');
+      
+      // Trova le entries che sono state modificate dopo l'ultima sincronizzazione
+      const currentTimestamp = Date.now();
+      const entriesToSync = calendarStore.entries.filter(entry => {
+        // Sincronizza se l'entry è stata creata o modificata dopo l'ultima sincronizzazione
+        const entryTimestamp = new Date(entry.updatedAt || entry.createdAt).getTime();
+        return entryTimestamp > calendarStore.lastSyncTimestamp;
+      });
+
+      logger.sync(`CalendarProvider: Entries da sincronizzare: ${entriesToSync.length}`);
+      
+      if (entriesToSync.length > 0) {
+        entriesToSync.forEach(entry => {
+          try {
+            updateEntryWithProgressiveSync(entry);
+            logger.sync(`CalendarProvider: Entry ${entry.id} sincronizzata`);
+          } catch (error) {
+            logger.error('sync', `CalendarProvider: Errore sincronizzazione entry ${entry.id}`, error);
+          }
         });
-
-        console.log(`📊 CalendarProvider: Entries da sincronizzare: ${entriesToSync.length}`);
         
-        if (entriesToSync.length > 0) {
-          entriesToSync.forEach(entry => {
-            try {
-              updateEntryWithProgressiveSync(entry);
-              console.log(`✅ CalendarProvider: Entry ${entry.id} sincronizzata`);
-            } catch (error) {
-              console.error(`❌ CalendarProvider: Errore sincronizzazione entry ${entry.id}:`, error);
-            }
-          });
-          
-          // Aggiorna il timestamp di sincronizzazione
-          dispatch({ type: 'UPDATE_SYNC_TIMESTAMP', payload: currentTimestamp });
-        }
+        // Aggiorna il timestamp di sincronizzazione
+        calendarStore.setLastSyncTimestamp(currentTimestamp);
       }
-    }, [state.entries, state.lastSyncTimestamp, isInitialized, updateEntryWithProgressiveSync, dispatch]);
+    }
+  }, [calendarStore.entries, calendarStore.lastSyncTimestamp, isInitialized, updateEntryWithProgressiveSync]);
 
-    return (
-      <CalendarContext.Provider value={{ 
-        state, 
-        dispatch,
-        // Esponi il sistema progressivo
-        progressiveSystem: {
-          isInitialized,
-          updateEntryWithProgressiveSync,
-          getDisplayDataForDate
-        }
-      }}>
-        {children}
-      </CalendarContext.Provider>
-    );
-  } catch (error) {
-    console.error('❌ CalendarProvider: Errore critico nel provider:', error);
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: '#fff',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <Text style={{ fontSize: 18, color: '#ff0000' }}>
-          Errore nel provider
-        </Text>
-        <Text style={{ fontSize: 14, color: '#666', marginTop: 10 }}>
-          {error?.toString()}
-        </Text>
-      </View>
-    );
-  }
+  // Adapter per mantenere la compatibilità con l'interfaccia esistente
+  const state: CalendarState = {
+    entries: calendarStore.entries,
+    users: calendarStore.users,
+    salesPoints: calendarStore.salesPoints,
+    activeFilters: calendarStore.activeFilters,
+    isLoading: calendarStore.isLoading,
+    error: calendarStore.error,
+    lastSyncTimestamp: calendarStore.lastSyncTimestamp,
+  };
+
+  // Adapter per dispatch che mappa le azioni al calendar store
+  const dispatch = (action: CalendarAction) => {
+    console.log('🔄 CalendarProvider: Dispatch action:', action.type, action.payload);
+    
+    switch (action.type) {
+      case 'SET_LOADING':
+        calendarStore.setLoading(action.payload);
+        break;
+      case 'SET_ERROR':
+        calendarStore.setError(action.payload);
+        break;
+      case 'SET_ENTRIES':
+        calendarStore.setEntries(action.payload);
+        break;
+      case 'SET_USERS':
+        calendarStore.setUsers(action.payload);
+        break;
+      case 'SET_SALES_POINTS':
+        calendarStore.setSalesPoints(action.payload);
+        break;
+      case 'UPDATE_FILTERS':
+        calendarStore.updateFilters(action.payload);
+        break;
+      case 'ADD_ENTRY':
+        calendarStore.addEntry(action.payload);
+        break;
+      case 'UPDATE_ENTRY':
+        calendarStore.updateEntry(action.payload);
+        break;
+      case 'DELETE_ENTRY':
+        calendarStore.deleteEntry(action.payload);
+        break;
+      case 'UPDATE_SYNC_TIMESTAMP':
+        calendarStore.setLastSyncTimestamp(action.payload);
+        break;
+      default: {
+        const neverAction = action as never;
+        console.warn('⚠️ CalendarProvider: Azione sconosciuta:', neverAction);
+      }
+    }
+  };
+
+  return (
+    <CalendarContext.Provider value={{ 
+      state, 
+      dispatch,
+      // Esponi il sistema progressivo
+      progressiveSystem: {
+        isInitialized,
+        updateEntryWithProgressiveSync,
+        getDisplayDataForDate
+      }
+    }}>
+      {children}
+    </CalendarContext.Provider>
+  );
 }
 
 // Hook personalizzato
@@ -328,14 +234,6 @@ export function useCalendar() {
     console.error('❌ useCalendar: Hook usato fuori dal CalendarProvider');
     throw new Error('useCalendar must be used within a CalendarProvider');
   }
-
-  // Rimuoviamo questo log che causa re-render continui
-  // console.log('🎯 useCalendar: Hook chiamato, stato corrente:', {
-  //   entriesCount: context.state.entries.length,
-  //   usersCount: context.state.users.length,
-  //   salesPointsCount: context.state.salesPoints.length,
-  //   isLoading: context.state.isLoading,
-  // });
 
   return context;
 }

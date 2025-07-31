@@ -9,8 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusReferences } from '../../hooks/useFocusReferences';
-import { Colors } from '../../constants/Colors';
-import { Spacing } from '../../constants/Spacing';
+
 
 interface FocusReferencesDisplayProps {
   onRefresh?: () => void;
@@ -21,9 +20,7 @@ const FocusReferencesDisplay: React.FC<FocusReferencesDisplayProps> = ({
 }) => {
   const {
     focusReferences,
-    focusNetPrices,
     loading,
-    loadFocusReferences,
     updateNetPrice,
     getNetPrice,
   } = useFocusReferences();

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import InputField from './common/InputField';
-import DatePicker from './common/DatePicker';
+
 import { TagSelector } from './common/TagSelector';
 import FocusReferencesForm from './FocusReferencesForm';
 import { CalendarEntry } from '../../data/models/CalendarEntry';

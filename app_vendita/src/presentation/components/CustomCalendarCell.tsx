@@ -6,7 +6,7 @@ import { CellTags } from './common/CellTags';
 import { useFocusReferences } from '../../hooks/useFocusReferences';
 import { useCalendar } from '../../presentation/providers/CalendarContext';
 
-import { Ionicons } from '@expo/vector-icons';
+
 
 interface CustomCalendarCellProps {
   date: string;
@@ -19,7 +19,7 @@ interface CustomCalendarCellProps {
   onSellInChange?: ((date: string, sellIn: number) => void) | undefined;
 }
 
-export default function CustomCalendarCell({
+function CustomCalendarCell({
   date,
   entry,
   isSelected,
@@ -30,31 +30,22 @@ export default function CustomCalendarCell({
   onSellInChange,
 }: CustomCalendarCellProps) {
   
-  // Rimuoviamo questo log che causa re-render continui
-  // console.log('🔍 CustomCalendarCell: Controllo tag per data:', date, {
-  //   entryId: entry?.id,
-  //   entryTags: entry?.tags,
-  //   tagsLength: entry?.tags?.length,
-  //   focusReferencesData: entry?.focusReferencesData,
-  //   focusReferencesLength: entry?.focusReferencesData?.length,
-  // });
-
-  
   const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
-  const { focusReferences, getFocusReferenceById, getNetPrice } = useFocusReferences();
+  const { getFocusReferenceById, getNetPrice } = useFocusReferences();
   const { progressiveSystem } = useCalendar();
   
   const isInitialized = progressiveSystem.isInitialized;
   const { getDisplayDataForDate } = progressiveSystem;
   
-  console.log(`🔍 CustomCalendarCell ${date}: isInitialized=${isInitialized}`);
+  // Rimuoviamo il log che causa re-render continui
+  // console.log(`🔍 CustomCalendarCell ${date}: isInitialized=${isInitialized}`);
   
-  // Forza re-render quando il sistema progressivo si inizializza
-  useEffect(() => {
-    if (isInitialized) {
-      console.log(`🔄 CustomCalendarCell ${date}: Sistema progressivo inizializzato, forzando re-render`);
-    }
-  }, [isInitialized, date]);
+  // Rimuoviamo l'useEffect che forza re-render non necessari
+  // useEffect(() => {
+  //   if (isInitialized) {
+  //     console.log(`🔄 CustomCalendarCell ${date}: Sistema progressivo inizializzato, forzando re-render`);
+  //   }
+  // }, [isInitialized, date]);
   
 
   
@@ -70,11 +61,12 @@ export default function CustomCalendarCell({
     // Ottieni i dati di visualizzazione
     const displayData = getDisplayDataForDate(date, entry, isInitialized);
     
-    console.log(`💰 totalSellIn per ${date}:`, {
-      isInitialized,
-      useOriginalData: displayData.useOriginalData,
-      sellInProgressivo: displayData.progressiveData?.sellInProgressivo || 0
-    });
+    // Rimuoviamo il log che causa re-render continui
+    // console.log(`💰 totalSellIn per ${date}:`, {
+    //   isInitialized,
+    //   useOriginalData: displayData.useOriginalData,
+    //   sellInProgressivo: displayData.progressiveData?.sellInProgressivo || 0
+    // });
     
     // Se il sistema progressivo non è inizializzato, usa i dati originali
     if (displayData.useOriginalData) {
@@ -138,23 +130,21 @@ export default function CustomCalendarCell({
     return false;
   };
 
-  const hasImagesContent = () => {
-    // Per ora il tooltip immagini non ha contenuto reale
-    return false;
-  };
+
 
   // Componente per visualizzare le referenze focus
   const FocusReferencesDisplay = () => {
     // Ottieni i dati di visualizzazione (originali o progressivi)
     const displayData = getDisplayDataForDate(date, entry, isInitialized);
     
-    console.log(`🔍 FocusReferencesDisplay per ${date}:`, {
-      isInitialized,
-      useOriginalData: displayData.useOriginalData,
-      hasProgressiveData: !!displayData.progressiveData,
-      progressiveEntriesCount: displayData.progressiveData?.displayData?.progressiveEntries?.length || 0,
-      originalEntriesCount: entry?.focusReferencesData?.length || 0
-    });
+    // Rimuoviamo il log che causa re-render continui
+    // console.log(`🔍 FocusReferencesDisplay per ${date}:`, {
+    //   isInitialized,
+    //   useOriginalData: displayData.useOriginalData,
+    //   hasProgressiveData: !!displayData.progressiveData,
+    //   progressiveEntriesCount: displayData.progressiveData?.displayData?.progressiveEntries?.length || 0,
+    //   originalEntriesCount: entry?.focusReferencesData?.length || 0
+    // });
     
     // Se il sistema progressivo non è inizializzato, usa i dati originali
     if (displayData.useOriginalData) {
@@ -164,7 +154,7 @@ export default function CustomCalendarCell({
 
       return (
         <View style={styles.focusReferencesContainer}>
-          {entry.focusReferencesData.map((focusData, index) => {
+          {entry.focusReferencesData.map((focusData) => {
             const reference = getFocusReferenceById(focusData.referenceId);
             if (!reference) return null;
 
@@ -248,7 +238,7 @@ export default function CustomCalendarCell({
 
     return (
       <View style={styles.focusReferencesContainer}>
-        {displayData.progressiveData.displayData.progressiveEntries.map((productEntry: any, index: number) => {
+        {displayData.progressiveData.displayData.progressiveEntries.map((productEntry: any) => {
           const reference = getFocusReferenceById(productEntry.productId);
           if (!reference) return null;
 
@@ -325,9 +315,9 @@ export default function CustomCalendarCell({
    };
    
    // Forza re-render quando isInitialized cambia
-   useEffect(() => {
-     // Questo useEffect forza il re-render del componente quando isInitialized cambia
-   }, [isInitialized]);
+   // useEffect(() => {
+   //   // Questo useEffect forza il re-render del componente quando isInitialized cambia
+   // }, [isInitialized]);
 
   // Tooltip content per settimana (guida principale)
   const getWeekTooltip = () => {
@@ -360,7 +350,8 @@ export default function CustomCalendarCell({
 
   // Gestione tooltip per settimana
   const handleTooltipPress = (type: 'stock' | 'notes' | 'info' | 'images') => {
-    console.log(`🔘 CustomCalendarCell: Tooltip ${type} cliccato per data: ${date}`);
+    // Rimuoviamo il log che causa re-render continui
+    // console.log(`🔘 CustomCalendarCell: Tooltip ${type} cliccato per data: ${date}`);
     if (onTooltipPress) {
       onTooltipPress(type, date, entry);
     }
@@ -369,7 +360,8 @@ export default function CustomCalendarCell({
 
 
   const handleCellPress = () => {
-    console.log(`🔘 CustomCalendarCell: Cella cliccata per data: ${date}, entry: ${entry ? 'presente' : 'assente'}`);
+    // Rimuoviamo il log che causa re-render continui
+    // console.log(`🔘 CustomCalendarCell: Cella cliccata per data: ${date}, entry: ${entry ? 'presente' : 'assente'}`);
     onPress();
   };
 
@@ -404,11 +396,18 @@ export default function CustomCalendarCell({
               style={styles.addButton}
               onPress={(e) => {
                 e.stopPropagation();
-                console.log('➕ CustomCalendarCell: Pulsante + cliccato per data:', date);
+                // Rimuoviamo il log che causa re-render continui
+                // console.log('➕ CustomCalendarCell: Pulsante + cliccato per data:', date);
                 onPress();
               }}
-              onPressIn={() => console.log('➕ CustomCalendarCell: Pulsante + pressIn per data:', date)}
-              onPressOut={() => console.log('➕ CustomCalendarCell: Pulsante + pressOut per data:', date)}
+              onPressIn={() => {
+                // Rimuoviamo il log che causa re-render continui
+                // console.log('➕ CustomCalendarCell: Pulsante + pressIn per data:', date);
+              }}
+              onPressOut={() => {
+                // Rimuoviamo il log che causa re-render continui
+                // console.log('➕ CustomCalendarCell: Pulsante + pressOut per data:', date);
+              }}
               activeOpacity={0.7}
               hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
             >
@@ -1147,4 +1146,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
+});
+
+// Ottimizzazione delle performance con React.memo
+export default React.memo(CustomCalendarCell, (prevProps, nextProps) => {
+  // Confronto personalizzato per evitare re-render non necessari
+  return (
+    prevProps.date === nextProps.date &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isToday === nextProps.isToday &&
+    prevProps.isWeekView === nextProps.isWeekView &&
+    prevProps.entry?.id === nextProps.entry?.id &&
+    prevProps.entry?.updatedAt === nextProps.entry?.updatedAt &&
+    prevProps.onPress === nextProps.onPress &&
+    prevProps.onTooltipPress === nextProps.onTooltipPress &&
+    prevProps.onSellInChange === nextProps.onSellInChange
+  );
 });

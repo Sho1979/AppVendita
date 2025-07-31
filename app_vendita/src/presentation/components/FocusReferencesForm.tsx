@@ -5,13 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   TextInput,
-  TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusReferences } from '../../hooks/useFocusReferences';
-import { Colors } from '../../constants/Colors';
-import { Spacing } from '../../constants/Spacing';
+
 
 interface FocusReferenceData {
   referenceId: string;
@@ -23,19 +20,16 @@ interface FocusReferenceData {
 
 interface FocusReferencesFormProps {
   selectedDate: string;
-  existingData?: FocusReferenceData[] | undefined; // Dati esistenti da caricare
   onDataChange?: (data: FocusReferenceData[]) => void;
 }
 
 const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
   selectedDate,
-  existingData,
   onDataChange,
 }) => {
   const {
     focusReferences,
     loading,
-    loadFocusReferences,
     getNetPrice,
   } = useFocusReferences();
 
@@ -44,34 +38,16 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
   // Carica le referenze focus quando cambia la data
   useEffect(() => {
     if (focusReferences.length > 0) {
-      let initialData;
-      
-      if (existingData && existingData.length > 0) {
-        // Usa i dati esistenti se disponibili
-        initialData = focusReferences.map(ref => {
-          const existing = existingData.find(d => d.referenceId === ref.id);
-          return existing || {
-            referenceId: ref.id,
-            orderedPieces: '',
-            soldPieces: '',
-            stockPieces: '',
-            soldVsStockPercentage: '',
-          };
-        });
-      } else {
-        // Inizializza con valori vuoti
-        initialData = focusReferences.map(ref => ({
-          referenceId: ref.id,
-          orderedPieces: '',
-          soldPieces: '',
-          stockPieces: '',
-          soldVsStockPercentage: '',
-        }));
-      }
-      
+      const initialData = focusReferences.map(ref => ({
+        referenceId: ref.id,
+        orderedPieces: '',
+        soldPieces: '',
+        stockPieces: '',
+        soldVsStockPercentage: '',
+      }));
       setFocusData(initialData);
     }
-  }, [focusReferences, existingData]);
+  }, [focusReferences]);
 
   // Notifica il cambio dati solo quando focusData cambia effettivamente
   useEffect(() => {
@@ -198,7 +174,7 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
         </View>
 
         {/* Righe delle referenze */}
-        {focusReferences.map((reference, index) => {
+        {focusReferences.map((reference) => {
           const data = focusData.find(d => d.referenceId === reference.id) || {
             referenceId: reference.id,
             orderedPieces: '',

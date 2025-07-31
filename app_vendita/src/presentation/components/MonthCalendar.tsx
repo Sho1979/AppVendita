@@ -24,11 +24,7 @@ export default function MonthCalendar({
   onTooltipPress,
   onSellInChange,
 }: MonthCalendarProps) {
-  console.log('📅 MonthCalendar: Componente inizializzato con:', {
-    currentDate: currentDate.toISOString(),
-    entriesCount: entries.length,
-    selectedDate,
-  });
+  // Log rimosso per performance - non necessario in produzione
 
   // Genera le date del mese corrente con logica dinamica
   const getMonthDates = (date: Date): Date[] => {
@@ -53,17 +49,7 @@ export default function MonthCalendar({
     // Usa il numero esatto di settimane necessarie, con un minimo di 4
     const finalWeeks = Math.max(4, weeksNeeded);
 
-    console.log(
-      '📅 MonthCalendar: Calcolo settimane per',
-      date.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }),
-      {
-        daysInMonth,
-        firstDayOfWeek,
-        totalCells,
-        weeksNeeded,
-        finalWeeks,
-      }
-    );
+    // Log rimosso per performance - non necessario in produzione
 
     // Genera le settimane necessarie
     for (let week = 0; week < finalWeeks; week++) {
@@ -79,11 +65,7 @@ export default function MonthCalendar({
   const monthDates = getMonthDates(currentDate);
   const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 
-  console.log(
-    '📅 MonthCalendar: Date mese generate:',
-    monthDates.length,
-    'giorni'
-  );
+  // Log rimosso per performance - non necessario in produzione
 
   const getEntryForDate = (date: Date): CalendarEntry | undefined => {
     const dateStr = date.toISOString().split('T')[0];
@@ -101,14 +83,7 @@ export default function MonthCalendar({
     // Se c'è solo un entry, usalo
     if (entriesForDate.length === 1) {
       const entry = entriesForDate[0];
-      console.log('📅 MonthCalendar: Entry trovata per', dateStr, ':', {
-        id: entry?.id,
-        sales: entry?.sales?.length || 0,
-        actions: entry?.actions?.length || 0,
-        hasProblem: entry?.hasProblem || false,
-        notes: entry?.notes?.substring(0, 20) + '...',
-        focusReferencesData: entry?.focusReferencesData?.length || 0,
-      });
+      // Log rimosso per performance - non necessario in produzione
       return entry;
     }
 

@@ -1,5 +1,5 @@
 // Hook per integrare il sistema progressivo con i dati esistenti
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { CalendarEntry } from '../data/models/CalendarEntry';
 import { useProgressiveCalculation } from './useProgressiveCalculation';
 import { DataAdapter } from '../services/DataAdapter';

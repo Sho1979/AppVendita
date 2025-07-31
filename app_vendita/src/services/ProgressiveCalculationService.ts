@@ -6,8 +6,7 @@ import {
   CalculationConfig,
   ProgressiveState,
   ValidationResult,
-  PerformanceMetrics,
-  CellDisplayData,
+      PerformanceMetrics,
   CellVisualizationResult
 } from '../data/models/ProgressiveData';
 
@@ -422,7 +421,7 @@ export class ProgressiveCalculationService {
     const firstDate = this.state.firstDateWithData;
     if (!firstDate) return [];
 
-    const progressiveEntries: ProductEntry[] = [];
+    
     const dates = Array.from(this.state.entries.keys())
       .filter(d => d >= firstDate && d <= date)
       .sort();

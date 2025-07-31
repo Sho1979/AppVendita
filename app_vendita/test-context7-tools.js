@@ -66,7 +66,7 @@ context7.stdout.on('data', (data) => {
   try {
     const response = JSON.parse(data.toString());
     console.log('📤 Risposta:', JSON.stringify(response, null, 2));
-  } catch (error) {
+  } catch {
     console.log('📤 Risposta raw:', data.toString());
   }
 });

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, TextInput, TouchableOpacity, FlatList } from 'react-native';
 import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import { User } from '../../data/models/User';
 import { SalesPoint } from '../../data/models/SalesPoint';
@@ -401,32 +401,34 @@ function FilterComponents({
           />
         </View>
 
-        {/* Risultati con Checkbox - Scrollabile */}
-        <ScrollView style={styles.resultsContainer} showsVerticalScrollIndicator={false}>
-          <View style={styles.filterOptions}>
-            {/* Opzione "Tutti" con checkbox */}
-            <View style={styles.filterItemContainer}>
-              <TouchableOpacity
-                style={styles.checkboxContainer}
-                onPress={handleSelectAll}
-              >
-                <View style={[styles.checkbox, selectAll && styles.checkboxChecked]}>
-                  {selectAll && <Text style={styles.checkmark}>✓</Text>}
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.filterItemText}
-                onPress={handleSelectAll}
-              >
-                <Text style={styles.filterItemLabel}>
-                  📋 Tutti ({filteredData.length})
-                </Text>
-              </TouchableOpacity>
-            </View>
-            
-            {/* Lista elementi con checkbox */}
-            {paginatedData.map((item, index) => (
-              <View key={`${activeTab}-${index}`} style={styles.filterItemContainer}>
+        {/* Risultati con Checkbox - Virtualizzati con FlatList */}
+        <View style={styles.resultsContainer}>
+          {/* Opzione "Tutti" con checkbox */}
+          <View style={styles.filterItemContainer}>
+            <TouchableOpacity
+              style={styles.checkboxContainer}
+              onPress={handleSelectAll}
+            >
+              <View style={[styles.checkbox, selectAll && styles.checkboxChecked]}>
+                {selectAll && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.filterItemText}
+              onPress={handleSelectAll}
+            >
+              <Text style={styles.filterItemLabel}>
+                📋 Tutti ({filteredData.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
+          
+          {/* Lista elementi virtualizzata con FlatList */}
+          <FlatList
+            data={paginatedData}
+            keyExtractor={(item, index) => `${activeTab}-${index}`}
+            renderItem={({ item }) => (
+              <View style={styles.filterItemContainer}>
                 <TouchableOpacity
                   style={styles.checkboxContainer}
                   onPress={() => handleItemSelect(item)}
@@ -444,8 +446,19 @@ function FilterComponents({
                   </Text>
                 </TouchableOpacity>
               </View>
-            ))}
-          </View>
+            )}
+            getItemLayout={(data, index) => ({
+              length: 50, // Altezza fissa per ogni item
+              offset: 50 * index,
+              index,
+            })}
+            showsVerticalScrollIndicator={false}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            initialNumToRender={10}
+            updateCellsBatchingPeriod={50}
+          />
 
           {/* Opzione selezione multipla */}
           <View style={styles.multiSelectContainer}>
@@ -486,7 +499,7 @@ function FilterComponents({
               </TouchableOpacity>
             </View>
           )}
-        </ScrollView>
+        </View>
       </View>
 
       {/* Azioni filtri - Fissate in basso */}

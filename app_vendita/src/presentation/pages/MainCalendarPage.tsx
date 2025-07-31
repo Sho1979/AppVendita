@@ -15,19 +15,18 @@ import { useCalendar } from '../providers/CalendarContext';
 import { AsyncStorageCalendarRepository } from '../../data/repositories/CalendarRepository';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { Agent } from '../../data/models/Agent';
-import { ExcelRow } from '../../data/models/ExcelData';
 import WeekCalendar from '../components/WeekCalendar';
 import MonthCalendar from '../components/MonthCalendar';
 import FilterComponents from '../components/FilterComponents';
 import EntryFormModal from '../components/EntryFormModal';
 import TooltipModal from '../components/TooltipModal';
+import { useFiltersStore } from '../../stores/filtersStore';
+import { useExcelStore } from '../../stores/excelStore';
 
 import { Colors } from '../../constants/Colors';
 import { Spacing } from '../../constants/Spacing';
 import { getTagById } from '../../constants/Tags';
-
-
-
+import { logger } from '../../utils/logger';
 
 interface MainCalendarPageProps {
   navigation?: any;
@@ -47,19 +46,38 @@ export default function MainCalendarPage({
     // console.log('✅ MainCalendarPage: useCalendar hook eseguito con successo');
   }
   
-  const [selectedDate, setSelectedDate] = useState<string>('');
+  // Stati locali (non filtri)
   const [isLoading, setIsLoading] = useState(false);
   const [calendarView, setCalendarView] = useState<'week' | 'month'>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [selectedSalesPointId, setSelectedSalesPointId] = useState<string>('');
-  const [selectedAMCode, setSelectedAMCode] = useState<string>('');
-  const [selectedNAMCode, setSelectedNAMCode] = useState<string>('');
-  const [selectedLine, setSelectedLine] = useState<string>('');
-  const [selectedFilterItems, setSelectedFilterItems] = useState<string[]>([]);
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [excelRows, setExcelRows] = useState<ExcelRow[]>([]);
+  
+  // Filtri con Zustand
+  const {
+    selectedDate,
+    selectedUserId,
+    selectedSalesPointId,
+    selectedAMCode,
+    selectedNAMCode,
+    selectedLine,
+    selectedFilterItems,
+    showFilters,
+    agents,
+    setSelectedDate,
+    setSelectedUserId,
+    setSelectedSalesPointId,
+    setSelectedAMCode,
+    setSelectedNAMCode,
+    setSelectedLine,
+    setSelectedItems: setSelectedFilterItems,
+    setShowFilters,
+    setAgents,
+  } = useFiltersStore();
+
+  // Dati Excel con Zustand
+  const {
+    excelRows,
+    setExcelRows,
+  } = useExcelStore();
   const [showEntryModal, setShowEntryModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<CalendarEntry | undefined>();
   const [showTooltipModal, setShowTooltipModal] = useState(false);
@@ -254,9 +272,22 @@ export default function MainCalendarPage({
       }
     };
 
+    const showAddEntryModal = useCallback((dateString: string) => {
+      logger.ui('📝 MainCalendarPage: Apertura modal nuovo entry per:', dateString);
+      setSelectedDate(dateString);
+      setEditingEntry(undefined);
+      setShowEntryModal(true);
+    }, [setSelectedDate]);
+
+    const showEditEntryModal = useCallback((entry: CalendarEntry) => {
+      logger.ui('📝 MainCalendarPage: Apertura modal modifica entry:', entry.id);
+      setEditingEntry(entry);
+      setShowEntryModal(true);
+    }, []);
+
     // Gestisce la selezione di una data
-    const onDayPress = (dateString: string) => {
-      console.log('📅 MainCalendarPage: Giorno selezionato:', dateString);
+    const onDayPress = useCallback((dateString: string) => {
+      logger.ui('📅 MainCalendarPage: Giorno selezionato:', dateString);
       setSelectedDate(dateString);
       dispatch({
         type: 'UPDATE_FILTERS',
@@ -265,7 +296,7 @@ export default function MainCalendarPage({
 
       // Apri il form solo nel calendario settimanale (guida principale)
       if (calendarView === 'week') {
-        console.log('📅 MainCalendarPage: Apertura diretta modal per calendario settimanale');
+        logger.ui('📅 MainCalendarPage: Apertura diretta modal per calendario settimanale');
         
         // Controlla se esistono già entry per questa data
         const existingEntries = state.entries.filter((entry: CalendarEntry) => {
@@ -274,22 +305,22 @@ export default function MainCalendarPage({
           return entryDate.toDateString() === selectedDate.toDateString();
         });
         
-        console.log('📅 MainCalendarPage: Entry esistenti per', dateString, ':', existingEntries.length);
+        logger.ui('📅 MainCalendarPage: Entry esistenti per', dateString, ':', existingEntries.length);
         
         if (existingEntries.length > 0) {
           // Se esistono entry, apri in modalità modifica con il primo entry
-          console.log('📝 MainCalendarPage: Apertura modal modifica per entry esistente');
+          logger.ui('📝 MainCalendarPage: Apertura modal modifica per entry esistente');
           showEditEntryModal(existingEntries[0]!);
         } else {
           // Se non esistono entry, apri in modalità nuovo
-          console.log('📝 MainCalendarPage: Apertura modal nuovo entry');
+          logger.ui('📝 MainCalendarPage: Apertura modal nuovo entry');
           showAddEntryModal(dateString);
         }
       } else {
         // Nel calendario mensile (riassunto) - solo log, nessuna azione
-        console.log('📅 MainCalendarPage: Clic nel calendario mensile (riassunto) - nessuna azione');
+        logger.ui('📅 MainCalendarPage: Clic nel calendario mensile (riassunto) - nessuna azione');
       }
-    };
+    }, [calendarView, state.entries, setSelectedDate, dispatch, showEditEntryModal, showAddEntryModal]);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const showDayDetails = (entries: CalendarEntry[]) => {
@@ -312,20 +343,9 @@ export default function MainCalendarPage({
       );
     };
 
-    const showAddEntryModal = (dateString: string) => {
-      console.log('📝 MainCalendarPage: Apertura modal nuovo entry per:', dateString);
-      setSelectedDate(dateString);
-      setEditingEntry(undefined);
-      setShowEntryModal(true);
-    };
+    // Le funzioni sono già definite sopra con useCallback
 
-    const showEditEntryModal = (entry: CalendarEntry) => {
-      console.log('📝 MainCalendarPage: Apertura modal modifica entry:', entry.id);
-      setEditingEntry(entry);
-      setShowEntryModal(true);
-    };
-
-    const handleSaveEntry = async (entry: CalendarEntry) => {
+    const handleSaveEntry = useCallback(async (entry: CalendarEntry) => {
       try {
         if (editingEntry) {
           // Aggiorna l'entry esistente mantenendo lo stesso ID
@@ -376,7 +396,7 @@ export default function MainCalendarPage({
         console.error('❌ MainCalendarPage: Errore salvataggio entry:', error);
         Alert.alert('Errore', 'Impossibile salvare l\'entry. Riprova.');
       }
-    };
+    }, [editingEntry, selectedUserId, selectedSalesPointId, dispatch, repository]);
 
     const handleDeleteEntry = async (entryId: string) => {
       console.log('🗑️ MainCalendarPage: Eliminazione entry:', entryId);
@@ -734,6 +754,8 @@ export default function MainCalendarPage({
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+
+
 
         {/* HEADER MIGLIORATO - ORGANIZZAZIONE PROGETTO */}
         <View style={styles.header}>
