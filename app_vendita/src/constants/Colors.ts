@@ -11,16 +11,21 @@ export const Colors = {
   // Colori del testo
   textPrimary: '#1C1C1E', // Nero quasi puro per il testo principale
   textSecondary: '#8A8A8E', // Grigio medio per testo secondario e placeholder
+  text: '#1C1C1E', // Alias per textPrimary
 
   // Colori di sistema
   border: '#E0E0E0', // Grigio chiaro per bordi e separatori
   background: '#FFFFFF', // Bianco per sfondi principali
   surface: '#F8F9FA', // Grigio molto chiaro per superfici
+  white: '#FFFFFF', // Alias per background
+  black: '#000000', // Nero puro
+  gray: '#8A8A8E', // Grigio medio
 
   // Colori di accento
   accentSuccess: '#34C759', // Verde per conferme
   accentError: '#D93B3B', // Rosso acceso per errori e problemi
   accentWarning: '#FF9500', // Arancione per avvisi
+  error: '#D93B3B', // Alias per accentError
 
   // Colori per tag e categorie
   tagPersonnel: '#A284FF', // Viola per tag persone

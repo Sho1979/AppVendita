@@ -12,7 +12,7 @@ import { FocusReferenceData } from '../../data/models/FocusReferenceData';
 
 interface FocusReferencesFormProps {
   selectedDate: string;
-  existingData?: FocusReferenceData[];
+  existingData: FocusReferenceData[] | undefined;
   onDataChange?: (data: FocusReferenceData[]) => void;
 }
 
@@ -338,23 +338,23 @@ const styles = StyleSheet.create({
     color: '#28A745',
     textAlign: 'center',
   },
-     inputCell: {
-     borderWidth: 1,
-     borderColor: '#E5E5EA',
-     borderRadius: 4,
-     paddingHorizontal: 6,
-     paddingVertical: 4,
-     fontSize: 10,
-     backgroundColor: '#FFFFFF',
-     width: '90%',
-     textAlign: 'center',
-   },
-   calculatedCell: {
-     backgroundColor: '#F8F9FA',
-     borderColor: '#D1D5DB',
-     color: '#6B7280',
-     fontWeight: '600',
-   },
+  inputCell: {
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    fontSize: 10,
+    backgroundColor: '#FFFFFF',
+    width: '90%',
+    textAlign: 'center',
+  },
+  calculatedCell: {
+    backgroundColor: '#F8F9FA',
+    borderColor: '#D1D5DB',
+    color: '#6B7280',
+    fontWeight: '600',
+  },
   percentageText: {
     fontSize: 10,
     fontWeight: '600',

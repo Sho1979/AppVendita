@@ -91,9 +91,25 @@ export class FirebaseAuthService {
   async signOut(): Promise<void> {
     try {
       await signOut(auth);
+      
+      // Aggiorna manualmente lo stato interno
+      this.currentUser = null;
+      
+      // Notifica tutti i listener del cambio di stato
+      this.authStateListeners.forEach(listener => {
+        listener(null);
+      });
+      
       console.log('✅ FirebaseAuthService: Logout completato');
     } catch (error: any) {
       console.error('❌ FirebaseAuthService: Errore nel logout:', error.message);
+      
+      // Anche se c'è un errore, forziamo il logout locale
+      this.currentUser = null;
+      this.authStateListeners.forEach(listener => {
+        listener(null);
+      });
+      
       throw error;
     }
   }

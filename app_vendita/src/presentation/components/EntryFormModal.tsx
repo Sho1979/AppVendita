@@ -16,6 +16,7 @@ import FocusReferencesForm from './FocusReferencesForm';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { Colors } from '../../constants/Colors';
 import { Spacing } from '../../constants/Spacing';
+import { useFirebaseCalendar } from '../../hooks/useFirebaseCalendar';
 
 interface EntryFormModalProps {
   visible: boolean;
@@ -36,6 +37,16 @@ export default function EntryFormModal({
   onDelete,
   onCopyTags,
 }: EntryFormModalProps) {
+  // Hook Firebase
+  const {
+    addEntry,
+    updateEntry,
+    deleteEntry,
+    isLoading: isFirebaseLoading,
+    error: firebaseError,
+    clearError,
+  } = useFirebaseCalendar();
+
   // Rimuoviamo questo log che causa re-render continui
   // console.log('📝 EntryFormModal: Modal inizializzato con:', {
   //   visible,
@@ -126,7 +137,7 @@ export default function EntryFormModal({
     }
   }, [visible, entry, selectedDate]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Rimuoviamo questi log che causano re-render continui
     // console.log('💾 EntryFormModal: Salvataggio entry...');
     // console.log('📊 EntryFormModal: Stato formData:', {
@@ -198,10 +209,34 @@ export default function EntryFormModal({
     //   hasProblem: entryToSave.hasProblem,
     // });
 
-    onSave(entryToSave);
-    
-    // Reset del campo note dopo il salvataggio
-    setFormData(prev => ({ ...prev, notes: '' }));
+    try {
+      if (entry) {
+        // Modalità modifica - aggiorna entry esistente
+        await updateEntry(entryToSave);
+        console.log('✅ EntryFormModal: Entry aggiornata con Firebase');
+      } else {
+        // Modalità nuovo - aggiungi nuova entry
+        const { id, ...entryWithoutId } = entryToSave;
+        const newEntryId = await addEntry(entryWithoutId);
+        console.log('✅ EntryFormModal: Entry aggiunta con Firebase, ID:', newEntryId);
+      }
+
+      // Chiama la callback originale per aggiornare l'UI
+      onSave(entryToSave);
+      
+      // Reset del campo note dopo il salvataggio
+      setFormData(prev => ({ ...prev, notes: '' }));
+      
+      // Pulisci eventuali errori
+      clearError();
+      
+    } catch (error) {
+      console.error('❌ EntryFormModal: Errore salvataggio Firebase:', error);
+      Alert.alert(
+        'Errore di Salvataggio',
+        'Si è verificato un errore durante il salvataggio. Riprova.'
+      );
+    }
   };
 
   const handleDelete = () => {
@@ -215,10 +250,28 @@ export default function EntryFormModal({
         {
           text: 'Elimina',
           style: 'destructive',
-          onPress: () => {
-            // Rimuoviamo questo log che causa re-render continui
-            // console.log('🗑️ EntryFormModal: Eliminazione entry:', entry.id);
-            onDelete(entry.id);
+          onPress: async () => {
+            try {
+              // Rimuoviamo questo log che causa re-render continui
+              // console.log('🗑️ EntryFormModal: Eliminazione entry:', entry.id);
+              
+              // Elimina da Firebase
+              await deleteEntry(entry.id);
+              console.log('✅ EntryFormModal: Entry eliminata da Firebase');
+              
+              // Chiama la callback originale per aggiornare l'UI
+              onDelete(entry.id);
+              
+              // Pulisci eventuali errori
+              clearError();
+              
+            } catch (error) {
+              console.error('❌ EntryFormModal: Errore eliminazione Firebase:', error);
+              Alert.alert(
+                'Errore di Eliminazione',
+                'Si è verificato un errore durante l\'eliminazione. Riprova.'
+              );
+            }
           },
         },
       ]
@@ -389,35 +442,53 @@ export default function EntryFormModal({
         <View style={styles.footer}>
           <SafeTouchableOpacity 
             style={styles.cancelButton} 
-                      onPress={() => {
-            // Rimuoviamo questo log che causa re-render continui
-            // console.log('🔘 EntryFormModal: Pulsante Annulla cliccato');
-            onCancel();
-          }}
+            onPress={() => {
+              // Rimuoviamo questo log che causa re-render continui
+              // console.log('🔘 EntryFormModal: Pulsante Annulla cliccato');
+              onCancel();
+            }}
+            disabled={isFirebaseLoading}
           >
             <Text style={styles.cancelButtonText}>Annulla</Text>
           </SafeTouchableOpacity>
           <SafeTouchableOpacity 
-            style={styles.saveButton} 
-                      onPress={() => {
-            // Rimuoviamo questi log che causano re-render continui
-            // console.log('🔘 EntryFormModal: Pulsante Salva cliccato');
-            // console.log('📊 EntryFormModal: Stato finale formData prima del salvataggio:', {
-            //   tags: formData.tags,
-            //   tagsLength: formData.tags.length,
-            //   focusReferencesData: formData.focusReferencesData,
-            //   focusReferencesLength: formData.focusReferencesData.length,
-            //   hasProblem: formData.hasProblem,
-            //   notes: formData.notes,
-            // });
-            handleSave();
-          }}
+            style={[
+              styles.saveButton,
+              isFirebaseLoading && styles.saveButtonDisabled
+            ]} 
+            onPress={() => {
+              // Rimuoviamo questi log che causano re-render continui
+              // console.log('🔘 EntryFormModal: Pulsante Salva cliccato');
+              // console.log('📊 EntryFormModal: Stato finale formData prima del salvataggio:', {
+              //   tags: formData.tags,
+              //   tagsLength: formData.tags.length,
+              //   focusReferencesData: formData.focusReferencesData,
+              //   focusReferencesLength: formData.focusReferencesData.length,
+              //   hasProblem: formData.hasProblem,
+              //   notes: formData.notes,
+              // });
+              handleSave();
+            }}
+            disabled={isFirebaseLoading}
           >
             <Text style={styles.saveButtonText}>
-              {entry ? 'Aggiorna' : 'Salva'}
+              {isFirebaseLoading ? '⏳' : entry ? 'Aggiorna' : 'Salva'}
             </Text>
           </SafeTouchableOpacity>
         </View>
+
+        {/* Indicatore errori Firebase */}
+        {firebaseError && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>⚠️ {firebaseError}</Text>
+            <SafeTouchableOpacity 
+              style={styles.errorDismissButton}
+              onPress={clearError}
+            >
+              <Text style={styles.errorDismissText}>✕</Text>
+            </SafeTouchableOpacity>
+          </View>
+        )}
       </View>
     </Modal>
   );
@@ -612,6 +683,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
+  },
+  saveButtonDisabled: {
+    backgroundColor: Colors.warmTextSecondary,
+    opacity: 0.6,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: Spacing.small,
+    backgroundColor: '#ffebee',
+    borderTopWidth: 1,
+    borderTopColor: '#f44336',
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#f44336',
+    marginRight: Spacing.small,
+  },
+  errorDismissButton: {
+    padding: Spacing.small,
+  },
+  errorDismissText: {
+    fontSize: 16,
+    color: '#f44336',
+    fontWeight: 'bold',
   },
   noteHint: {
     fontSize: 12,

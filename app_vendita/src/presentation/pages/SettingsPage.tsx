@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+import SafeTouchableOpacity from '../components/common/SafeTouchableOpacity';
 import ExcelImportModal from '../components/ExcelImportModal';
 import PriceReferencesImportModal from '../components/PriceReferencesImportModal';
 import FocusReferencesModal from '../components/FocusReferencesModal';
@@ -15,6 +16,7 @@ import { Spacing } from '../../constants/Spacing';
 import { AsyncStorageCalendarRepository } from '../../data/repositories/CalendarRepository';
 import { ExcelRow } from '../../data/models/ExcelData';
 import { PriceReference } from '../../data/models/PriceReference';
+import { useAuth } from '../../hooks/useAuth';
 
 interface SettingsPageProps {
   navigation: any;
@@ -28,10 +30,36 @@ export default function SettingsPage({
   const [showPriceReferencesImportModal, setShowPriceReferencesImportModal] = useState(false);
   const [showFocusReferencesModal, setShowFocusReferencesModal] = useState(false);
   const repository = new AsyncStorageCalendarRepository();
+  const { user, logout } = useAuth();
 
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [shouldCancelImport, setShouldCancelImport] = useState(false);
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Conferma Logout',
+      'Sei sicuro di voler uscire dall\'account?',
+      [
+        { text: 'Annulla', style: 'cancel' },
+        { 
+          text: 'Logout', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🔄 SettingsPage: Avvio logout...');
+              await logout();
+              console.log('✅ SettingsPage: Logout completato');
+              Alert.alert('Logout Completato', 'Sei stato disconnesso con successo.', [{ text: 'OK' }]);
+            } catch (error) {
+              console.error('❌ SettingsPage: Errore logout:', error);
+              Alert.alert('Errore', 'Impossibile effettuare il logout.', [{ text: 'OK' }]);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const handleExcelImport = async (importData: {
     agents: any[];
@@ -165,6 +193,35 @@ export default function SettingsPage({
   };
 
   const settingsSections = [
+    {
+      title: '👤 Account',
+      items: [
+        {
+          title: 'Informazioni Account',
+          subtitle: `Email: ${user?.email || 'Non disponibile'}`,
+          icon: '📧',
+          onPress: () => Alert.alert('Account', `Email: ${user?.email}\nNome: ${user?.displayName || 'Non specificato'}\nID: ${user?.uid}`),
+        },
+        {
+          title: 'Logout',
+          subtitle: `Disconnetti da ${user?.email || 'account'}`,
+          icon: '🚪',
+          onPress: () => {
+            console.log('🔄 SettingsPage: Pulsante logout cliccato!');
+            handleLogout();
+          },
+        },
+        {
+          title: 'Test Pulsante',
+          subtitle: 'Test per verificare se i pulsanti funzionano',
+          icon: '🧪',
+          onPress: () => {
+            console.log('🧪 SettingsPage: Pulsante test cliccato!');
+            Alert.alert('Test', 'Il pulsante funziona!', [{ text: 'OK' }]);
+          },
+        },
+      ],
+    },
     {
       title: '📊 Gestione Dati',
       items: [
@@ -314,7 +371,7 @@ export default function SettingsPage({
             <Text style={styles.sectionTitle}>{section.title}</Text>
             
             {section.items.map((item, itemIndex) => (
-              <TouchableOpacity
+              <SafeTouchableOpacity
                 key={itemIndex}
                 style={styles.settingItem}
                 onPress={item.onPress}
@@ -332,7 +389,7 @@ export default function SettingsPage({
                 <View style={styles.settingArrow}>
                   <Text style={styles.arrowText}>›</Text>
                 </View>
-              </TouchableOpacity>
+              </SafeTouchableOpacity>
             ))}
           </View>
         ))}
@@ -360,12 +417,12 @@ export default function SettingsPage({
               Elaborazione dati in batch per evitare sovraccarico...
             </Text>
             
-            <TouchableOpacity
+            <SafeTouchableOpacity
               style={styles.cancelImportButton}
               onPress={handleCancelImport}
             >
               <Text style={styles.cancelImportButtonText}>⏹️ Stop Importazione</Text>
-            </TouchableOpacity>
+            </SafeTouchableOpacity>
           </View>
         </View>
       )}
