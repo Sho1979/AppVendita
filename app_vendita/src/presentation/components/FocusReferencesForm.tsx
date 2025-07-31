@@ -8,15 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusReferences } from '../../hooks/useFocusReferences';
-
-
-interface FocusReferenceData {
-  referenceId: string;
-  orderedPieces: string;
-  soldPieces: string;
-  stockPieces: string;
-  soldVsStockPercentage: string;
-}
+import { FocusReferenceData } from '../../data/models/FocusReferenceData';
 
 interface FocusReferencesFormProps {
   selectedDate: string;
@@ -59,7 +51,7 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
     if (onDataChange && focusData.length > 0) {
       onDataChange(focusData);
     }
-  }, [focusData]); // Solo focusData come dependency
+  }, [focusData, onDataChange]); // Aggiunta onDataChange alle dipendenze
 
   const updateFocusData = (referenceId: string, field: keyof FocusReferenceData, value: string) => {
     setFocusData(prev => 

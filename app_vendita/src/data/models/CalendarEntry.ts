@@ -1,3 +1,5 @@
+import { FocusReferenceData } from './FocusReferenceData';
+
 export interface CalendarEntry {
   id: string;
   date: Date;
@@ -32,13 +34,7 @@ export interface CalendarEntry {
     weeksCount: number; // Numero di settimane da ripetere
   } | undefined;
   // Dati delle referenze focus
-  focusReferencesData?: {
-    referenceId: string;
-    orderedPieces: string;
-    soldPieces: string;
-    stockPieces: string;
-    soldVsStockPercentage: string;
-  }[];
+  focusReferencesData?: FocusReferenceData[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -76,13 +72,7 @@ export interface CreateCalendarEntryRequest {
     weeksCount: number;
   };
   // Dati delle referenze focus
-  focusReferencesData?: {
-    referenceId: string;
-    orderedPieces: string;
-    soldPieces: string;
-    stockPieces: string;
-    soldVsStockPercentage: string;
-  }[];
+  focusReferencesData?: FocusReferenceData[];
 }
 
 export interface UpdateCalendarEntryRequest {
@@ -115,11 +105,5 @@ export interface UpdateCalendarEntryRequest {
     weeksCount: number;
   };
   // Dati delle referenze focus
-  focusReferencesData?: {
-    referenceId: string;
-    orderedPieces: string;
-    soldPieces: string;
-    stockPieces: string;
-    soldVsStockPercentage: string;
-  }[];
+  focusReferencesData?: FocusReferenceData[];
 }
