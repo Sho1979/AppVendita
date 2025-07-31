@@ -4,6 +4,8 @@ import { CalendarEntry } from '../../data/models/CalendarEntry';
 import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import { CellTags } from './common/CellTags';
 import { useFocusReferences } from '../../hooks/useFocusReferences';
+import { useCalendar } from '../../presentation/providers/CalendarContext';
+
 import { Ionicons } from '@expo/vector-icons';
 
 interface CustomCalendarCellProps {
@@ -40,6 +42,19 @@ export default function CustomCalendarCell({
   
   const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
   const { focusReferences, getFocusReferenceById, getNetPrice } = useFocusReferences();
+  const { progressiveSystem } = useCalendar();
+  
+  const isInitialized = progressiveSystem.isInitialized;
+  const { getDisplayDataForDate } = progressiveSystem;
+  
+  console.log(`🔍 CustomCalendarCell ${date}: isInitialized=${isInitialized}`);
+  
+  // Forza re-render quando il sistema progressivo si inizializza
+  useEffect(() => {
+    if (isInitialized) {
+      console.log(`🔄 CustomCalendarCell ${date}: Sistema progressivo inizializzato, forzando re-render`);
+    }
+  }, [isInitialized, date]);
   
 
   
@@ -47,37 +62,54 @@ export default function CustomCalendarCell({
   const hasProblem = entry?.hasProblem || false;
   const totalSales = entry?.sales.reduce((sum, sale) => sum + sale.value, 0) || 0;
   const totalActions = entry?.actions.reduce((sum, action) => sum + action.count, 0) || 0;
+  
+
 
   // Calcola il sell-in totale dalle referenze focus
   const totalSellIn = useMemo(() => {
-    if (!entry?.focusReferencesData || entry.focusReferencesData.length === 0) {
-      return 0;
-    }
+    // Ottieni i dati di visualizzazione
+    const displayData = getDisplayDataForDate(date, entry, isInitialized);
     
-    return entry.focusReferencesData.reduce((total, focusData) => {
-      const reference = getFocusReferenceById(focusData.referenceId);
-      if (!reference) {
-        return total;
+    console.log(`💰 totalSellIn per ${date}:`, {
+      isInitialized,
+      useOriginalData: displayData.useOriginalData,
+      sellInProgressivo: displayData.progressiveData?.sellInProgressivo || 0
+    });
+    
+    // Se il sistema progressivo non è inizializzato, usa i dati originali
+    if (displayData.useOriginalData) {
+      if (!entry?.focusReferencesData || entry.focusReferencesData.length === 0) {
+        return 0;
       }
+      
+      return entry.focusReferencesData.reduce((total, focusData) => {
+        const reference = getFocusReferenceById(focusData.referenceId);
+        if (!reference) {
+          return total;
+        }
 
-      const orderedPieces = parseFloat(focusData.orderedPieces) || 0;
-      
-      // Usa il prezzo netto salvato invece del prezzo originale
-      const savedNetPrice = getNetPrice(focusData.referenceId);
-      
-      // Correggi il parsing del netPrice per gestire formato "02,40" → 2.40
-      let netPrice = 0;
-      if (savedNetPrice) {
-        const priceStr = savedNetPrice.toString();
-        // Rimuovi zero iniziale e sostituisci virgola con punto
-        const cleanPrice = priceStr.replace(/^0+/, '').replace(',', '.');
-        netPrice = parseFloat(cleanPrice) || 0;
-      }
-      
-      const sellIn = orderedPieces * netPrice;
-      return total + sellIn;
-    }, 0);
-  }, [entry?.focusReferencesData, entry?.id, date]);
+        const orderedPieces = parseFloat(focusData.orderedPieces) || 0;
+        
+        // Usa il prezzo netto salvato invece del prezzo originale
+        const savedNetPrice = getNetPrice(focusData.referenceId);
+        
+        // Correggi il parsing del netPrice per gestire formato "02,40" → 2.40
+        let netPrice = 0;
+        if (savedNetPrice) {
+          const priceStr = savedNetPrice.toString();
+          // Rimuovi zero iniziale e sostituisci virgola con punto
+          const cleanPrice = priceStr.replace(/^0+/, '').replace(',', '.');
+          netPrice = parseFloat(cleanPrice) || 0;
+        }
+        
+        const sellIn = orderedPieces * netPrice;
+        return total + sellIn;
+      }, 0);
+    }
+
+    // Altrimenti usa il sell-in progressivo
+    return displayData.progressiveData?.sellInProgressivo || 0;
+  }, [entry?.focusReferencesData, entry?.id, date, getDisplayDataForDate, isInitialized]);
 
 
 
@@ -90,7 +122,14 @@ export default function CustomCalendarCell({
 
   // Funzioni per determinare se i tooltip hanno contenuto
   const hasStockContent = () => {
-    return entry?.focusReferencesData && entry.focusReferencesData.length > 0;
+    const displayData = getDisplayDataForDate(date, entry);
+    
+    if (displayData.useOriginalData) {
+      return entry?.focusReferencesData && entry.focusReferencesData.length > 0;
+    }
+    
+    return displayData.progressiveData?.displayData.progressiveEntries && 
+           displayData.progressiveData.displayData.progressiveEntries.length > 0;
   };
 
   const hasInfoContent = () => {
@@ -106,18 +145,115 @@ export default function CustomCalendarCell({
 
   // Componente per visualizzare le referenze focus
   const FocusReferencesDisplay = () => {
-    if (!entry?.focusReferencesData || entry.focusReferencesData.length === 0) {
+    // Ottieni i dati di visualizzazione (originali o progressivi)
+    const displayData = getDisplayDataForDate(date, entry, isInitialized);
+    
+    console.log(`🔍 FocusReferencesDisplay per ${date}:`, {
+      isInitialized,
+      useOriginalData: displayData.useOriginalData,
+      hasProgressiveData: !!displayData.progressiveData,
+      progressiveEntriesCount: displayData.progressiveData?.displayData?.progressiveEntries?.length || 0,
+      originalEntriesCount: entry?.focusReferencesData?.length || 0
+    });
+    
+    // Se il sistema progressivo non è inizializzato, usa i dati originali
+    if (displayData.useOriginalData) {
+      if (!entry?.focusReferencesData || entry.focusReferencesData.length === 0) {
+        return null;
+      }
+
+      return (
+        <View style={styles.focusReferencesContainer}>
+          {entry.focusReferencesData.map((focusData, index) => {
+            const reference = getFocusReferenceById(focusData.referenceId);
+            if (!reference) return null;
+
+                        const soldPieces = parseFloat(focusData.soldPieces) || 0;
+            const stockPieces = parseFloat(focusData.stockPieces) || 0;
+            
+            // Determina il colore del bordo in base alla situazione stock
+            const getBorderColor = () => {
+              if (stockPieces <= 0) return '#FF3B30'; // Rosso - stock esaurito
+              if (soldPieces >= stockPieces * 0.8) return '#FF9500'; // Giallo - stock basso (80%+ venduti)
+              if (soldPieces >= stockPieces * 0.5) return '#FFCC00'; // Giallo chiaro - stock medio (50%+ venduti)
+              return '#34C759'; // Verde - stock alto
+            };
+
+            // Crea acronimo dalla descrizione (4 caratteri per maggiore chiarezza)
+            const createAcronym = (description: string): string => {
+              // Rimuovi caratteri speciali e dividi in parole
+              const words = description
+                .replace(/[^\w\s]/g, ' ')
+                .split(' ')
+                .filter(word => word.length > 0);
+              
+              if (words.length === 0) {
+                // Fallback al codice se la descrizione è vuota
+                return reference.code.substring(0, 4).toUpperCase();
+              }
+              
+              if (words.length === 1) {
+                // Se c'è solo una parola, prendi i primi 4 caratteri
+                return words[0]?.substring(0, 4).toUpperCase() || reference.code.substring(0, 4).toUpperCase();
+              }
+              
+              if (words.length === 2) {
+                // Se ci sono 2 parole, prendi 2 caratteri da ogni parola
+                const first = words[0]?.substring(0, 2) || '';
+                const second = words[1]?.substring(0, 2) || '';
+                const acronym = (first + second).toUpperCase();
+                return acronym.length > 0 ? acronym : reference.code.substring(0, 4).toUpperCase();
+              }
+              
+              // Se ci sono 3+ parole, prendi le prime lettere di ogni parola
+              const acronym = words
+                .slice(0, 4) // Massimo 4 parole
+                .map(word => word.charAt(0))
+                .join('')
+                .toUpperCase();
+              
+              return acronym.length > 0 ? acronym : reference.code.substring(0, 4).toUpperCase();
+            };
+            
+            const acronym = createAcronym(reference.description || '');
+
+            return (
+              <View key={focusData.referenceId} style={[
+                styles.focusReferenceItem,
+                { borderColor: getBorderColor() }
+              ]}>
+                <View style={styles.focusReferenceHeader}>
+                  <Text style={styles.focusReferenceAcronym}>{acronym}</Text>
+                </View>
+                <View style={styles.focusReferenceNumbers}>
+                  <Text style={[styles.focusReferenceSold, soldPieces > 0 && styles.focusReferenceSoldActive]}>
+                    V: {soldPieces}
+                  </Text>
+                  <Text style={[styles.focusReferenceStock, stockPieces > 0 && styles.focusReferenceStockActive]}>
+                    S: {stockPieces}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      );
+    }
+
+    // Altrimenti usa i dati progressivi
+    if (!displayData.progressiveData?.displayData.progressiveEntries || 
+        displayData.progressiveData.displayData.progressiveEntries.length === 0) {
       return null;
     }
 
     return (
       <View style={styles.focusReferencesContainer}>
-        {entry.focusReferencesData.map((focusData, index) => {
-          const reference = getFocusReferenceById(focusData.referenceId);
+        {displayData.progressiveData.displayData.progressiveEntries.map((productEntry: any, index: number) => {
+          const reference = getFocusReferenceById(productEntry.productId);
           if (!reference) return null;
 
-          const soldPieces = parseFloat(focusData.soldPieces) || 0;
-          const stockPieces = parseFloat(focusData.stockPieces) || 0;
+          const soldPieces = productEntry.vendite;
+          const stockPieces = productEntry.scorte;
           
           // Determina il colore del bordo in base alla situazione stock
           const getBorderColor = () => {
@@ -166,7 +302,7 @@ export default function CustomCalendarCell({
           const acronym = createAcronym(reference.description || '');
 
           return (
-            <View key={focusData.referenceId} style={[
+            <View key={productEntry.productId} style={[
               styles.focusReferenceItem,
               { borderColor: getBorderColor() }
             ]}>
@@ -183,10 +319,15 @@ export default function CustomCalendarCell({
               </View>
             </View>
           );
-        })}
-      </View>
-    );
-  };
+                 })}
+       </View>
+     );
+   };
+   
+   // Forza re-render quando isInitialized cambia
+   useEffect(() => {
+     // Questo useEffect forza il re-render del componente quando isInitialized cambia
+   }, [isInitialized]);
 
   // Tooltip content per settimana (guida principale)
   const getWeekTooltip = () => {
