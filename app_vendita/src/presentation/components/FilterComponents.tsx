@@ -4,13 +4,12 @@ import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import { User } from '../../data/models/User';
 import { SalesPoint } from '../../data/models/SalesPoint';
 import { Agent } from '../../data/models/Agent';
-import { ExcelRow } from '../../data/models/ExcelData';
+import { useFirebaseExcelData, ExcelDataRow } from '../../hooks/useFirebaseExcelData';
 
 interface FilterComponentsProps {
   users: User[];
   salesPoints: SalesPoint[];
   agents?: Agent[];
-  excelRows?: ExcelRow[];
   selectedUserId?: string;
   selectedSalesPointId?: string;
   selectedAMCode?: string;
@@ -32,7 +31,6 @@ function FilterComponents({
   users,
   salesPoints,
   agents = [],
-  excelRows = [],
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   selectedUserId,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -58,13 +56,18 @@ function FilterComponents({
   onReset,
   onClose,
 }: FilterComponentsProps) {
-  const [activeTab, setActiveTab] = useState<'linea' | 'am' | 'nam' | 'agente' | 'insegna' | 'codice' | 'cliente'>('linea');
+  const [activeTab, setActiveTab] = useState<'linea' | 'areaManager' | 'nam' | 'agente' | 'insegna' | 'codice' | 'cliente'>('linea');
   const [searchText, setSearchText] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [selectedItemTypes, setSelectedItemTypes] = useState<{[key: string]: string}>({}); // Tiene traccia del tipo di ogni selezione
   const [selectAll, setSelectAll] = useState(false);
   const [multiSelectEnabled, setMultiSelectEnabled] = useState(true);
+  const [showAllOptions, setShowAllOptions] = useState(false); // Nuovo stato per mostrare tutte le opzioni
   const itemsPerPage = 20;
+
+  // Usa i dati da Firebase Excel
+  const { excelData, isLoading: excelDataLoading } = useFirebaseExcelData();
 
   // Dati filtrati per tab
   const filteredData = useMemo(() => {
@@ -76,55 +79,87 @@ function FilterComponents({
         agentsCount: agents.length,
         usersCount: users.length,
         salesPointsCount: salesPoints.length,
-        excelRowsCount: excelRows.length,
+        excelDataCount: excelData.length,
         selectedItems,
-        firstExcelRow: excelRows[0],
-        sampleExcelRows: excelRows.slice(0, 3).map(r => ({ 
+        showAllOptions,
+        firstExcelRow: excelData[0],
+        sampleExcelRows: excelData.slice(0, 3).map(r => ({ 
           linea: r.linea, 
-          amCode: r.amCode, 
-          namCode: r.namCode, 
-          agenteCode: r.agenteCode,
-          agenteName: r.agenteName,
-          insegnaCliente: r.insegnaCliente,
+          codiceAreaManager: r.codiceAreaManager, 
+          codiceNam: r.codiceNam, 
+          codiceAgente: r.codiceAgente,
+          nomeAgente: r.nomeAgente,
+          insegna: r.insegna,
           codiceCliente: r.codiceCliente,
           cliente: r.cliente
         })),
       });
     }
 
-    // Filtra i dati Excel in base alle selezioni precedenti
-    let filteredExcelRows = excelRows;
+    // Se showAllOptions è true, usa tutti i dati Excel senza filtrare per selezioni precedenti
+    let filteredExcelData = excelData;
     
-    // Se ci sono selezioni precedenti, filtra i dati Excel
-    if (selectedItems && selectedItems.length > 0) {
+    // Se ci sono selezioni precedenti E showAllOptions è false, filtra i dati Excel
+    if (selectedItems && selectedItems.length > 0 && !showAllOptions) {
       console.log('🔍 FilterComponents: Applicando filtri progressivi con selezioni:', selectedItems);
+      console.log('🔍 FilterComponents: Tipi delle selezioni:', selectedItemTypes);
       
       // Filtra i dati Excel in base alle selezioni precedenti
-      filteredExcelRows = excelRows.filter(row => {
+      filteredExcelData = excelData.filter((row: ExcelDataRow) => {
         // Controlla se la riga corrisponde a TUTTE le selezioni precedenti (filtro progressivo)
         return selectedItems.every(selectedItem => {
-          // Controlla tutti i campi possibili per la corrispondenza
-          return (
-            row.linea === selectedItem ||
-            row.amCode === selectedItem ||
-            row.namCode === selectedItem ||
-            row.agenteCode === selectedItem ||
-            row.insegnaCliente === selectedItem ||
-            row.codiceCliente === selectedItem ||
-            row.cliente === selectedItem
-          );
+          const itemType = selectedItemTypes[selectedItem];
+          console.log('🔍 FilterComponents: Controllando item:', selectedItem, 'di tipo:', itemType);
+          
+          // Controlla il campo appropriato in base al tipo di selezione
+          switch (itemType) {
+            case 'linea':
+              return row.linea === selectedItem || (row as any)['Linea'] === selectedItem;
+            case 'areaManager':
+              return row.codiceAreaManager === selectedItem || (row as any)['Codice Area Manager'] === selectedItem;
+            case 'nam':
+              return row.codiceNam === selectedItem || (row as any)['Codice Nam'] === selectedItem;
+            case 'agente':
+              return row.codiceAgente === selectedItem || row.nomeAgente === selectedItem || 
+                     (row as any)['Codige Agente'] === selectedItem || (row as any)['Nome Agente'] === selectedItem;
+            case 'insegna':
+              return row.insegna === selectedItem || (row as any)['Insegna'] === selectedItem;
+            case 'codice':
+              return row.codiceCliente === selectedItem || (row as any)['Codice Cliente'] === selectedItem;
+            case 'cliente':
+              return row.cliente === selectedItem || (row as any)['Cliente'] === selectedItem;
+            default:
+              // Fallback: controlla tutti i campi possibili
+              return (
+                row.linea === selectedItem || (row as any)['Linea'] === selectedItem ||
+                row.codiceAreaManager === selectedItem || (row as any)['Codice Area Manager'] === selectedItem ||
+                row.codiceNam === selectedItem || (row as any)['Codice Nam'] === selectedItem ||
+                row.codiceAgente === selectedItem || (row as any)['Codige Agente'] === selectedItem ||
+                row.nomeAgente === selectedItem || (row as any)['Nome Agente'] === selectedItem ||
+                row.insegna === selectedItem || (row as any)['Insegna'] === selectedItem ||
+                row.codiceCliente === selectedItem || (row as any)['Codice Cliente'] === selectedItem ||
+                row.cliente === selectedItem || (row as any)['Cliente'] === selectedItem
+              );
+          }
         });
       });
       
-      console.log('🔍 FilterComponents: Dati Excel filtrati progressivamente:', filteredExcelRows.length, 'righe');
+      console.log('🔍 FilterComponents: Dati Excel filtrati progressivamente:', filteredExcelData.length, 'righe');
+    } else if (showAllOptions) {
+      console.log('🔍 FilterComponents: Mostrando tutte le opzioni per il filtro corrente');
     }
     
     switch (activeTab) {
       case 'linea':
-        // Usa i dati Excel completi se disponibili, altrimenti fallback
-        if (filteredExcelRows.length > 0) {
+        // Usa i dati Excel se disponibili, altrimenti fallback
+        if (filteredExcelData.length > 0) {
           console.log('📊 FilterComponents: Usando dati Excel per Linea');
-          data = Array.from(new Set(filteredExcelRows.map(row => row.linea).filter((linea): linea is string => Boolean(linea)))).sort();
+          const lineeValues = filteredExcelData.map((row: ExcelDataRow) => {
+            // Prova prima il campo normalizzato, poi il campo originale
+            return row.linea || (row as any)['Linea'] || '';
+          });
+          console.log('📊 FilterComponents: Valori linea estratti:', lineeValues.slice(0, 10));
+          data = Array.from(new Set(lineeValues.filter((linea): linea is string => Boolean(linea)))).sort();
           console.log('📊 FilterComponents: Linee trovate:', data);
         } else {
           console.log('📊 FilterComponents: Fallback per Linea');
@@ -141,14 +176,19 @@ function FilterComponents({
           data = Array.from(new Set([...lineeFromAgents, ...lineeFromUsers])).sort();
         }
         break;
-      case 'am':
-        // Usa i dati Excel completi se disponibili, altrimenti fallback
-        if (filteredExcelRows.length > 0) {
-          console.log('📊 FilterComponents: Usando dati Excel per AM Code');
-          data = Array.from(new Set(filteredExcelRows.map(row => row.amCode).filter((code): code is string => Boolean(code)))).sort();
-          console.log('📊 FilterComponents: AM Codes trovati:', data);
+      case 'areaManager':
+        // Usa i dati Excel se disponibili, altrimenti fallback
+        if (filteredExcelData.length > 0) {
+          console.log('📊 FilterComponents: Usando dati Excel per Area Manager');
+          const amValues = filteredExcelData.map((row: ExcelDataRow) => {
+            // Prova prima il campo normalizzato, poi il campo originale
+            return row.codiceAreaManager || (row as any)['Codice Area Manager'] || '';
+          });
+          console.log('📊 FilterComponents: Valori Area Manager estratti:', amValues.slice(0, 10));
+          data = Array.from(new Set(amValues.filter((code): code is string => Boolean(code)))).sort();
+          console.log('📊 FilterComponents: Area Manager trovati:', data);
         } else {
-          console.log('📊 FilterComponents: Fallback per AM Code');
+          console.log('📊 FilterComponents: Fallback per Area Manager');
           // Fallback con agents e users
           const amCodesFromAgents = agents.map(agent => agent.amCode).filter((code): code is string => Boolean(code));
           const amCodesFromUsers = users.filter(user => user.role === 'agent').map(user => {
@@ -163,10 +203,15 @@ function FilterComponents({
         }
         break;
       case 'nam':
-        // Usa i dati Excel completi se disponibili, altrimenti fallback
-        if (filteredExcelRows.length > 0) {
+        // Usa i dati Excel se disponibili, altrimenti fallback
+        if (filteredExcelData.length > 0) {
           console.log('📊 FilterComponents: Usando dati Excel per NAM Code');
-          data = Array.from(new Set(filteredExcelRows.map(row => row.namCode).filter((code): code is string => Boolean(code)))).sort();
+          const namValues = filteredExcelData.map((row: ExcelDataRow) => {
+            // Prova prima il campo normalizzato, poi il campo originale
+            return row.codiceNam || (row as any)['Codice Nam'] || '';
+          });
+          console.log('📊 FilterComponents: Valori NAM estratti:', namValues.slice(0, 10));
+          data = Array.from(new Set(namValues.filter((code): code is string => Boolean(code)))).sort();
           console.log('📊 FilterComponents: NAM Codes trovati:', data);
         } else {
           console.log('📊 FilterComponents: Fallback per NAM Code');
@@ -184,11 +229,16 @@ function FilterComponents({
         }
         break;
       case 'agente':
-        // Usa i dati Excel completi se disponibili, altrimenti fallback
-        if (filteredExcelRows.length > 0) {
+        // Usa i dati Excel se disponibili, altrimenti fallback
+        if (filteredExcelData.length > 0) {
           console.log('📊 FilterComponents: Usando dati Excel per Agente');
-          // Usa agenteCode invece di agenteName per consistenza
-          data = Array.from(new Set(filteredExcelRows.map(row => row.agenteCode).filter((code): code is string => Boolean(code)))).sort();
+          const agenteValues = filteredExcelData.map((row: ExcelDataRow) => {
+            // Prova prima il campo normalizzato, poi il campo originale
+            return row.codiceAgente || (row as any)['Codige Agente'] || '';
+          });
+          console.log('📊 FilterComponents: Valori Agente estratti:', agenteValues.slice(0, 10));
+          // Usa codiceAgente invece di nomeAgente per consistenza
+          data = Array.from(new Set(agenteValues.filter((code): code is string => Boolean(code)))).sort();
           console.log('📊 FilterComponents: Agenti trovati:', data);
         } else {
           console.log('📊 FilterComponents: Fallback per Agente');
@@ -197,56 +247,74 @@ function FilterComponents({
         }
         break;
       case 'insegna':
-        // Usa i dati Excel completi se disponibili, altrimenti fallback
-        if (filteredExcelRows.length > 0) {
+        // Usa i dati Excel se disponibili, altrimenti fallback
+        if (filteredExcelData.length > 0) {
           console.log('📊 FilterComponents: Usando dati Excel per Insegna');
-          data = Array.from(new Set(filteredExcelRows.map(row => row.insegnaCliente).filter((insegna): insegna is string => Boolean(insegna)))).sort();
+          const insegnaValues = filteredExcelData.map((row: ExcelDataRow) => {
+            // Prova prima il campo normalizzato, poi il campo originale
+            return row.insegna || (row as any)['Insegna'] || '';
+          });
+          console.log('📊 FilterComponents: Valori Insegna estratti:', insegnaValues.slice(0, 10));
+          
+          // Debug: mostra anche i valori cliente per confronto
+          const clienteValues = filteredExcelData.map((row: ExcelDataRow) => row.cliente);
+          console.log('📊 FilterComponents: Valori Cliente per confronto:', clienteValues.slice(0, 10));
+          
+          // Debug: mostra alcuni record completi per capire la differenza
+          console.log('📊 FilterComponents: Esempi di record filtrati (primi 3):', 
+            filteredExcelData.slice(0, 3).map(row => ({
+              linea: row.linea,
+              insegna: row.insegna,
+              cliente: row.cliente,
+              codiceCliente: row.codiceCliente
+            }))
+          );
+          
+          data = Array.from(new Set(insegnaValues.filter((insegna): insegna is string => Boolean(insegna)))).sort();
           console.log('📊 FilterComponents: Insegne trovate:', data);
         } else {
           console.log('📊 FilterComponents: Fallback per Insegna');
-          // Fallback con agents e users
-          const insegneFromAgents = agents.map(agent => agent.level4).filter((insegna): insegna is string => Boolean(insegna));
-          const insegneFromUsers = users.filter(user => user.role === 'agent').map(user => {
-            const name = user.name.toLowerCase();
-            if (name.includes('modern') || name.includes('food')) return 'MODERN FOOD';
-            if (name.includes('pam')) return 'GRUPPO PAM';
-            return '';
-          }).filter(Boolean);
-          data = Array.from(new Set([...insegneFromAgents, ...insegneFromUsers])).sort();
+          // Fallback con salesPoints
+          data = Array.from(new Set(salesPoints.map(sp => sp.name).filter(Boolean))).sort();
         }
         break;
       case 'codice':
-        // Usa i dati Excel completi se disponibili, altrimenti fallback
-        if (filteredExcelRows.length > 0) {
-          console.log('📊 FilterComponents: Usando dati Excel per Codice');
-          data = Array.from(new Set(filteredExcelRows.map(row => row.codiceCliente).filter((codice): codice is string => Boolean(codice)))).sort();
-          console.log('📊 FilterComponents: Codici trovati:', data);
+        // Usa i dati Excel se disponibili, altrimenti fallback
+        if (filteredExcelData.length > 0) {
+          console.log('📊 FilterComponents: Usando dati Excel per Codice Cliente');
+          const codiceValues = filteredExcelData.map((row: ExcelDataRow) => {
+            // Prova prima il campo normalizzato, poi il campo originale
+            return row.codiceCliente || (row as any)['Codice Cliente'] || '';
+          });
+          console.log('📊 FilterComponents: Valori Codice Cliente estratti:', codiceValues.slice(0, 10));
+          data = Array.from(new Set(codiceValues.filter((code): code is string => Boolean(code)))).sort();
+          console.log('📊 FilterComponents: Codici Cliente trovati:', data);
         } else {
-          console.log('📊 FilterComponents: Fallback per Codice');
-          // Fallback con agents e users
-          const codiciFromAgents = agents.map(agent => agent.salesPointCode).filter((codice): codice is string => Boolean(codice));
-          const codiciFromUsers = users.filter(user => user.role === 'agent').map(user => {
-            const name = user.name.toLowerCase();
-            const match = name.match(/([a-z]{2}\d{2})/i);
-            return match && match[1] ? match[1].toUpperCase() : '';
-          }).filter(Boolean);
-          data = Array.from(new Set([...codiciFromAgents, ...codiciFromUsers])).sort();
+          console.log('📊 FilterComponents: Fallback per Codice Cliente');
+          // Fallback con salesPoints
+          data = Array.from(new Set(salesPoints.map(sp => sp.name).filter(Boolean))).sort();
         }
         break;
       case 'cliente':
-        // Usa i dati Excel completi se disponibili, altrimenti fallback
-        if (filteredExcelRows.length > 0) {
+        // Usa i dati Excel se disponibili, altrimenti fallback
+        if (filteredExcelData.length > 0) {
           console.log('📊 FilterComponents: Usando dati Excel per Cliente');
-          data = Array.from(new Set(filteredExcelRows.map(row => row.cliente).filter((cliente): cliente is string => Boolean(cliente)))).sort();
+          const clienteValues = filteredExcelData.map((row: ExcelDataRow) => {
+            // Prova prima il campo normalizzato, poi il campo originale
+            return row.cliente || (row as any)['Cliente'] || '';
+          });
+          console.log('📊 FilterComponents: Valori Cliente estratti:', clienteValues.slice(0, 10));
+          
+          // Debug: mostra anche i valori insegna per confronto
+          const insegnaValues = filteredExcelData.map((row: ExcelDataRow) => row.insegna);
+          console.log('📊 FilterComponents: Valori Insegna per confronto:', insegnaValues.slice(0, 10));
+          
+          data = Array.from(new Set(clienteValues.filter((cliente): cliente is string => Boolean(cliente)))).sort();
           console.log('📊 FilterComponents: Clienti trovati:', data);
         } else {
           console.log('📊 FilterComponents: Fallback per Cliente');
-          // Fallback con agents e users
-          const clientiFromAgents = agents.map(agent => agent.salesPointName).filter((cliente): cliente is string => Boolean(cliente));
-          const clientiFromUsers = users.filter(user => user.role === 'agent').map(user => {
-            return user.name;
-          }).filter(Boolean);
-          data = Array.from(new Set([...clientiFromAgents, ...clientiFromUsers])).sort();
+          // Fallback con salesPoints
+          data = Array.from(new Set(salesPoints.map(sp => sp.name).filter(Boolean))).sort();
         }
         break;
     }
@@ -261,7 +329,7 @@ function FilterComponents({
     }
     
     return data;
-  }, [agents, users, excelRows, activeTab, searchText, selectedItems]);
+  }, [activeTab, excelData, selectedItems, selectedItemTypes, agents, users, salesPoints, showAllOptions]);
 
   // Paginazione
   const paginatedData = filteredData.slice(
@@ -275,6 +343,7 @@ function FilterComponents({
   useEffect(() => {
     setCurrentPage(1);
     setSelectAll(false);
+    setShowAllOptions(false); // Reset showAllOptions quando cambia tab
   }, [activeTab, searchText]);
 
   // Gestione selezione multipla
@@ -283,12 +352,27 @@ function FilterComponents({
       const newSelectedItems = selectedItems.includes(item)
         ? selectedItems.filter(i => i !== item)
         : [...selectedItems, item];
+      
+      // Aggiorna anche i tipi delle selezioni
+      const newSelectedItemTypes = { ...selectedItemTypes };
+      if (selectedItems.includes(item)) {
+        // Rimuovi l'item
+        delete newSelectedItemTypes[item];
+      } else {
+        // Aggiungi l'item con il suo tipo
+        newSelectedItemTypes[item] = activeTab;
+      }
+      
       setSelectedItems(newSelectedItems);
+      setSelectedItemTypes(newSelectedItemTypes);
       onMultipleSelectionChange?.(newSelectedItems);
     } else {
       // Selezione singola
       const newSelectedItems = [item];
+      const newSelectedItemTypes = { [item]: activeTab };
+      
       setSelectedItems(newSelectedItems);
+      setSelectedItemTypes(newSelectedItemTypes);
       onMultipleSelectionChange?.(newSelectedItems);
     }
   };
@@ -296,9 +380,16 @@ function FilterComponents({
   const handleSelectAll = () => {
     if (selectAll) {
       setSelectedItems([]);
+      setSelectedItemTypes({});
       onMultipleSelectionChange?.([]);
     } else {
       setSelectedItems(filteredData);
+      // Assegna il tipo corrente a tutti gli elementi
+      const newSelectedItemTypes: {[key: string]: string} = {};
+      filteredData.forEach(item => {
+        newSelectedItemTypes[item] = activeTab;
+      });
+      setSelectedItemTypes(newSelectedItemTypes);
       onMultipleSelectionChange?.(filteredData);
     }
     setSelectAll(!selectAll);
@@ -319,6 +410,11 @@ function FilterComponents({
             : 'Filtra per colonna Excel'
           }
         </Text>
+        {excelDataLoading && (
+          <Text style={styles.filterInfo}>
+            🔄 Caricamento dati da Firebase...
+          </Text>
+        )}
         {selectedItems && selectedItems.length > 0 && (
           <Text style={styles.filterInfo}>
             📊 Mostrando solo elementi che corrispondono a TUTTE le selezioni
@@ -338,11 +434,11 @@ function FilterComponents({
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'am' && styles.activeTab]}
-            onPress={() => setActiveTab('am')}
+            style={[styles.tab, activeTab === 'areaManager' && styles.activeTab]}
+            onPress={() => setActiveTab('areaManager')}
           >
-            <Text style={[styles.tabText, activeTab === 'am' && styles.activeTabText]}>
-              👨‍💼 AM Code
+            <Text style={[styles.tabText, activeTab === 'areaManager' && styles.activeTabText]}>
+              👨‍💼 Area Manager
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -399,6 +495,17 @@ function FilterComponents({
             onChangeText={setSearchText}
             placeholderTextColor="#999"
           />
+          {/* Pulsante per mostrare tutte le opzioni */}
+          {selectedItems && selectedItems.length > 0 && (
+            <TouchableOpacity
+              style={[styles.showAllOptionsButton, showAllOptions && styles.showAllOptionsButtonActive]}
+              onPress={() => setShowAllOptions(!showAllOptions)}
+            >
+              <Text style={[styles.showAllOptionsButtonText, showAllOptions && styles.showAllOptionsButtonTextActive]}>
+                {showAllOptions ? '🔍 Mostra filtrati' : '📋 Mostra tutte le opzioni'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Risultati con Checkbox - Virtualizzati con FlatList */}
@@ -423,12 +530,13 @@ function FilterComponents({
             </TouchableOpacity>
           </View>
           
-          {/* Lista elementi virtualizzata con FlatList */}
+          {/* Lista elementi in griglia con FlatList */}
           <FlatList
             data={paginatedData}
             keyExtractor={(item, index) => `${activeTab}-${index}`}
+            numColumns={Platform.OS === 'web' ? 3 : 2} // 3 colonne su web, 2 su mobile
             renderItem={({ item }) => (
-              <View style={styles.filterItemContainer}>
+              <View style={styles.filterItemGridContainer}>
                 <TouchableOpacity
                   style={styles.checkboxContainer}
                   onPress={() => handleItemSelect(item)}
@@ -441,23 +549,19 @@ function FilterComponents({
                   style={styles.filterItemText}
                   onPress={() => handleItemSelect(item)}
                 >
-                  <Text style={styles.filterItemLabel}>
+                  <Text style={styles.filterItemLabel} numberOfLines={2}>
                     {item}
                   </Text>
                 </TouchableOpacity>
               </View>
             )}
-            getItemLayout={(data, index) => ({
-              length: 50, // Altezza fissa per ogni item
-              offset: 50 * index,
-              index,
-            })}
             showsVerticalScrollIndicator={false}
             removeClippedSubviews={true}
-            maxToRenderPerBatch={10}
+            maxToRenderPerBatch={15}
             windowSize={10}
-            initialNumToRender={10}
+            initialNumToRender={15}
             updateCellsBatchingPeriod={50}
+            contentContainerStyle={styles.gridContentContainer}
           />
 
           {/* Opzione selezione multipla */}
@@ -509,6 +613,7 @@ function FilterComponents({
             style={styles.clearFiltersButton}
             onPress={() => {
               setSelectedItems([]);
+              setSelectedItemTypes({});
               onMultipleSelectionChange?.([]);
             }}
           >
@@ -873,6 +978,30 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginBottom: Platform.OS === 'web' ? 2 : 4,
   },
+  // Stili per layout a griglia
+  filterItemGridContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Platform.OS === 'web' ? 8 : 10,
+    paddingHorizontal: Platform.OS === 'web' ? 10 : 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 6,
+    margin: Platform.OS === 'web' ? 4 : 6,
+    minHeight: Platform.OS === 'web' ? 50 : 60,
+    ...Platform.select({
+      web: {
+        width: '32%', // Per 3 colonne con margini
+      },
+      default: {
+        width: '48%', // Per 2 colonne su mobile
+      },
+    }),
+  },
+  gridContentContainer: {
+    paddingHorizontal: Platform.OS === 'web' ? 8 : 12,
+    paddingBottom: Platform.OS === 'web' ? 8 : 12,
+  },
   checkboxContainer: {
     marginRight: Platform.OS === 'web' ? 8 : 12,
   },
@@ -916,6 +1045,28 @@ const styles = StyleSheet.create({
     fontSize: Platform.OS === 'web' ? 12 : 14,
     color: '#666',
     marginLeft: Platform.OS === 'web' ? 6 : 8,
+  },
+  showAllOptionsButton: {
+    backgroundColor: '#e0e0e0',
+    paddingVertical: Platform.OS === 'web' ? 8 : 10,
+    paddingHorizontal: Platform.OS === 'web' ? 12 : 14,
+    borderRadius: 6,
+    alignItems: 'center',
+    marginTop: Platform.OS === 'web' ? 8 : 10,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  showAllOptionsButtonActive: {
+    backgroundColor: '#2196F3',
+    borderColor: '#2196F3',
+  },
+  showAllOptionsButtonText: {
+    fontSize: Platform.OS === 'web' ? 12 : 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  showAllOptionsButtonTextActive: {
+    color: '#ffffff',
   },
 });
 

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useMasterDataStore } from './masterDataStore';
 
 
 
@@ -35,6 +36,13 @@ interface FiltersState {
   addFilterItem: (item: string) => void;
   removeFilterItem: (item: string) => void;
   clearAllFilters: () => void;
+  
+  // Selettori per dati master
+  getAgentsFromMaster: () => any[];
+  getSalesPointsFromMaster: () => any[];
+  getLineeFromMaster: () => string[];
+  getAreaManagersFromMaster: () => any[];
+  getNamCodesFromMaster: () => any[];
 }
 
 export const useFiltersStore = create<FiltersState>()(
@@ -63,6 +71,32 @@ export const useFiltersStore = create<FiltersState>()(
       setShowFilters: (showFilters) => set({ showFilters }),
       setAgents: (agents) => set({ agents }),
       setSalesPoints: (salesPoints) => set({ salesPoints }),
+      
+      // Selettori che leggono da masterDataStore
+      getAgentsFromMaster: () => {
+        const masterDataStore = useMasterDataStore.getState();
+        return masterDataStore.getAgents();
+      },
+      
+      getSalesPointsFromMaster: () => {
+        const masterDataStore = useMasterDataStore.getState();
+        return masterDataStore.getSalesPoints();
+      },
+      
+      getLineeFromMaster: () => {
+        const masterDataStore = useMasterDataStore.getState();
+        return masterDataStore.getLinee();
+      },
+      
+      getAreaManagersFromMaster: () => {
+        const masterDataStore = useMasterDataStore.getState();
+        return masterDataStore.getAreaManagers();
+      },
+      
+      getNamCodesFromMaster: () => {
+        const masterDataStore = useMasterDataStore.getState();
+        return masterDataStore.getNamCodes();
+      },
       
       resetFilters: () => set({
         selectedDate: '',

@@ -21,7 +21,7 @@ import FilterComponents from '../components/FilterComponents';
 import EntryFormModal from '../components/EntryFormModal';
 import TooltipModal from '../components/TooltipModal';
 import { useFiltersStore } from '../../stores/filtersStore';
-import { useExcelStore } from '../../stores/excelStore';
+import { useFirebaseExcelData } from '../../hooks/useFirebaseExcelData';
 
 import { Colors } from '../../constants/Colors';
 import { Spacing } from '../../constants/Spacing';
@@ -73,11 +73,8 @@ export default function MainCalendarPage({
     setAgents,
   } = useFiltersStore();
 
-  // Dati Excel con Zustand
-  const {
-    excelRows,
-    setExcelRows,
-  } = useExcelStore();
+  // Dati Excel da Firebase
+  const { excelData: excelRows, isLoading: excelDataLoading, reloadData: reloadExcelData } = useFirebaseExcelData();
   const [showEntryModal, setShowEntryModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<CalendarEntry | undefined>();
   const [showTooltipModal, setShowTooltipModal] = useState(false);
@@ -87,6 +84,8 @@ export default function MainCalendarPage({
   const [dailySellIn, setDailySellIn] = useState<{ [date: string]: number }>({});
 
   const repository = new AsyncStorageCalendarRepository();
+  
+
 
     // Rimuoviamo questo log che causa re-render continui
     // if (__DEV__) {
@@ -115,40 +114,17 @@ export default function MainCalendarPage({
     }, []);
 
     // Ricarica i dati Excel quando l'utente torna alla pagina
+    // Ricarica i dati Excel quando il componente diventa attivo
     useEffect(() => {
-      const loadExcelData = async () => {
-        console.log('📊 MainCalendarPage: Ricaricamento dati Excel...');
-        try {
-          const excelRowsData = await repository.getExcelRows();
-          setExcelRows(excelRowsData);
-          console.log('✅ MainCalendarPage: Dati Excel aggiornati:', excelRowsData.length, 'righe');
-        } catch (error) {
-          console.error('❌ MainCalendarPage: Errore nel caricamento dati Excel:', error);
-        }
-      };
-
-      // Ricarica i dati Excel quando il componente diventa attivo
       if (navigation?.addListener) {
         const unsubscribe = navigation.addListener('focus', () => {
           console.log('🔄 MainCalendarPage: Pagina attiva, ricaricamento dati Excel...');
-          loadExcelData();
+          reloadExcelData();
         });
 
         return unsubscribe;
       }
-    }, [navigation]);
-
-    // Funzione per ricaricare i dati Excel
-    const reloadExcelData = async () => {
-      console.log('📊 MainCalendarPage: Ricaricamento manuale dati Excel...');
-      try {
-        const excelRowsData = await repository.getExcelRows();
-        setExcelRows(excelRowsData);
-        console.log('✅ MainCalendarPage: Dati Excel ricaricati:', excelRowsData.length, 'righe');
-      } catch (error) {
-        console.error('❌ MainCalendarPage: Errore nel ricaricamento dati Excel:', error);
-      }
-    };
+    }, [navigation, reloadExcelData]);
 
     const loadInitialData = async () => {
       console.log('📥 MainCalendarPage: Inizio caricamento dati iniziali');
@@ -224,11 +200,8 @@ export default function MainCalendarPage({
         setAgents(agentsData);
         console.log('✅ MainCalendarPage: Agents estratti:', agentsData.length);
 
-        // Carica dati Excel completi
-        console.log('📊 MainCalendarPage: Caricamento dati Excel...');
-        const excelRowsData = await repository.getExcelRows();
-        setExcelRows(excelRowsData);
-        console.log('✅ MainCalendarPage: Dati Excel caricati:', excelRowsData.length, 'righe');
+        // Dati Excel ora caricati automaticamente dal hook useFirebaseExcelData
+        console.log('📊 MainCalendarPage: Dati Excel disponibili:', excelRows.length, 'righe');
 
         // Carica entries del periodo corrente (esteso per includere più giorni)
         const now = new Date();
@@ -772,6 +745,7 @@ export default function MainCalendarPage({
               </Text>
             </View>
             <View style={styles.headerControls}>
+              
               <TouchableOpacity
                 style={[
                   styles.viewButton,
@@ -1016,7 +990,6 @@ export default function MainCalendarPage({
                 users={state.users}
                 salesPoints={state.salesPoints}
                 agents={agents}
-                excelRows={excelRows}
                 selectedUserId={selectedUserId}
                 selectedSalesPointId={selectedSalesPointId}
                 selectedAMCode={selectedAMCode}
@@ -1289,6 +1262,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.warmBackground,
   },
+
   footerText: {
     fontSize: 12,
     color: Colors.warmTextSecondary,

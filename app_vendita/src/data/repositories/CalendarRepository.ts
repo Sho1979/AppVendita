@@ -8,6 +8,7 @@ import { User } from '../models/User';
 import { SalesPoint } from '../models/SalesPoint';
 import { ExcelRow } from '../models/ExcelData';
 import { PriceReference, CreatePriceReferenceRequest, UpdatePriceReferenceRequest } from '../models/PriceReference';
+import { MasterDataRow, CreateMasterDataRowRequest, UpdateMasterDataRowRequest } from '../models/MasterData';
 
 export interface CalendarRepository {
   // Metodi per CalendarEntry
@@ -67,6 +68,15 @@ export interface CalendarRepository {
   // Metodi per import/export
   importFromExcel(data: any): Promise<void>;
   exportToExcel(): Promise<any>;
+
+  // Metodi per MasterData
+  getMasterData(): Promise<MasterDataRow[]>;
+  getMasterDataRow(id: string): Promise<MasterDataRow | null>;
+  saveMasterDataRow(row: CreateMasterDataRowRequest): Promise<MasterDataRow>;
+  updateMasterDataRow(id: string, updates: UpdateMasterDataRowRequest): Promise<MasterDataRow>;
+  deleteMasterDataRow(id: string): Promise<void>;
+  saveMasterData(rows: MasterDataRow[]): Promise<void>;
+  clearMasterData(): Promise<void>;
 }
 
 export class AsyncStorageCalendarRepository implements CalendarRepository {
@@ -77,6 +87,7 @@ export class AsyncStorageCalendarRepository implements CalendarRepository {
   private readonly PRICE_REFERENCES_KEY = 'price_references';
   private readonly FOCUS_REFERENCES_KEY = 'focus_references';
   private readonly FOCUS_NET_PRICES_KEY = 'focus_net_prices';
+  private readonly MASTER_DATA_KEY = 'master_data';
   private silentMode = false;
 
   setSilentMode(enabled: boolean) {
@@ -777,5 +788,107 @@ export class AsyncStorageCalendarRepository implements CalendarRepository {
       console.log('🆔 Repository: ID generato:', id);
     }
     return id;
+  }
+
+  // MasterData methods
+  async getMasterData(): Promise<MasterDataRow[]> {
+    if (__DEV__) {
+      console.log('📊 Repository: getMasterData chiamato');
+    }
+
+    try {
+      const masterDataJson = await AsyncStorage.getItem(this.MASTER_DATA_KEY);
+      
+      if (!masterDataJson) {
+        if (__DEV__) {
+          console.log('📊 Repository: Nessun dato master trovato');
+        }
+        return [];
+      }
+
+      const masterData: MasterDataRow[] = JSON.parse(masterDataJson);
+      if (__DEV__) {
+        console.log('📊 Repository: Dati master caricati:', masterData.length);
+      }
+      
+      return masterData;
+    } catch (error) {
+      if (__DEV__) {
+        console.error('❌ Repository: Errore nel caricamento dati master:', error);
+      }
+      return [];
+    }
+  }
+
+  async getMasterDataRow(id: string): Promise<MasterDataRow | null> {
+    const masterData = await this.getMasterData();
+    return masterData.find(row => row.id === id) || null;
+  }
+
+  async saveMasterDataRow(row: CreateMasterDataRowRequest): Promise<MasterDataRow> {
+    const newRow: MasterDataRow = {
+      id: this.generateId(),
+      ...row,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const masterData = await this.getMasterData();
+    masterData.push(newRow);
+    await AsyncStorage.setItem(this.MASTER_DATA_KEY, JSON.stringify(masterData));
+
+    if (__DEV__) {
+      console.log('💾 Repository: Riga master salvata:', newRow.id);
+    }
+
+    return newRow;
+  }
+
+  async updateMasterDataRow(id: string, updates: UpdateMasterDataRowRequest): Promise<MasterDataRow> {
+    const masterData = await this.getMasterData();
+    const index = masterData.findIndex(row => row.id === id);
+    
+    if (index === -1) {
+      throw new Error(`Riga master con ID ${id} non trovata`);
+    }
+
+    masterData[index] = {
+      ...masterData[index],
+      ...updates,
+      updatedAt: new Date(),
+    };
+
+    await AsyncStorage.setItem(this.MASTER_DATA_KEY, JSON.stringify(masterData));
+
+    if (__DEV__) {
+      console.log('🔄 Repository: Riga master aggiornata:', id);
+    }
+
+    return masterData[index];
+  }
+
+  async deleteMasterDataRow(id: string): Promise<void> {
+    const masterData = await this.getMasterData();
+    const filteredData = masterData.filter(row => row.id !== id);
+    
+    await AsyncStorage.setItem(this.MASTER_DATA_KEY, JSON.stringify(filteredData));
+
+    if (__DEV__) {
+      console.log('🗑️ Repository: Riga master eliminata:', id);
+    }
+  }
+
+  async saveMasterData(rows: MasterDataRow[]): Promise<void> {
+    if (__DEV__) {
+      console.log('💾 Repository: Salvataggio dati master in massa:', rows.length);
+    }
+    await AsyncStorage.setItem(this.MASTER_DATA_KEY, JSON.stringify(rows));
+  }
+
+  async clearMasterData(): Promise<void> {
+    if (__DEV__) {
+      console.log('🗑️ Repository: Pulizia dati master');
+    }
+    await AsyncStorage.removeItem(this.MASTER_DATA_KEY);
   }
 }

@@ -12,7 +12,6 @@ const LoadingFallback = () => (
 // Componenti lazy per performance
 export const LazyTooltipModal = lazy(() => import('./TooltipModal'));
 export const LazyEntryFormModal = lazy(() => import('./EntryFormModal'));
-export const LazyExcelImportModal = lazy(() => import('./ExcelImportModal'));
 export const LazyFilterComponents = lazy(() => import('./FilterComponents'));
 
 // Wrapper per componenti lazy con Suspense
