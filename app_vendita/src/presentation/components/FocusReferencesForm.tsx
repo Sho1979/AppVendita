@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
   } = useFocusReferences();
 
   const [focusData, setFocusData] = useState<FocusReferenceData[]>([]);
+  const lastNotifiedData = useRef<FocusReferenceData[]>([]);
 
   // Carica le referenze focus quando cambia la data
   useEffect(() => {
@@ -47,19 +48,19 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
     }
   }, [focusReferences, existingData]);
 
-  // Notifica il cambio dati usando useCallback per evitare loop infiniti
-  const notifyDataChange = useCallback((data: FocusReferenceData[]) => {
-    if (onDataChange) {
-      onDataChange(data);
-    }
-  }, [onDataChange]);
-
   // Notifica il cambio dati solo quando focusData cambia effettivamente
   useEffect(() => {
-    if (focusData.length > 0) {
-      notifyDataChange(focusData);
+    if (focusData.length > 0 && onDataChange) {
+      // Confronta con l'ultimo dato notificato per evitare loop
+      const currentDataString = JSON.stringify(focusData);
+      const lastDataString = JSON.stringify(lastNotifiedData.current);
+      
+      if (currentDataString !== lastDataString) {
+        lastNotifiedData.current = focusData;
+        onDataChange(focusData);
+      }
     }
-  }, [focusData, notifyDataChange]);
+  }, [focusData, onDataChange]);
 
   const updateFocusData = (referenceId: string, field: keyof FocusReferenceData, value: string) => {
     setFocusData(prev => 

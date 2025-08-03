@@ -45,6 +45,7 @@ interface CalendarContextType {
     isInitialized: boolean;
     updateEntryWithProgressiveSync: (entry: CalendarEntry) => void;
     getDisplayDataForDate: (date: string, originalEntry?: CalendarEntry, contextIsInitialized?: boolean) => any;
+    loadFocusReferencesData: (date: string, focusReferencesData: any[]) => void;
   };
 }
 
@@ -71,7 +72,8 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
     isInitialized,
     initializeWithExistingData,
     updateEntryWithProgressiveSync,
-    getDisplayDataForDate
+    getDisplayDataForDate,
+    loadFocusReferencesData
   } = useProgressiveIntegration(sharedProgressiveService);
 
   // Force re-render when isInitialized changes
@@ -219,7 +221,8 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
       progressiveSystem: {
         isInitialized,
         updateEntryWithProgressiveSync,
-        getDisplayDataForDate
+        getDisplayDataForDate,
+        loadFocusReferencesData
       }
     }}>
       {children}

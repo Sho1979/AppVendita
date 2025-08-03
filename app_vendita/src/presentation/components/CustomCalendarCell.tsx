@@ -35,17 +35,18 @@ function CustomCalendarCell({
   const { progressiveSystem } = useCalendar();
   
   const isInitialized = progressiveSystem.isInitialized;
-  const { getDisplayDataForDate } = progressiveSystem;
+  const { getDisplayDataForDate, loadFocusReferencesData } = progressiveSystem;
   
   // Rimuoviamo il log che causa re-render continui
   // console.log(`🔍 CustomCalendarCell ${date}: isInitialized=${isInitialized}`);
   
-  // Rimuoviamo l'useEffect che forza re-render non necessari
-  // useEffect(() => {
-  //   if (isInitialized) {
-  //     console.log(`🔄 CustomCalendarCell ${date}: Sistema progressivo inizializzato, forzando re-render`);
-  //   }
-  // }, [isInitialized, date]);
+  // Carica i dati focusReferencesData nel sistema progressivo quando l'entry ha questi dati
+  useEffect(() => {
+    if (entry?.focusReferencesData && entry.focusReferencesData.length > 0 && isInitialized) {
+      console.log(`📊 CustomCalendarCell ${date}: Caricamento ${entry.focusReferencesData.length} focus references nel sistema progressivo`);
+      loadFocusReferencesData(date, entry.focusReferencesData);
+    }
+  }, [entry?.focusReferencesData, date, isInitialized, loadFocusReferencesData]);
   
 
   

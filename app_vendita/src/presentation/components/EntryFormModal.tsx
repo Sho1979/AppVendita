@@ -42,6 +42,7 @@ export default function EntryFormModal({
     addEntry,
     updateEntry,
     deleteEntry,
+    entryExists,
     isLoading: isFirebaseLoading,
     error: firebaseError,
     clearError,
@@ -178,6 +179,7 @@ export default function EntryFormModal({
       // Nessun nuovo messaggio, mantenuti i chatNotes esistenti
     }
 
+    // Prepara l'oggetto entry senza campi undefined
     const entryToSave: CalendarEntry = {
       id: entry?.id || `entry_${Date.now()}`,
       date: new Date(selectedDate),
@@ -190,14 +192,18 @@ export default function EntryFormModal({
       hasProblem: formData.hasProblem,
       problemDescription: formData.problemDescription,
       tags: formData.tags,
-      repeatSettings: formData.repeatSettings.enabled ? {
-        enabled: formData.repeatSettings.enabled,
-        weeksCount: formData.repeatSettings.weeksCount
-      } : undefined,
       focusReferencesData: formData.focusReferencesData,
       createdAt: entry?.createdAt || new Date(),
       updatedAt: new Date(),
     };
+
+    // Aggiungi repeatSettings solo se è abilitato
+    if (formData.repeatSettings.enabled) {
+      entryToSave.repeatSettings = {
+        enabled: formData.repeatSettings.enabled,
+        weeksCount: formData.repeatSettings.weeksCount
+      };
+    }
 
     // Rimuoviamo questo log che causa re-render continui
     // console.log('✅ EntryFormModal: Entry pronto per salvataggio:', {
@@ -210,7 +216,10 @@ export default function EntryFormModal({
     // });
 
     try {
-      if (entry) {
+      // Verifica se l'entry esiste effettivamente in Firebase
+      const entryExistsInFirebase = await entryExists(entryToSave.id);
+      
+      if (entry && entryExistsInFirebase) {
         // Modalità modifica - aggiorna entry esistente
         await updateEntry(entryToSave);
         console.log('✅ EntryFormModal: Entry aggiornata con Firebase');

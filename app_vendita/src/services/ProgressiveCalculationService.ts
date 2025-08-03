@@ -336,6 +336,39 @@ export class ProgressiveCalculationService {
   }
 
   /**
+   * Carica i dati focusReferencesData nel sistema progressivo
+   */
+  public loadFocusReferencesData(date: string, focusReferencesData: any[]): void {
+    if (!focusReferencesData || focusReferencesData.length === 0) {
+      return;
+    }
+
+    // Converti FocusReferenceData in ProductEntry[]
+    const productEntries: ProductEntry[] = focusReferencesData.map(focusData => ({
+      productId: focusData.referenceId,
+      productName: `Reference ${focusData.referenceId}`, // Placeholder
+      vendite: parseFloat(focusData.soldPieces) || 0,
+      scorte: parseFloat(focusData.stockPieces) || 0,
+      ordinati: parseFloat(focusData.orderedPieces) || 0,
+      sellIn: 0 // Sarà calcolato dal sistema
+    }));
+
+    // Salva i dati nel sistema progressivo
+    this.saveCellData(date, productEntries);
+    
+    // Aggiorna il primo giorno con dati
+    this.updateFirstDateWithData();
+    
+    // Ricalcola se necessario
+    const firstDateWithData = this.findFirstDateWithData();
+    if (firstDateWithData) {
+      this.recalculateFromDate(firstDateWithData);
+    }
+
+    console.log(`📊 ProgressiveCalculationService: Caricati ${productEntries.length} focus references per ${date}`);
+  }
+
+  /**
    * Ottiene i dati di visualizzazione per una cella
    * Gestisce la differenziazione tra primo giorno e giorni progressivi
    */

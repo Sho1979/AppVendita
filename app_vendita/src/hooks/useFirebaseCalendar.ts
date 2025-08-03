@@ -13,6 +13,7 @@ export interface UseFirebaseCalendarReturn {
   addEntry: (entry: Omit<CalendarEntry, 'id'>) => Promise<string>;
   updateEntry: (entry: CalendarEntry) => Promise<void>;
   deleteEntry: (entryId: string) => Promise<void>;
+  entryExists: (entryId: string) => Promise<boolean>;
   
   // Sincronizzazione
   syncData: (userId: string) => Promise<void>;
@@ -155,6 +156,19 @@ export const useFirebaseCalendar = (): UseFirebaseCalendarReturn => {
     }
   }, [isConnected]);
 
+  const entryExists = useCallback(async (entryId: string): Promise<boolean> => {
+    if (!isConnected) {
+      throw new Error('Nessuna connessione con Firebase');
+    }
+
+    try {
+      return await firebaseCalendarService.entryExists(entryId);
+    } catch (error) {
+      console.error('❌ useFirebaseCalendar: Errore verifica esistenza entry:', error);
+      return false;
+    }
+  }, [isConnected]);
+
   // ===== REAL-TIME SYNC =====
 
   const startRealTimeSync = useCallback((userId: string): void => {
@@ -214,6 +228,7 @@ export const useFirebaseCalendar = (): UseFirebaseCalendarReturn => {
     addEntry,
     updateEntry,
     deleteEntry,
+    entryExists,
     
     // Sincronizzazione
     syncData,

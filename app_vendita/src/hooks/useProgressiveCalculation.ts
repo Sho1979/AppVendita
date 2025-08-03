@@ -151,6 +151,22 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
   }, [config.prezzoUnitario]);
 
   /**
+   * Carica i dati focusReferencesData nel sistema progressivo
+   */
+  const loadFocusReferencesData = useCallback((date: string, focusReferencesData: any[]) => {
+    try {
+      console.log(`📊 useProgressiveCalculation: loadFocusReferencesData per ${date} con ${focusReferencesData.length} entries`);
+      calculationService.loadFocusReferencesData(date, focusReferencesData);
+      console.log(`✅ useProgressiveCalculation: loadFocusReferencesData completato per ${date}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Errore caricamento focus references';
+      setError(errorMessage);
+      console.error(`❌ useProgressiveCalculation: Errore loadFocusReferencesData per ${date}:`, err);
+      throw err;
+    }
+  }, [calculationService]);
+
+  /**
    * Ottiene i dati di visualizzazione per una cella
    */
   const getCellDisplayData = useCallback((date: string): CellVisualizationResult => {
@@ -171,6 +187,7 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
     importState,
     validateEntries,
     calculateDailyTotals,
+    loadFocusReferencesData,
     getCellDisplayData
   }), [
     updateCell,
@@ -185,6 +202,7 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
     importState,
     validateEntries,
     calculateDailyTotals,
+    loadFocusReferencesData,
     getCellDisplayData
   ]);
 

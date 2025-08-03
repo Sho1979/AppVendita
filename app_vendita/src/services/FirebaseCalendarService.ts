@@ -75,6 +75,18 @@ export class FirebaseCalendarService {
   }
 
   /**
+   * Verifica se un entry esiste in Firebase
+   */
+  async entryExists(entryId: string): Promise<boolean> {
+    try {
+      await this.repository.getEntry(entryId);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
    * Aggiorna una entry esistente
    */
   async updateEntry(entry: CalendarEntry): Promise<void> {

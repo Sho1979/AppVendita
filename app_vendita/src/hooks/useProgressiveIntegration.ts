@@ -9,6 +9,7 @@ export const useProgressiveIntegration = (sharedService?: ProgressiveCalculation
   const { 
     updateCell, 
     getCellDisplayData, 
+    loadFocusReferencesData,
     exportState, 
     importState 
   } = useProgressiveCalculation(sharedService);
@@ -168,6 +169,7 @@ export const useProgressiveIntegration = (sharedService?: ProgressiveCalculation
     initializeWithExistingData,
     getDisplayDataForDate,
     updateEntryWithProgressiveSync,
+    loadFocusReferencesData,
     exportProgressiveState,
     importProgressiveState,
     
