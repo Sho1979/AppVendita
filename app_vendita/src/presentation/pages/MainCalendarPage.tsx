@@ -421,23 +421,7 @@ export default function MainCalendarPage({
       );
     };
 
-    const handleSaveFilters = useCallback(() => {
-      if (__DEV__) {
-        console.log('💾 MainCalendarPage: Salvataggio filtri');
-      }
-      dispatch({
-        type: 'UPDATE_FILTERS',
-        payload: {
-          userId: selectedUserId,
-          salesPointId: selectedSalesPointId,
-        },
-      });
-      setShowFilters(false);
-      Alert.alert(
-        'Filtri salvati',
-        'I filtri sono stati applicati con successo'
-      );
-    }, [selectedUserId, selectedSalesPointId, dispatch]);
+
 
     const handleResetFilters = useCallback(() => {
       if (__DEV__) {
@@ -460,40 +444,104 @@ export default function MainCalendarPage({
 
     const handleResetAllData = useCallback(async () => {
       if (__DEV__) {
-        console.log('🗑️ MainCalendarPage: Reset completo dati');
+        console.log('🗑️ MainCalendarPage: Reset dati punto vendita');
+        console.log('🔍 MainCalendarPage: selectedSalesPointId:', selectedSalesPointId);
       }
       
-      try {
-        // Cancella tutte le entries del calendario
-        const allEntries = await repository.getCalendarEntries(
-          new Date(2020, 0, 1), // Data molto vecchia
-          new Date(2030, 11, 31), // Data molto futura
-        );
-        
-        for (const entry of allEntries) {
-          await repository.deleteCalendarEntry(entry.id);
+      // Verifica che ci sia un punto vendita selezionato
+      if (!selectedSalesPointId) {
+        console.log('❌ MainCalendarPage: Nessun punto vendita selezionato, mostrando alert');
+        // Usa window.alert per ambiente web
+        if (typeof window !== 'undefined') {
+          window.alert('Nessun punto vendita selezionato\n\nSeleziona prima un punto vendita per poter resettare i suoi dati.');
+        } else {
+          Alert.alert(
+            'Nessun punto vendita selezionato',
+            'Seleziona prima un punto vendita per poter resettare i suoi dati.'
+          );
         }
-        
-        // Resetta lo stato del context
-        dispatch({ type: 'SET_ENTRIES', payload: [] });
-        
-        // Resetta il sell-in
-        setDailySellIn({});
-        
-        console.log('✅ MainCalendarPage: Reset completato, entries cancellate:', allEntries.length);
-        
-        Alert.alert(
-          'Reset completato',
-          `Sono state cancellate ${allEntries.length} entries del calendario.\n\nLe configurazioni (referenze focus, prezzi, utenti, punti vendita) sono state mantenute.`
-        );
-      } catch (error) {
-        console.error('❌ MainCalendarPage: Errore durante il reset:', error);
-        Alert.alert(
-          'Errore',
-          'Si è verificato un errore durante il reset dei dati'
-        );
+        return;
       }
-    }, [repository, dispatch]);
+      
+      // Trova il nome del punto vendita selezionato
+      const selectedSalesPoint = state.salesPoints.find(sp => sp.id === selectedSalesPointId);
+      const salesPointName = selectedSalesPoint?.name || 'Punto vendita selezionato';
+      
+      // Conferma di sicurezza
+      Alert.alert(
+        'Conferma Reset',
+        `Sei sicuro di voler cancellare tutti i dati inseriti per il punto vendita "${salesPointName}"?\n\nQuesta azione non può essere annullata.`,
+        [
+          {
+            text: 'Annulla',
+            style: 'cancel',
+          },
+          {
+            text: 'Cancella Dati',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                // Recupera tutte le entries del calendario
+                const allEntries = await repository.getCalendarEntries(
+                  new Date(2020, 0, 1), // Data molto vecchia
+                  new Date(2030, 11, 31), // Data molto futura
+                );
+                
+                // Filtra solo le entries del punto vendita selezionato
+                const entriesToDelete = allEntries.filter(entry => 
+                  entry.salesPointId === selectedSalesPointId
+                );
+                
+                if (entriesToDelete.length === 0) {
+                  Alert.alert(
+                    'Nessun dato da cancellare',
+                    `Non ci sono dati inseriti per il punto vendita "${salesPointName}".`
+                  );
+                  return;
+                }
+                
+                // Cancella solo le entries del punto vendita selezionato
+                for (const entry of entriesToDelete) {
+                  await repository.deleteCalendarEntry(entry.id);
+                }
+                
+                // Aggiorna lo stato del context rimuovendo solo le entries cancellate
+                const currentEntries = state.entries.filter(entry => 
+                  entry.salesPointId !== selectedSalesPointId
+                );
+                dispatch({ type: 'SET_ENTRIES', payload: currentEntries });
+                
+                // Resetta il sell-in per il punto vendita selezionato
+                const updatedDailySellIn = { ...dailySellIn };
+                Object.keys(updatedDailySellIn).forEach(date => {
+                  // Rimuovi il sell-in per le date che hanno entries del punto vendita cancellato
+                  const dateEntries = currentEntries.filter(entry => 
+                    entry.date.toISOString().split('T')[0] === date
+                  );
+                  if (dateEntries.length === 0) {
+                    delete updatedDailySellIn[date];
+                  }
+                });
+                setDailySellIn(updatedDailySellIn);
+                
+                console.log('✅ MainCalendarPage: Reset completato, entries cancellate:', entriesToDelete.length);
+                
+                Alert.alert(
+                  'Reset completato',
+                  `Sono state cancellate ${entriesToDelete.length} entries del calendario per il punto vendita "${salesPointName}".\n\nGli altri dati sono stati mantenuti.`
+                );
+              } catch (error) {
+                console.error('❌ MainCalendarPage: Errore durante il reset:', error);
+                Alert.alert(
+                  'Errore',
+                  'Si è verificato un errore durante il reset dei dati'
+                );
+              }
+            },
+          },
+        ]
+      );
+    }, [repository, dispatch, selectedSalesPointId, state.salesPoints, state.entries, dailySellIn]);
 
     const handleUserChange = (userId: string) => {
       console.log('👤 MainCalendarPage: Cambio utente:', userId);
@@ -968,12 +1016,6 @@ export default function MainCalendarPage({
             >
               <Text style={styles.resetButtonText}>🗑️ Reset Dati</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={handleSaveFilters}
-            >
-              <Text style={styles.saveButtonText}>💾 Salva</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -1008,7 +1050,6 @@ export default function MainCalendarPage({
                 onNAMCodeChange={handleNAMCodeChange}
                 onLineChange={handleLineChange}
                 onMultipleSelectionChange={handleMultipleSelectionChange}
-                onSave={handleSaveFilters}
                 onReset={handleResetFilters}
                 onClose={() => {
                   console.log('❌ MainCalendarPage: Chiusura modal filtri');

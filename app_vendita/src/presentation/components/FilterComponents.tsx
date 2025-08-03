@@ -22,7 +22,6 @@ interface FilterComponentsProps {
   onNAMCodeChange?: (namCode: string) => void;
   onLineChange?: (line: string) => void;
   onMultipleSelectionChange?: (items: string[]) => void;
-  onSave: () => void;
   onReset: () => void;
   onClose?: () => void;
 }
@@ -52,7 +51,6 @@ function FilterComponents({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onLineChange,
   onMultipleSelectionChange,
-  onSave,
   onReset,
   onClose,
 }: FilterComponentsProps) {
@@ -625,12 +623,6 @@ function FilterComponents({
           onPress={onReset}
         >
           <Text style={styles.resetButtonText}>🔄 Reset</Text>
-        </SafeTouchableOpacity>
-        <SafeTouchableOpacity
-          style={styles.saveButton}
-          onPress={onSave}
-        >
-          <Text style={styles.saveButtonText}>💾 Applica</Text>
         </SafeTouchableOpacity>
         {onClose && (
           <SafeTouchableOpacity
