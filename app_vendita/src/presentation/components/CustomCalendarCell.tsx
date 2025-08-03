@@ -612,11 +612,12 @@ function CustomCalendarCell({
 
           {/* Tag direttamente sotto il numero del giorno */}
           {entry?.tags && entry.tags.length > 0 && (
-            <View style={styles.tagsContainer}>
+            <View style={[styles.tagsContainer, !isWeekView && styles.monthTagsContainer]}>
               <CellTags 
                 tagIds={entry.tags} 
                 size="tiny" 
-                maxVisible={entry.tags.length}
+                maxVisible={isWeekView ? entry.tags.length : Math.min(entry.tags.length, 5)}
+                layout={isWeekView ? 'vertical' : 'horizontal'}
               />
             </View>
           )}
@@ -756,6 +757,11 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     paddingHorizontal: 1,
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  monthTagsContainer: {
+    maxHeight: 20,
+    justifyContent: 'center',
   },
   weekContent: {
     flex: 1,

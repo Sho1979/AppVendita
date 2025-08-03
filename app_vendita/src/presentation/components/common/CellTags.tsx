@@ -11,12 +11,14 @@ interface CellTagsProps {
   tagIds: string[];
   maxVisible?: number;
   size?: 'tiny' | 'small' | 'medium' | 'large';
+  layout?: 'vertical' | 'horizontal';
 }
 
 export const CellTags: React.FC<CellTagsProps> = ({
   tagIds,
   maxVisible = 4,
-  size = 'small'
+  size = 'small',
+  layout = 'vertical'
 }) => {
   // Rimuoviamo questo log che causa re-render continui
   // console.log('🏷️ CellTags: Ricevuti tagIds:', tagIds);
@@ -44,11 +46,11 @@ export const CellTags: React.FC<CellTagsProps> = ({
   // console.log('🏷️ CellTags: Person tags:', personTags.length, 'Action tags:', actionTags.length);
 
   return (
-    <View style={styles.container}>
-      {/* Righe separate per persone e azioni */}
-      {personTags.length > 0 && (
-        <View style={styles.row}>
-          {personTags.map((tag) => (
+    <View style={[styles.container, layout === 'horizontal' && styles.horizontalContainer]}>
+      {layout === 'horizontal' ? (
+        // Layout orizzontale: tutti i tag in una riga
+        <View style={styles.horizontalRow}>
+          {allTags.slice(0, maxVisible).map((tag) => (
             <Tag
               key={tag.id}
               tag={tag}
@@ -57,19 +59,35 @@ export const CellTags: React.FC<CellTagsProps> = ({
             />
           ))}
         </View>
-      )}
-      
-      {actionTags.length > 0 && (
-        <View style={styles.row}>
-          {actionTags.map((tag) => (
-            <Tag
-              key={tag.id}
-              tag={tag}
-              size={size}
-              disabled={false}
-            />
-          ))}
-        </View>
+      ) : (
+        // Layout verticale: righe separate per persone e azioni
+        <>
+          {personTags.length > 0 && (
+            <View style={styles.row}>
+              {personTags.map((tag) => (
+                <Tag
+                  key={tag.id}
+                  tag={tag}
+                  size={size}
+                  disabled={false}
+                />
+              ))}
+            </View>
+          )}
+          
+          {actionTags.length > 0 && (
+            <View style={styles.row}>
+              {actionTags.map((tag) => (
+                <Tag
+                  key={tag.id}
+                  tag={tag}
+                  size={size}
+                  disabled={false}
+                />
+              ))}
+            </View>
+          )}
+        </>
       )}
     </View>
   );
@@ -81,9 +99,21 @@ const styles = StyleSheet.create({
     gap: 1,
     alignItems: 'flex-start',
   },
+  horizontalContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   row: {
     flexDirection: 'row',
     gap: 1,
     alignItems: 'center',
+  },
+  horizontalRow: {
+    flexDirection: 'row',
+    gap: 1,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
 }); 

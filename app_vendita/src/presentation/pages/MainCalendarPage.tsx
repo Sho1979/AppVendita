@@ -26,6 +26,7 @@ import { useFirebaseExcelData } from '../../hooks/useFirebaseExcelData';
 import { Colors } from '../../constants/Colors';
 import { Spacing } from '../../constants/Spacing';
 import { getTagById } from '../../constants/Tags';
+import { useFocusReferences } from '../../hooks/useFocusReferences';
 import { logger } from '../../utils/logger';
 
 interface MainCalendarPageProps {
@@ -41,6 +42,7 @@ export default function MainCalendarPage({
   }
 
   const { state, dispatch, progressiveSystem } = useCalendar();
+  const { getFocusReferenceById, getNetPrice } = useFocusReferences();
   if (__DEV__) {
     // Rimuoviamo questo log che causa re-render continui
     // console.log('✅ MainCalendarPage: useCalendar hook eseguito con successo');
@@ -987,13 +989,69 @@ export default function MainCalendarPage({
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>💰 Sell-In</Text>
               <Text style={styles.statValue}>
-                €{progressiveSystem.getTotalSellIn()}
+                €{state.entries.reduce((total, entry) => {
+                  if (!entry.focusReferencesData || entry.focusReferencesData.length === 0) {
+                    return total;
+                  }
+                  
+                  return total + entry.focusReferencesData.reduce((entryTotal, focusData) => {
+                    const reference = getFocusReferenceById(focusData.referenceId);
+                    if (!reference) {
+                      return entryTotal;
+                    }
+
+                    const orderedPieces = parseFloat(focusData.orderedPieces) || 0;
+                    
+                    // Usa il prezzo netto salvato invece del prezzo originale
+                    const savedNetPrice = getNetPrice(focusData.referenceId);
+                    
+                    // Correggi il parsing del netPrice per gestire formato "02,40" → 2.40
+                    let netPrice = 0;
+                    if (savedNetPrice) {
+                      const priceStr = savedNetPrice.toString();
+                      // Rimuovi zero iniziale e sostituisci virgola con punto
+                      const cleanPrice = priceStr.replace(/^0+/, '').replace(',', '.');
+                      netPrice = parseFloat(cleanPrice) || 0;
+                    }
+                    
+                    const sellIn = orderedPieces * netPrice;
+                    return entryTotal + sellIn;
+                  }, 0);
+                }, 0)}
               </Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>📅 Sell-In Mensile</Text>
               <Text style={styles.statValue}>
-                €{progressiveSystem.getMonthlySellIn(currentDate.getFullYear(), currentDate.getMonth() + 1)}
+                €{state.entries.reduce((total, entry) => {
+                  if (!entry.focusReferencesData || entry.focusReferencesData.length === 0) {
+                    return total;
+                  }
+                  
+                  return total + entry.focusReferencesData.reduce((entryTotal, focusData) => {
+                    const reference = getFocusReferenceById(focusData.referenceId);
+                    if (!reference) {
+                      return entryTotal;
+                    }
+
+                    const orderedPieces = parseFloat(focusData.orderedPieces) || 0;
+                    
+                    // Usa il prezzo netto salvato invece del prezzo originale
+                    const savedNetPrice = getNetPrice(focusData.referenceId);
+                    
+                    // Correggi il parsing del netPrice per gestire formato "02,40" → 2.40
+                    let netPrice = 0;
+                    if (savedNetPrice) {
+                      const priceStr = savedNetPrice.toString();
+                      // Rimuovi zero iniziale e sostituisci virgola con punto
+                      const cleanPrice = priceStr.replace(/^0+/, '').replace(',', '.');
+                      netPrice = parseFloat(cleanPrice) || 0;
+                    }
+                    
+                    const sellIn = orderedPieces * netPrice;
+                    return entryTotal + sellIn;
+                  }, 0);
+                }, 0)}
               </Text>
             </View>
             <View style={styles.statItem}>
