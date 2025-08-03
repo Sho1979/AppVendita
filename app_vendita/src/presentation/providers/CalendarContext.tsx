@@ -46,6 +46,8 @@ interface CalendarContextType {
     updateEntryWithProgressiveSync: (entry: CalendarEntry) => void;
     getDisplayDataForDate: (date: string, originalEntry?: CalendarEntry, contextIsInitialized?: boolean) => any;
     loadFocusReferencesData: (date: string, focusReferencesData: any[]) => void;
+    getTotalSellIn: () => number;
+    getMonthlySellIn: (year: number, month: number) => number;
   };
 }
 
@@ -73,7 +75,9 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
     initializeWithExistingData,
     updateEntryWithProgressiveSync,
     getDisplayDataForDate,
-    loadFocusReferencesData
+    loadFocusReferencesData,
+    getTotalSellIn,
+    getMonthlySellIn
   } = useProgressiveIntegration(sharedProgressiveService);
 
   // Force re-render when isInitialized changes
@@ -98,8 +102,9 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
       shouldInitialize: calendarStore.entries.length > 0 && !isInitialized
     });
     
+    // Carica i dati nel sistema progressivo solo se non è già inizializzato
     if (calendarStore.entries.length > 0 && !isInitialized) {
-      logger.init('CalendarProvider: Inizializzazione sistema progressivo...');
+      logger.init('CalendarProvider: Caricamento dati nel sistema progressivo...');
       logger.data('CalendarProvider: Entries da processare', calendarStore.entries.map(entry => ({
         id: entry.id,
         date: entry.date,
@@ -107,17 +112,18 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
       })));
       
       try {
+        // Carica tutti i dati esistenti nel sistema progressivo
         initializeWithExistingData(calendarStore.entries);
-        logger.init('CalendarProvider: Sistema progressivo inizializzato');
+        logger.init('CalendarProvider: Dati caricati nel sistema progressivo');
         // Force re-render after initialization
         setForceUpdate(prev => prev + 1);
       } catch (error) {
-        logger.error('init', 'CalendarProvider: Errore inizializzazione progressivo', error);
+        logger.error('init', 'CalendarProvider: Errore caricamento dati progressivo', error);
       }
     } else if (calendarStore.entries.length === 0) {
-      logger.warn('init', 'CalendarProvider: Nessuna entry disponibile per l\'inizializzazione');
+      logger.warn('init', 'CalendarProvider: Nessuna entry disponibile per il caricamento');
     } else if (isInitialized) {
-      logger.init('CalendarProvider: Sistema progressivo già inizializzato');
+      logger.init('CalendarProvider: Sistema progressivo già inizializzato, mantenendo i dati');
     }
   }, [calendarStore.entries, isInitialized, initializeWithExistingData]);
 
@@ -222,7 +228,9 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
         isInitialized,
         updateEntryWithProgressiveSync,
         getDisplayDataForDate,
-        loadFocusReferencesData
+        loadFocusReferencesData,
+        getTotalSellIn,
+        getMonthlySellIn
       }
     }}>
       {children}

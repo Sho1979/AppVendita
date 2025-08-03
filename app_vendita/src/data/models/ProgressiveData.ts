@@ -6,6 +6,7 @@ export interface ProductEntry {
   vendite: number;
   scorte: number;
   ordinati: number;
+  prezzoNetto: number; // Prezzo netto per il calcolo del sell-in
   categoria: string;
   colore: string;
   tooltip?: string;

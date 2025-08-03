@@ -45,7 +45,7 @@ export class ProgressiveCalculationService {
         venditeTotali: acc.venditeTotali + entry.vendite,
         scorteTotali: acc.scorteTotali + entry.scorte,
         ordinatiTotali: acc.ordinatiTotali + entry.ordinati,
-        sellIn: acc.sellIn + (entry.ordinati * this.state.calculationConfig.prezzoUnitario)
+        sellIn: acc.sellIn + (entry.ordinati * entry.prezzoNetto) // Usa il prezzo netto specifico del prodotto
       }),
       {
         venditeTotali: 0,
@@ -350,6 +350,9 @@ export class ProgressiveCalculationService {
       vendite: parseFloat(focusData.soldPieces) || 0,
       scorte: parseFloat(focusData.stockPieces) || 0,
       ordinati: parseFloat(focusData.orderedPieces) || 0,
+      prezzoNetto: parseFloat(focusData.netPrice) || 0, // Usa il prezzo netto dalla referenza
+      categoria: 'focus', // Categoria per le referenze focus
+      colore: '#007bff', // Colore blu per le referenze focus
       sellIn: 0 // Sarà calcolato dal sistema
     }));
 
@@ -481,6 +484,41 @@ export class ProgressiveCalculationService {
     }
 
     return Array.from(allProducts.values());
+  }
+
+  /**
+   * Calcola il sell-in totale del sistema progressivo
+   */
+  public getTotalSellIn(): number {
+    let totalSellIn = 0;
+    const entriesCount = this.state.entries.size;
+    
+    for (const [date, entry] of this.state.entries) {
+      if (entry.progressiveTotals) {
+        totalSellIn += entry.progressiveTotals.sellIn;
+      }
+    }
+    
+    console.log(`💰 ProgressiveCalculationService: Sell-in totale calcolato: €${totalSellIn} (da ${entriesCount} entries)`);
+    return totalSellIn;
+  }
+
+  /**
+   * Calcola il sell-in mensile per un mese specifico
+   */
+  public getMonthlySellIn(year: number, month: number): number {
+    let monthlySellIn = 0;
+    const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
+    const endDate = `${year}-${month.toString().padStart(2, '0')}-31`;
+    
+    for (const [date, entry] of this.state.entries) {
+      if (date >= startDate && date <= endDate && entry.progressiveTotals) {
+        monthlySellIn += entry.progressiveTotals.sellIn;
+      }
+    }
+    
+    console.log(`💰 ProgressiveCalculationService: Sell-in mensile ${year}-${month}: €${monthlySellIn}`);
+    return monthlySellIn;
   }
 
   /**

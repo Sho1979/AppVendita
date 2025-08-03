@@ -11,15 +11,39 @@ export class DataAdapter {
       return [];
     }
 
-    return entry.focusReferencesData.map(focusData => ({
-      productId: focusData.referenceId,
-      vendite: parseFloat(focusData.soldPieces) || 0,
-      scorte: parseFloat(focusData.stockPieces) || 0,
-      ordinati: parseFloat(focusData.orderedPieces) || 0,
-      categoria: 'Prodotto', // Default category
-      colore: 'green', // Default color
-      tooltip: `V: ${focusData.soldPieces}, S: ${focusData.stockPieces}, O: ${focusData.orderedPieces}`
-    }));
+    const productEntries = entry.focusReferencesData.map(focusData => {
+      // Gestisce i dati esistenti che potrebbero non avere netPrice
+      let netPrice = 0;
+      if (focusData.netPrice) {
+        netPrice = parseFloat(focusData.netPrice) || 0;
+      } else {
+        // Prezzo di default per i dati esistenti (€2 come mostrato nel form)
+        netPrice = 2.0;
+        console.log(`💰 DataAdapter: Usando prezzo di default €${netPrice} per ${focusData.referenceId}`);
+      }
+
+      return {
+        productId: focusData.referenceId,
+        vendite: parseFloat(focusData.soldPieces) || 0,
+        scorte: parseFloat(focusData.stockPieces) || 0,
+        ordinati: parseFloat(focusData.orderedPieces) || 0,
+        prezzoNetto: netPrice,
+        categoria: 'Prodotto', // Default category
+        colore: 'green', // Default color
+        tooltip: `V: ${focusData.soldPieces}, S: ${focusData.stockPieces}, O: ${focusData.orderedPieces}`
+      };
+    });
+
+    console.log(`📊 DataAdapter: Convertiti ${productEntries.length} entries per ${entry.date}:`, 
+      productEntries.map(prod => ({
+        productId: prod.productId,
+        ordinati: prod.ordinati,
+        prezzoNetto: prod.prezzoNetto,
+        sellIn: prod.ordinati * prod.prezzoNetto
+      }))
+    );
+
+    return productEntries;
   }
 
   /**
@@ -31,6 +55,7 @@ export class DataAdapter {
       orderedPieces: product.ordinati.toString(),
       soldPieces: product.vendite.toString(),
       stockPieces: product.scorte.toString(),
+      netPrice: product.prezzoNetto.toString(), // Aggiungi il prezzo netto
       soldVsStockPercentage: product.scorte > 0 ? 
         ((product.vendite / product.scorte) * 100).toFixed(1) : '0.0'
     }));

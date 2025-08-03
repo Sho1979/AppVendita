@@ -28,7 +28,6 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
   } = useFocusReferences();
 
   const [focusData, setFocusData] = useState<FocusReferenceData[]>([]);
-  const lastNotifiedData = useRef<FocusReferenceData[]>([]);
 
   // Carica le referenze focus quando cambia la data
   useEffect(() => {
@@ -42,35 +41,12 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
             soldPieces: '',
             stockPieces: '',
             soldVsStockPercentage: '',
+            netPrice: getNetPrice(ref.id), // Aggiungi il prezzo netto
           }));
       
       setFocusData(initialData);
     }
-  }, [focusReferences, existingData]);
-
-  // Notifica il cambio dati solo quando focusData cambia effettivamente
-  useEffect(() => {
-    if (focusData.length > 0 && onDataChange) {
-      // Confronta con l'ultimo dato notificato per evitare loop
-      const currentDataString = JSON.stringify(focusData);
-      const lastDataString = JSON.stringify(lastNotifiedData.current);
-      
-      if (currentDataString !== lastDataString) {
-        lastNotifiedData.current = focusData;
-        onDataChange(focusData);
-      }
-    }
-  }, [focusData, onDataChange]);
-
-  const updateFocusData = (referenceId: string, field: keyof FocusReferenceData, value: string) => {
-    setFocusData(prev => 
-      prev.map(item => 
-        item.referenceId === referenceId 
-          ? { ...item, [field]: value }
-          : item
-      )
-    );
-  };
+  }, [focusReferences, existingData, getNetPrice]);
 
   const calculatePercentage = (sold: string, ordered: string): string => {
     const soldNum = parseFloat(sold) || 0;
@@ -83,41 +59,63 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
   };
 
   const handleSoldChange = (referenceId: string, value: string) => {
-    updateFocusData(referenceId, 'soldPieces', value);
-    
-    // Calcola automaticamente lo Stock e la percentuale
-    const item = focusData.find(d => d.referenceId === referenceId);
-    if (item) {
-      const orderedNum = parseFloat(item.orderedPieces) || 0;
-      const soldNum = parseFloat(value) || 0;
-      const stockNum = Math.max(0, orderedNum - soldNum); // Stock = Ordinato - Venduto
+    setFocusData(prev => {
+      const updatedData = prev.map(item => {
+        if (item.referenceId === referenceId) {
+          const orderedNum = parseFloat(item.orderedPieces) || 0;
+          const soldNum = parseFloat(value) || 0;
+          const stockNum = Math.max(0, orderedNum - soldNum);
+          const percentage = calculatePercentage(value, item.orderedPieces);
+          
+          return {
+            ...item,
+            soldPieces: value,
+            stockPieces: stockNum.toString(),
+            soldVsStockPercentage: percentage
+          };
+        }
+        return item;
+      });
       
-      // Aggiorna lo Stock automaticamente
-      updateFocusData(referenceId, 'stockPieces', stockNum.toString());
+      // Notifica il cambiamento dopo il render
+      setTimeout(() => {
+        if (onDataChange) {
+          onDataChange(updatedData);
+        }
+      }, 0);
       
-      // Calcola automaticamente la percentuale (Venduto / Ordinato)
-      const percentage = calculatePercentage(value, item.orderedPieces);
-      updateFocusData(referenceId, 'soldVsStockPercentage', percentage);
-    }
+      return updatedData;
+    });
   };
 
   const handleOrderedChange = (referenceId: string, value: string) => {
-    updateFocusData(referenceId, 'orderedPieces', value);
-    
-    // Calcola automaticamente lo Stock e la percentuale
-    const item = focusData.find(d => d.referenceId === referenceId);
-    if (item) {
-      const soldNum = parseFloat(item.soldPieces) || 0;
-      const orderedNum = parseFloat(value) || 0;
-      const stockNum = Math.max(0, orderedNum - soldNum); // Stock = Ordinato - Venduto
+    setFocusData(prev => {
+      const updatedData = prev.map(item => {
+        if (item.referenceId === referenceId) {
+          const soldNum = parseFloat(item.soldPieces) || 0;
+          const orderedNum = parseFloat(value) || 0;
+          const stockNum = Math.max(0, orderedNum - soldNum);
+          const percentage = calculatePercentage(item.soldPieces, value);
+          
+          return {
+            ...item,
+            orderedPieces: value,
+            stockPieces: stockNum.toString(),
+            soldVsStockPercentage: percentage
+          };
+        }
+        return item;
+      });
       
-      // Aggiorna lo Stock automaticamente
-      updateFocusData(referenceId, 'stockPieces', stockNum.toString());
+      // Notifica il cambiamento dopo il render
+      setTimeout(() => {
+        if (onDataChange) {
+          onDataChange(updatedData);
+        }
+      }, 0);
       
-      // Calcola automaticamente la percentuale (Venduto / Ordinato)
-      const percentage = calculatePercentage(item.soldPieces, value);
-      updateFocusData(referenceId, 'soldVsStockPercentage', percentage);
-    }
+      return updatedData;
+    });
   };
 
   if (loading) {

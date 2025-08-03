@@ -173,6 +173,20 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
     return calculationService.getCellDisplayData(date);
   }, [calculationService]);
 
+  /**
+   * Calcola il sell-in totale del sistema progressivo
+   */
+  const getTotalSellIn = useCallback((): number => {
+    return calculationService.getTotalSellIn();
+  }, [calculationService]);
+
+  /**
+   * Calcola il sell-in mensile per un mese specifico
+   */
+  const getMonthlySellIn = useCallback((year: number, month: number): number => {
+    return calculationService.getMonthlySellIn(year, month);
+  }, [calculationService]);
+
   // Memoizza i metodi per evitare re-render non necessari
   const methods = useMemo(() => ({
     updateCell,
@@ -188,7 +202,9 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
     validateEntries,
     calculateDailyTotals,
     loadFocusReferencesData,
-    getCellDisplayData
+    getCellDisplayData,
+    getTotalSellIn,
+    getMonthlySellIn
   }), [
     updateCell,
     getProgressiveData,
@@ -203,7 +219,9 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
     validateEntries,
     calculateDailyTotals,
     loadFocusReferencesData,
-    getCellDisplayData
+    getCellDisplayData,
+    getTotalSellIn,
+    getMonthlySellIn
   ]);
 
   // Cleanup al dismount

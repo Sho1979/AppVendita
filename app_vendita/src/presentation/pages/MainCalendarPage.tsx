@@ -40,7 +40,7 @@ export default function MainCalendarPage({
   // console.log('🚀 MainCalendarPage: Componente inizializzato');
   }
 
-  const { state, dispatch } = useCalendar();
+  const { state, dispatch, progressiveSystem } = useCalendar();
   if (__DEV__) {
     // Rimuoviamo questo log che causa re-render continui
     // console.log('✅ MainCalendarPage: useCalendar hook eseguito con successo');
@@ -939,7 +939,13 @@ export default function MainCalendarPage({
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>💰 Sell-In</Text>
               <Text style={styles.statValue}>
-                €{Object.values(dailySellIn).reduce((sum, sellIn) => sum + sellIn, 0)}
+                €{progressiveSystem.getTotalSellIn()}
+              </Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>📅 Sell-In Mensile</Text>
+              <Text style={styles.statValue}>
+                €{progressiveSystem.getMonthlySellIn(currentDate.getFullYear(), currentDate.getMonth() + 1)}
               </Text>
             </View>
             <View style={styles.statItem}>

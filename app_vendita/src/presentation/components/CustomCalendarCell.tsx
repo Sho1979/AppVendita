@@ -42,11 +42,11 @@ function CustomCalendarCell({
   
   // Carica i dati focusReferencesData nel sistema progressivo quando l'entry ha questi dati
   useEffect(() => {
-    if (entry?.focusReferencesData && entry.focusReferencesData.length > 0 && isInitialized) {
+    if (entry?.focusReferencesData && entry.focusReferencesData.length > 0) {
       console.log(`📊 CustomCalendarCell ${date}: Caricamento ${entry.focusReferencesData.length} focus references nel sistema progressivo`);
       loadFocusReferencesData(date, entry.focusReferencesData);
     }
-  }, [entry?.focusReferencesData, date, isInitialized, loadFocusReferencesData]);
+  }, [entry?.focusReferencesData, date, loadFocusReferencesData]);
   
 
   
@@ -62,12 +62,13 @@ function CustomCalendarCell({
     // Ottieni i dati di visualizzazione
     const displayData = getDisplayDataForDate(date, entry, isInitialized);
     
-    // Rimuoviamo il log che causa re-render continui
-    // console.log(`💰 totalSellIn per ${date}:`, {
-    //   isInitialized,
-    //   useOriginalData: displayData.useOriginalData,
-    //   sellInProgressivo: displayData.progressiveData?.sellInProgressivo || 0
-    // });
+    console.log(`💰 totalSellIn per ${date}:`, {
+      isInitialized,
+      useOriginalData: displayData.useOriginalData,
+      sellInProgressivo: displayData.progressiveData?.sellInProgressivo || 0,
+      hasEntry: !!entry,
+      focusReferencesCount: entry?.focusReferencesData?.length || 0
+    });
     
     // Se il sistema progressivo non è inizializzato, usa i dati originali
     if (displayData.useOriginalData) {
@@ -96,6 +97,7 @@ function CustomCalendarCell({
         }
         
         const sellIn = orderedPieces * netPrice;
+        console.log(`💰 Calcolo sell-in per ${focusData.referenceId}: ${orderedPieces} × ${netPrice} = ${sellIn}`);
         return total + sellIn;
       }, 0);
     }

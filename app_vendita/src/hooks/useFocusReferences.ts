@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AsyncStorageCalendarRepository } from '../data/repositories/CalendarRepository';
 import { firebaseCalendarService } from '../services/FirebaseCalendarService';
 import { PriceReference } from '../data/models/PriceReference';
@@ -62,10 +62,10 @@ export const useFocusReferences = () => {
     return focusReferences.find(ref => ref.id === id);
   };
 
-  const getNetPrice = (referenceId: string): string => {
+  const getNetPrice = useCallback((referenceId: string): string => {
     const netPrice = focusNetPrices[referenceId];
     return netPrice || '0';
-  };
+  }, [focusNetPrices]);
 
   useEffect(() => {
     loadFocusReferences();
