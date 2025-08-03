@@ -2,6 +2,7 @@ import { FirebaseCalendarRepository } from '../data/repositories/firebaseCalenda
 import { CalendarEntry } from '../data/models/CalendarEntry';
 import { User } from '../data/models/User';
 import { SalesPoint } from '../data/models/SalesPoint';
+import { PriceReference } from '../data/models/PriceReference';
 import { useCalendarStore } from '../stores/calendarStore';
 
 export class FirebaseCalendarService {
@@ -171,6 +172,62 @@ export class FirebaseCalendarService {
     } catch (error) {
       console.error('❌ FirebaseCalendarService: Errore batch update:', error);
       useCalendarStore.getState().setError('Errore nell\'aggiornamento batch');
+      throw error;
+    }
+  }
+
+  // ===== ACTIVE REFERENCES =====
+
+  /**
+   * Carica le referenze attive da Firebase
+   */
+  async getActiveReferences(): Promise<PriceReference[]> {
+    try {
+      const activeReferences = await this.repository.getActiveReferences();
+      return activeReferences;
+    } catch (error) {
+      console.error('❌ FirebaseCalendarService: Errore nel caricamento referenze attive:', error);
+      useCalendarStore.getState().setError('Errore nel caricamento delle referenze attive');
+      throw error;
+    }
+  }
+
+  /**
+   * Salva una nuova referenza attiva
+   */
+  async saveActiveReference(reference: Omit<PriceReference, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    try {
+      const referenceId = await this.repository.saveActiveReference(reference);
+      return referenceId;
+    } catch (error) {
+      console.error('❌ FirebaseCalendarService: Errore nel salvataggio referenza attiva:', error);
+      useCalendarStore.getState().setError('Errore nel salvataggio della referenza attiva');
+      throw error;
+    }
+  }
+
+  /**
+   * Aggiorna una referenza attiva esistente
+   */
+  async updateActiveReference(id: string, updates: Partial<PriceReference>): Promise<void> {
+    try {
+      await this.repository.updateActiveReference(id, updates);
+    } catch (error) {
+      console.error('❌ FirebaseCalendarService: Errore nell\'aggiornamento referenza attiva:', error);
+      useCalendarStore.getState().setError('Errore nell\'aggiornamento della referenza attiva');
+      throw error;
+    }
+  }
+
+  /**
+   * Elimina una referenza attiva
+   */
+  async deleteActiveReference(id: string): Promise<void> {
+    try {
+      await this.repository.deleteActiveReference(id);
+    } catch (error) {
+      console.error('❌ FirebaseCalendarService: Errore nell\'eliminazione referenza attiva:', error);
+      useCalendarStore.getState().setError('Errore nell\'eliminazione della referenza attiva');
       throw error;
     }
   }

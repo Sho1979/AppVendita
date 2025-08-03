@@ -16,6 +16,7 @@ import { db } from '../../core/services/firebase';
 import { CalendarEntry } from '../models/CalendarEntry';
 import { User } from '../models/User';
 import { SalesPoint } from '../models/SalesPoint';
+import { PriceReference } from '../models/PriceReference';
 
 export class FirebaseCalendarRepository {
   private readonly COLLECTIONS = {
@@ -23,7 +24,8 @@ export class FirebaseCalendarRepository {
     USERS: 'users',
     SALES_POINTS: 'salesPoints',
     EXCEL_DATA: 'excelData',
-    FOCUS_REFERENCES: 'focusReferences'
+    FOCUS_REFERENCES: 'focusReferences',
+    ACTIVE_REFERENCES: 'activeReferences'
   };
 
   // ===== CALENDAR ENTRIES =====
@@ -262,6 +264,74 @@ export class FirebaseCalendarRepository {
       console.log('✅ FirebaseCalendarRepository: Batch update completato per', entries.length, 'entries');
     } catch (error) {
       console.error('❌ FirebaseCalendarRepository: Errore nel batch update:', error);
+      throw error;
+    }
+  }
+
+  // ===== ACTIVE REFERENCES =====
+  
+  async getActiveReferences(): Promise<PriceReference[]> {
+    try {
+      const querySnapshot = await getDocs(collection(db, this.COLLECTIONS.ACTIVE_REFERENCES));
+      
+      const activeReferences: PriceReference[] = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          brand: data.brand || '',
+          subBrand: data.subBrand || '',
+          description: data.description || '',
+          ean: data.ean || '',
+          code: data.code || '',
+          unitPrice: data.unitPrice || 0,
+          netPrice: data.netPrice || 0,
+          piecesPerCarton: data.piecesPerCarton || 0,
+          typology: data.typology || '',
+          isActive: data.isActive !== false, // Default true se non specificato
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date()
+        } as PriceReference;
+      });
+      
+      return activeReferences;
+    } catch (error) {
+      console.error('❌ FirebaseCalendarRepository: Errore nel caricamento referenze attive:', error);
+      throw error;
+    }
+  }
+
+  async saveActiveReference(reference: Omit<PriceReference, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    try {
+      const docRef = await addDoc(collection(db, this.COLLECTIONS.ACTIVE_REFERENCES), {
+        ...reference,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      return docRef.id;
+    } catch (error) {
+      console.error('❌ FirebaseCalendarRepository: Errore nel salvataggio referenza attiva:', error);
+      throw error;
+    }
+  }
+
+  async updateActiveReference(id: string, updates: Partial<PriceReference>): Promise<void> {
+    try {
+      const docRef = doc(db, this.COLLECTIONS.ACTIVE_REFERENCES, id);
+      await updateDoc(docRef, {
+        ...updates,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('❌ FirebaseCalendarRepository: Errore nell\'aggiornamento referenza attiva:', error);
+      throw error;
+    }
+  }
+
+  async deleteActiveReference(id: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, this.COLLECTIONS.ACTIVE_REFERENCES, id));
+    } catch (error) {
+      console.error('❌ FirebaseCalendarRepository: Errore nell\'eliminazione referenza attiva:', error);
       throw error;
     }
   }

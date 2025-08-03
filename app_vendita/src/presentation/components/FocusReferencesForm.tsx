@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -42,16 +42,24 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
             stockPieces: '',
             soldVsStockPercentage: '',
           }));
+      
       setFocusData(initialData);
     }
   }, [focusReferences, existingData]);
 
+  // Notifica il cambio dati usando useCallback per evitare loop infiniti
+  const notifyDataChange = useCallback((data: FocusReferenceData[]) => {
+    if (onDataChange) {
+      onDataChange(data);
+    }
+  }, [onDataChange]);
+
   // Notifica il cambio dati solo quando focusData cambia effettivamente
   useEffect(() => {
-    if (onDataChange && focusData.length > 0) {
-      onDataChange(focusData);
+    if (focusData.length > 0) {
+      notifyDataChange(focusData);
     }
-  }, [focusData, onDataChange]); // Aggiunta onDataChange alle dipendenze
+  }, [focusData, notifyDataChange]);
 
   const updateFocusData = (referenceId: string, field: keyof FocusReferenceData, value: string) => {
     setFocusData(prev => 
@@ -98,8 +106,8 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
     // Calcola automaticamente lo Stock e la percentuale
     const item = focusData.find(d => d.referenceId === referenceId);
     if (item) {
-      const orderedNum = parseFloat(value) || 0;
       const soldNum = parseFloat(item.soldPieces) || 0;
+      const orderedNum = parseFloat(value) || 0;
       const stockNum = Math.max(0, orderedNum - soldNum); // Stock = Ordinato - Venduto
       
       // Aggiorna lo Stock automaticamente

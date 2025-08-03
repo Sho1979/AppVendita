@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AsyncStorageCalendarRepository } from '../data/repositories/CalendarRepository';
+import { firebaseCalendarService } from '../services/FirebaseCalendarService';
 import { PriceReference } from '../data/models/PriceReference';
 
 export const useFocusReferences = () => {
@@ -12,21 +13,31 @@ export const useFocusReferences = () => {
     try {
       setLoading(true);
       
-      // Carica gli ID delle referenze focus
-      const focusIds = await repository.getFocusReferences();
+      // Carica le referenze attive da Firebase (fonte principale)
+      const activeReferences = await firebaseCalendarService.getActiveReferences();
       
-      // Carica tutte le referenze
-      const allReferences = await repository.getPriceReferences();
+      // Utilizza tutte le referenze attive come focus references
+      // Il limite è determinato da Firebase, non dal sistema locale
+      setFocusReferences(activeReferences);
       
-      // Filtra solo le referenze focus
-      const focusRefs = allReferences.filter(ref => focusIds.includes(ref.id));
-      setFocusReferences(focusRefs);
-      
-      // Carica i prezzi netti salvati
+      // Carica i prezzi netti salvati localmente
       const savedNetPrices = await repository.getFocusNetPrices();
-      setFocusNetPrices(savedNetPrices);
       
-      console.log('🎯 useFocusReferences: Referenze focus caricate:', focusRefs.length);
+      // Mappa i prezzi netti agli ID delle referenze attive
+      const mappedNetPrices: { [key: string]: string } = {};
+      
+      activeReferences.forEach(ref => {
+        // Cerca il prezzo netto per questo ID di referenza
+        if (savedNetPrices[ref.id]) {
+          mappedNetPrices[ref.id] = savedNetPrices[ref.id];
+        } else {
+          // Se non c'è un prezzo salvato, usa il prezzo netto dalla referenza Firebase
+          mappedNetPrices[ref.id] = ref.netPrice ? ref.netPrice.toString() : '0';
+        }
+      });
+      
+      setFocusNetPrices(mappedNetPrices);
+      
     } catch (error) {
       console.error('❌ useFocusReferences: Errore nel caricamento:', error);
     } finally {
@@ -42,7 +53,6 @@ export const useFocusReferences = () => {
       };
       setFocusNetPrices(newNetPrices);
       await repository.saveFocusNetPrices(newNetPrices);
-      console.log('💾 useFocusReferences: Prezzo netto aggiornato per', referenceId);
     } catch (error) {
       console.error('❌ useFocusReferences: Errore nell\'aggiornamento prezzo:', error);
     }
@@ -53,7 +63,8 @@ export const useFocusReferences = () => {
   };
 
   const getNetPrice = (referenceId: string): string => {
-    return focusNetPrices[referenceId] || '0';
+    const netPrice = focusNetPrices[referenceId];
+    return netPrice || '0';
   };
 
   useEffect(() => {
