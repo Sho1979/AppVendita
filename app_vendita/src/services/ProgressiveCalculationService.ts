@@ -103,14 +103,6 @@ export class ProgressiveCalculationService {
   ): ProgressiveCalculationResult {
     const startTime = performance.now();
 
-    console.log(`🔄 ProgressiveCalculationService: updateCellAndRecalculate per ${date} con ${newEntries.length} entries`);
-    console.log('📦 Entries ricevute:', newEntries.map(entry => ({
-      productId: entry.productId,
-      vendite: entry.vendite,
-      scorte: entry.scorte,
-      ordinati: entry.ordinati
-    })));
-
     // Validazione input
     const validation = this.validateEntries(newEntries);
     if (!validation.isValid) {
@@ -120,34 +112,21 @@ export class ProgressiveCalculationService {
 
     // Salva la modifica
     this.saveCellData(date, newEntries);
-    console.log(`💾 Dati salvati per ${date}, entries totali nel servizio: ${this.state.entries.size}`);
 
     // Aggiorna il primo giorno con dati
     this.updateFirstDateWithData();
-    console.log(`📅 Primo giorno con dati aggiornato: ${this.state.firstDateWithData}`);
 
     // Trova il primo giorno con dati
     const firstDateWithData = this.findFirstDateWithData();
-    console.log(`🔍 Primo giorno trovato: ${firstDateWithData}`);
     
     if (firstDateWithData) {
       // Ricalcola TUTTO dal primo giorno
       this.recalculateFromDate(firstDateWithData);
-      console.log(`🔄 Ricalcolo completato da ${firstDateWithData}`);
     }
 
     // Ottieni i risultati aggiornati
     const updatedEntry = this.state.entries.get(date);
     const updatedTotals = this.state.progressiveTotals.get(date);
-
-    console.log(`📊 Risultati per ${date}:`, {
-      hasUpdatedEntry: !!updatedEntry,
-      hasUpdatedTotals: !!updatedTotals,
-      entryEntriesCount: updatedEntry?.entries?.length || 0,
-      progressiveTotals: updatedTotals
-    });
-
-    this.performanceMetrics.calculationTime = performance.now() - startTime;
 
     if (!updatedEntry || !updatedTotals) {
       throw new Error(`Dati non trovati per la data ${date}`);
@@ -367,8 +346,6 @@ export class ProgressiveCalculationService {
     if (firstDateWithData) {
       this.recalculateFromDate(firstDateWithData);
     }
-
-    console.log(`📊 ProgressiveCalculationService: Caricati ${productEntries.length} focus references per ${date}`);
   }
 
   /**
@@ -377,14 +354,6 @@ export class ProgressiveCalculationService {
    */
   public getCellDisplayData(date: string): CellVisualizationResult {
     const entry = this.state.entries.get(date);
-    
-    console.log(`🔍 getCellDisplayData per ${date}:`, {
-      hasEntry: !!entry,
-      firstDateWithData: this.state.firstDateWithData,
-      isFirstDay: date === this.state.firstDateWithData,
-      entriesCount: entry?.entries?.length || 0,
-      progressiveTotals: entry?.progressiveTotals || null
-    });
     
     if (!entry) {
       return {
@@ -414,7 +383,6 @@ export class ProgressiveCalculationService {
     
     if (isFirstDay) {
       // Primo giorno: mostra dati originali inseriti nel form
-      console.log(`📅 Primo giorno ${date}: usando dati originali`);
       return {
         displayData: {
           originalEntries: entry.entries,
@@ -429,12 +397,6 @@ export class ProgressiveCalculationService {
     } else {
       // Giorni successivi: mostra dati progressivi
       const progressiveEntries = this.calculateProgressiveEntries(date);
-      
-      console.log(`📊 Giorni successivi ${date}:`, {
-        progressiveEntriesCount: progressiveEntries.length,
-        progressiveTotals: entry.progressiveTotals,
-        sellInProgressivo: entry.progressiveTotals.sellIn
-      });
       
       return {
         displayData: {
@@ -499,7 +461,6 @@ export class ProgressiveCalculationService {
       }
     }
     
-    console.log(`💰 ProgressiveCalculationService: Sell-in totale calcolato: €${totalSellIn} (da ${entriesCount} entries)`);
     return totalSellIn;
   }
 
@@ -522,7 +483,6 @@ export class ProgressiveCalculationService {
       }
     }
     
-    console.log(`💰 ProgressiveCalculationService: Sell-in mensile ${year}-${month}: €${monthlySellIn}`);
     return monthlySellIn;
   }
 

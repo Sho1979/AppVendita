@@ -163,8 +163,6 @@ export default function MonthCalendar({
     return dateStr === selectedDate;
   };
 
-  console.log('🎨 MonthCalendar: Rendering calendario mensile');
-
   return (
     <View style={styles.container}>
       {/* Header giorni della settimana con indicatori di riassunto */}
@@ -202,14 +200,6 @@ export default function MonthCalendar({
                 .map((date) => {
                   const entry = getEntryForDate(date);
                   const dateStr = date.toISOString().split('T')[0];
-                  
-                  console.log(`📅 MonthCalendar: Passando entry a CustomCalendarCell per data ${dateStr}:`, entry ? { 
-                    id: entry.id, 
-                    focusReferencesData: entry.focusReferencesData, 
-                    hasFocusData: entry.focusReferencesData && entry.focusReferencesData.length > 0,
-                    tags: entry.tags,
-                    tagsCount: entry.tags?.length || 0
-                  } : 'Nessun entry');
 
                   return (
                     <CustomCalendarCell

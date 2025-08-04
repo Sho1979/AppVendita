@@ -32,11 +32,9 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
     setError(null);
 
     try {
-      console.log(`🔄 useProgressiveCalculation: updateCell per ${date} con ${entries.length} entries`);
       const result = calculationService.updateCellAndRecalculate(date, entries);
       setLastCalculation(new Date());
       
-      console.log(`✅ useProgressiveCalculation: updateCell completato per ${date}`);
       return result;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Errore di calcolo';
@@ -155,9 +153,7 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
    */
   const loadFocusReferencesData = useCallback((date: string, focusReferencesData: any[]) => {
     try {
-      console.log(`📊 useProgressiveCalculation: loadFocusReferencesData per ${date} con ${focusReferencesData.length} entries`);
       calculationService.loadFocusReferencesData(date, focusReferencesData);
-      console.log(`✅ useProgressiveCalculation: loadFocusReferencesData completato per ${date}`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Errore caricamento focus references';
       setError(errorMessage);

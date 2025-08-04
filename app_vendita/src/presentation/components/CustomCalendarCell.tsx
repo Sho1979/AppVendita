@@ -49,10 +49,13 @@ function CustomCalendarCell({
   const totalSales = entry?.sales.reduce((sum, sale) => sum + sale.value, 0) || 0;
   const totalActions = entry?.actions.reduce((sum, action) => sum + action.count, 0) || 0;
   
+  // Stabilizza la chiamata a getDisplayDataForDate per evitare re-render continui
+  const displayData = useMemo(() => {
+    return getDisplayDataForDate(date, entry, isInitialized);
+  }, [date, entry?.id, isInitialized]);
+  
   // Calcola il sell-in totale dalle referenze focus
   const totalSellIn = useMemo(() => {
-    const displayData = getDisplayDataForDate(date, entry, isInitialized);
-    
     // Se il sistema progressivo non è inizializzato, usa i dati originali
     if (displayData.useOriginalData) {
       if (!entry?.focusReferencesData || entry.focusReferencesData.length === 0) {
@@ -86,19 +89,17 @@ function CustomCalendarCell({
 
     // Altrimenti usa il sell-in progressivo
     return displayData.progressiveData?.sellInProgressivo || 0;
-  }, [entry?.focusReferencesData, entry?.id, date, getDisplayDataForDate, isInitialized]);
+  }, [displayData, entry?.focusReferencesData]);
 
-  // Notifica il sell-in al componente padre solo quando cambia
-  useEffect(() => {
-    if (onSellInChange) {
-      onSellInChange(date, totalSellIn);
-    }
-  }, [date, totalSellIn, onSellInChange]);
+  // Rimuovo il useEffect problematico che causa loop infinito
+  // useEffect(() => {
+  //   if (onSellInChange) {
+  //     onSellInChange(date, totalSellIn);
+  //   }
+  // }, [date, totalSellIn, onSellInChange]);
 
   // Funzioni per determinare se i tooltip hanno contenuto
   const hasStockContent = () => {
-    const displayData = getDisplayDataForDate(date, entry);
-    
     if (displayData.useOriginalData) {
       return entry?.focusReferencesData && entry.focusReferencesData.length > 0;
     }
@@ -115,8 +116,6 @@ function CustomCalendarCell({
 
   // Componente per visualizzare le referenze focus
   const FocusReferencesDisplay = () => {
-    const displayData = getDisplayDataForDate(date, entry, isInitialized);
-    
     // Se il sistema progressivo non è inizializzato, usa i dati originali
     if (displayData.useOriginalData) {
       if (!entry?.focusReferencesData || entry.focusReferencesData.length === 0) {
@@ -366,15 +365,69 @@ function CustomCalendarCell({
           </View>
 
           {/* PARTE 2: Tag su 2 righe */}
-          {entry?.tags && entry.tags.length > 0 && (
-            <View style={styles.tagsSection}>
-              <CellTags 
-                tagIds={entry.tags} 
-                size="tiny" 
-                maxVisible={entry.tags.length}
-              />
-            </View>
-          )}
+          {/* Mostra i tag se ci sono tag espliciti O se la cella ha altri contenuti */}
+          {(() => {
+            const hasTags = entry?.tags && entry.tags.length > 0;
+            const hasFocusData = entry?.focusReferencesData && entry.focusReferencesData.length > 0;
+            const hasSales = entry?.sales && entry.sales.length > 0;
+            const hasActions = entry?.actions && entry.actions.length > 0;
+            const hasContent = hasTags || hasFocusData || hasSales || hasActions;
+            
+            // Debug: log per capire cosa contiene l'entry
+            console.log('🔍 CustomCalendarCell: Debug entry per data', date, {
+              id: entry?.id,
+              hasTags,
+              tags: entry?.tags,
+              hasFocusData,
+              focusReferencesDataLength: entry?.focusReferencesData?.length,
+              hasSales,
+              salesLength: entry?.sales?.length,
+              hasActions,
+              actionsLength: entry?.actions?.length,
+              hasContent
+            });
+            
+            // Se non ci sono tag espliciti ma c'è contenuto, genera tag di default
+            let tagIds = entry?.tags || [];
+            if (!hasTags && hasContent) {
+              // Genera tag di default basati sul contenuto
+              const defaultTags = [];
+              if (hasFocusData) defaultTags.push('merchandiser'); // M per focus references
+              if (hasSales) defaultTags.push('sell_in'); // SI per vendite
+              if (hasActions) defaultTags.push('check'); // ✓ per azioni
+              tagIds = defaultTags;
+              
+              console.log('🔍 CustomCalendarCell: Generati tag di default per data', date, {
+                defaultTags,
+                tagIds
+              });
+            }
+            
+            console.log('🔍 CustomCalendarCell: Tag finali per data', date, {
+              tagIds,
+              tagIdsLength: tagIds.length,
+              hasContent
+            });
+            
+            // Forza la visualizzazione se c'è contenuto, indipendentemente dai tag
+            const shouldShowTags = hasContent && tagIds.length > 0;
+            
+            console.log('🔍 CustomCalendarCell: Should show tags per data', date, {
+              shouldShowTags,
+              hasContent,
+              tagIdsLength: tagIds.length
+            });
+            
+            return shouldShowTags ? (
+              <View style={styles.tagsSection}>
+                <CellTags 
+                  tagIds={tagIds} 
+                  size="tiny" 
+                  maxVisible={tagIds.length}
+                />
+              </View>
+            ) : null;
+          })()}
 
           {/* PARTE 3: Sezione numeri (vendite e azioni) */}
           <View style={styles.numbersSection}>
@@ -548,16 +601,36 @@ function CustomCalendarCell({
           </View>
 
           {/* Tag direttamente sotto il numero del giorno */}
-          {entry?.tags && entry.tags.length > 0 && (
-            <View style={[styles.tagsContainer, !isWeekView && styles.monthTagsContainer]}>
-              <CellTags 
-                tagIds={entry.tags} 
-                size="tiny" 
-                maxVisible={isWeekView ? entry.tags.length : Math.min(entry.tags.length, 5)}
-                layout={isWeekView ? 'vertical' : 'horizontal'}
-              />
-            </View>
-          )}
+          {/* Mostra i tag se ci sono tag espliciti O se la cella ha altri contenuti */}
+          {(() => {
+            const hasTags = entry?.tags && entry.tags.length > 0;
+            const hasFocusData = entry?.focusReferencesData?.length > 0;
+            const hasSales = entry?.sales && entry.sales.length > 0;
+            const hasActions = entry?.actions && entry.actions.length > 0;
+            const hasContent = hasTags || hasFocusData || hasSales || hasActions;
+            
+            // Se non ci sono tag espliciti ma c'è contenuto, genera tag di default
+            let tagIds = entry?.tags || [];
+            if (!hasTags && hasContent) {
+              // Genera tag di default basati sul contenuto
+              const defaultTags = [];
+              if (hasFocusData) defaultTags.push('merchandiser'); // M per focus references
+              if (hasSales) defaultTags.push('sell_in'); // SI per vendite
+              if (hasActions) defaultTags.push('check'); // ✓ per azioni
+              tagIds = defaultTags;
+            }
+            
+            return hasContent ? (
+              <View style={[styles.tagsContainer, !isWeekView && styles.monthTagsContainer]}>
+                <CellTags 
+                  tagIds={tagIds} 
+                  size="tiny" 
+                  maxVisible={isWeekView ? tagIds.length : Math.min(tagIds.length, 5)}
+                  layout={isWeekView ? 'vertical' : 'horizontal'}
+                />
+              </View>
+            ) : null;
+          })()}
 
           {/* Contenuto per vista mensile (riassunto) */}
           <View style={styles.monthContent}>

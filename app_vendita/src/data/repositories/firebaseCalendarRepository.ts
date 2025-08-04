@@ -46,13 +46,36 @@ export class FirebaseCalendarRepository {
       }
       
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
+      const entries = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         createdAt: doc.data().createdAt?.toDate(),
         updatedAt: doc.data().updatedAt?.toDate(),
         date: doc.data().date?.toDate()
       })) as CalendarEntry[];
+
+      // Aggiungi tag di default per le entry che non hanno tag ma hanno contenuto
+      return entries.map(entry => {
+        const hasTags = entry.tags && entry.tags.length > 0;
+        const hasFocusData = entry.focusReferencesData && entry.focusReferencesData.length > 0;
+        const hasSales = entry.sales && entry.sales.length > 0;
+        const hasActions = entry.actions && entry.actions.length > 0;
+        
+        // Se non ci sono tag espliciti ma c'è contenuto, genera tag di default
+        if (!hasTags && (hasFocusData || hasSales || hasActions)) {
+          const defaultTags = [];
+          if (hasFocusData) defaultTags.push('merchandiser'); // M per focus references
+          if (hasSales) defaultTags.push('sell_in'); // SI per vendite
+          if (hasActions) defaultTags.push('check'); // ✓ per azioni
+          
+          return {
+            ...entry,
+            tags: defaultTags
+          };
+        }
+        
+        return entry;
+      });
     } catch (error) {
       console.error('❌ FirebaseCalendarRepository: Errore nel recupero entries:', error);
       throw error;
@@ -65,13 +88,34 @@ export class FirebaseCalendarRepository {
       const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
-        return {
+        const entry = {
           id: docSnap.id,
           ...docSnap.data(),
           createdAt: docSnap.data().createdAt?.toDate(),
           updatedAt: docSnap.data().updatedAt?.toDate(),
           date: docSnap.data().date?.toDate()
         } as CalendarEntry;
+
+        // Aggiungi tag di default se necessario
+        const hasTags = entry.tags && entry.tags.length > 0;
+        const hasFocusData = entry.focusReferencesData && entry.focusReferencesData.length > 0;
+        const hasSales = entry.sales && entry.sales.length > 0;
+        const hasActions = entry.actions && entry.actions.length > 0;
+        
+        // Se non ci sono tag espliciti ma c'è contenuto, genera tag di default
+        if (!hasTags && (hasFocusData || hasSales || hasActions)) {
+          const defaultTags = [];
+          if (hasFocusData) defaultTags.push('merchandiser'); // M per focus references
+          if (hasSales) defaultTags.push('sell_in'); // SI per vendite
+          if (hasActions) defaultTags.push('check'); // ✓ per azioni
+          
+          return {
+            ...entry,
+            tags: defaultTags
+          };
+        }
+        
+        return entry;
       }
       return null;
     } catch (error) {

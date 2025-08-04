@@ -90,17 +90,8 @@ export const useProgressiveIntegration = (sharedService?: ProgressiveCalculation
     // Usa isInitialized dal context se fornito, altrimenti usa quello locale
     const effectiveIsInitialized = contextIsInitialized !== undefined ? contextIsInitialized : isInitialized;
     
-    console.log(`🔍 getDisplayDataForDate per ${date}:`, {
-      localIsInitialized: isInitialized,
-      contextIsInitialized,
-      effectiveIsInitialized,
-      hasOriginalEntry: !!originalEntry,
-      originalEntryId: originalEntry?.id
-    });
-    
     // Se il sistema non è inizializzato, usa i dati originali
     if (!effectiveIsInitialized) {
-      console.log(`⚠️ Sistema non inizializzato, uso dati originali per ${date}`);
       return {
         useOriginalData: true,
         originalEntry,
@@ -110,12 +101,6 @@ export const useProgressiveIntegration = (sharedService?: ProgressiveCalculation
 
     // Altrimenti usa il sistema progressivo
     const progressiveData = getCellDisplayData(date);
-    
-    console.log(`📊 Dati progressivi per ${date}:`, {
-      hasProgressiveData: !!progressiveData,
-      progressiveEntriesCount: progressiveData?.displayData?.progressiveEntries?.length || 0,
-      sellInProgressivo: progressiveData?.sellInProgressivo || 0
-    });
     
     return {
       useOriginalData: false,

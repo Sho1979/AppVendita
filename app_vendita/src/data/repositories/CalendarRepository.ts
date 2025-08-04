@@ -170,11 +170,37 @@ export class AsyncStorageCalendarRepository implements CalendarRepository {
           repeatSettings: entry.repeatSettings || null,
         };
         
+        // Aggiungi tag di default se non ci sono tag espliciti ma c'è contenuto
+        const hasTags = correctedEntry.tags && correctedEntry.tags.length > 0;
+        const hasFocusData = correctedEntry.focusReferencesData && correctedEntry.focusReferencesData.length > 0;
+        const hasSales = correctedEntry.sales && correctedEntry.sales.length > 0;
+        const hasActions = correctedEntry.actions && correctedEntry.actions.length > 0;
+        
+        // Se non ci sono tag espliciti ma c'è contenuto, genera tag di default
+        if (!hasTags && (hasFocusData || hasSales || hasActions)) {
+          const defaultTags = [];
+          if (hasFocusData) defaultTags.push('merchandiser'); // M per focus references
+          if (hasSales) defaultTags.push('sell_in'); // SI per vendite
+          if (hasActions) defaultTags.push('check'); // ✓ per azioni
+          
+          correctedEntry.tags = defaultTags;
+          
+          console.log('📥 Repository: Aggiunti tag di default per entry:', {
+            id: correctedEntry.id,
+            defaultTags,
+            hasFocusData,
+            hasSales,
+            hasActions
+          });
+        }
+        
         // Debug: log dei dati dopo la correzione
         console.log('📥 Repository: Entry dopo correzione:', {
           id: correctedEntry.id,
           focusReferencesData: correctedEntry.focusReferencesData,
           focusReferencesDataLength: correctedEntry.focusReferencesData?.length,
+          tags: correctedEntry.tags,
+          tagsLength: correctedEntry.tags?.length
         });
         
         return correctedEntry;
@@ -235,6 +261,50 @@ export class AsyncStorageCalendarRepository implements CalendarRepository {
 
       const entries: CalendarEntry[] = JSON.parse(entriesJson);
       const entry = entries.find(entry => entry.id === id) || null;
+
+      if (entry) {
+        // Assicuriamoci che tutti i campi opzionali siano presenti
+        const correctedEntry: CalendarEntry = {
+          ...entry,
+          focusReferencesData: Array.isArray(entry.focusReferencesData) ? entry.focusReferencesData : [],
+          tags: Array.isArray(entry.tags) ? entry.tags : [],
+          sales: Array.isArray(entry.sales) ? entry.sales : [],
+          actions: Array.isArray(entry.actions) ? entry.actions : [],
+          repeatSettings: entry.repeatSettings || null,
+        };
+        
+        // Aggiungi tag di default se non ci sono tag espliciti ma c'è contenuto
+        const hasTags = correctedEntry.tags && correctedEntry.tags.length > 0;
+        const hasFocusData = correctedEntry.focusReferencesData && correctedEntry.focusReferencesData.length > 0;
+        const hasSales = correctedEntry.sales && correctedEntry.sales.length > 0;
+        const hasActions = correctedEntry.actions && correctedEntry.actions.length > 0;
+        
+        // Se non ci sono tag espliciti ma c'è contenuto, genera tag di default
+        if (!hasTags && (hasFocusData || hasSales || hasActions)) {
+          const defaultTags = [];
+          if (hasFocusData) defaultTags.push('merchandiser'); // M per focus references
+          if (hasSales) defaultTags.push('sell_in'); // SI per vendite
+          if (hasActions) defaultTags.push('check'); // ✓ per azioni
+          
+          correctedEntry.tags = defaultTags;
+          
+          console.log('📥 Repository: Aggiunti tag di default per entry singola:', {
+            id: correctedEntry.id,
+            defaultTags,
+            hasFocusData,
+            hasSales,
+            hasActions
+          });
+        }
+        
+        console.log('📥 Repository: Entry trovata e corretta:', {
+          id: correctedEntry.id,
+          tags: correctedEntry.tags,
+          tagsLength: correctedEntry.tags?.length
+        });
+        
+        return correctedEntry;
+      }
 
       console.log('📥 Repository: Entry trovata:', entry ? 'sì' : 'no');
       return entry;

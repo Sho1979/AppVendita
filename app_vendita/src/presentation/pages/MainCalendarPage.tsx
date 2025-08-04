@@ -111,6 +111,16 @@ export default function MainCalendarPage({
       return true;
     });
   }, [state.entries]);
+
+  // Funzione per ottenere tutte le entries per le viste calendario (senza filtro data)
+  const getCalendarEntries = useCallback(() => {
+    const filtersState = useFiltersStore.getState();
+    return state.entries.filter(entry => {
+      if (filtersState.selectedSalesPointId && entry.salesPointId !== filtersState.selectedSalesPointId) return false;
+      if (filtersState.selectedUserId && entry.userId !== filtersState.selectedUserId) return false;
+      return true;
+    });
+  }, [state.entries]);
   
 
 
@@ -978,7 +988,7 @@ export default function MainCalendarPage({
           {calendarView === 'week' ? (
             <WeekCalendar
               currentDate={currentDate}
-              entries={getFilteredEntries()}
+              entries={getCalendarEntries()}
               selectedDate={selectedDate}
               onDayPress={onDayPress}
               onTooltipPress={handleTooltipPress}
@@ -987,7 +997,7 @@ export default function MainCalendarPage({
           ) : (
             <MonthCalendar
               currentDate={currentDate}
-              entries={getFilteredEntries()}
+              entries={getCalendarEntries()}
               selectedDate={selectedDate}
               onDayPress={onDayPress}
               onTooltipPress={handleTooltipPress}
