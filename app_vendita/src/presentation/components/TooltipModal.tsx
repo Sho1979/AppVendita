@@ -10,8 +10,6 @@ import {
   TextInput,
   KeyboardAvoidingView,
 } from 'react-native';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { TouchableOpacity } from 'react-native';
 import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { Colors } from '../../constants/Colors';
@@ -54,14 +52,6 @@ export default function TooltipModal({
   const scrollViewRef = useRef<ScrollView>(null);
   const [newMessage, setNewMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  
-  // Rimuoviamo questo log che causa re-render continui
-  // console.log('🔧 TooltipModal: Modal inizializzato con:', {
-  //   visible,
-  //   type,
-  //   date,
-  //   hasEntry: !!entry,
-  // });
 
   // Scroll to bottom when new messages are added
   useEffect(() => {
@@ -105,9 +95,9 @@ export default function TooltipModal({
       case 'notes':
         return '📝 Note e Commenti';
       case 'info':
-        return '👤 Info Agente e Punto Vendita';
+        return '👤 Informazioni';
       case 'images':
-        return '📷 Immagini e Documenti';
+        return '📷 Immagini';
       default:
         return 'Tooltip';
     }
@@ -117,216 +107,194 @@ export default function TooltipModal({
     switch (type) {
       case 'stock':
         return (
-          <View style={styles.contentSection}>
-            <Text style={styles.sectionTitle}>📦 Situazione Stock Completa</Text>
+          <View style={styles.stockContent}>
+            <Text style={styles.sectionTitle}>📦 Gestione Stock</Text>
+            <Text style={styles.description}>
+              Gestisci le scorte e le vendite per questo giorno
+            </Text>
             
             {entry?.focusReferencesData && entry.focusReferencesData.length > 0 ? (
-              entry.focusReferencesData.map((focusData, index) => {
-                const reference = getFocusReferenceById(focusData.referenceId);
-                if (!reference) return null;
-                
-                const orderedPieces = parseFloat(focusData.orderedPieces) || 0;
-                const soldPieces = parseFloat(focusData.soldPieces) || 0;
-                const stockPieces = parseFloat(focusData.stockPieces) || 0;
-                const totalPieces = orderedPieces + soldPieces + stockPieces;
-                
-                // Calcola percentuali
-                const orderedPercentage = totalPieces > 0 ? ((orderedPieces / totalPieces) * 100).toFixed(1) : '0';
-                const soldPercentage = totalPieces > 0 ? ((soldPieces / totalPieces) * 100).toFixed(1) : '0';
-                const stockPercentage = totalPieces > 0 ? ((stockPieces / totalPieces) * 100).toFixed(1) : '0';
-                
-                return (
-                  <View key={index} style={styles.stockItem}>
-                    <View style={styles.stockHeader}>
-                      <Text style={styles.stockTitle}>{reference.description}</Text>
-                      <Text style={styles.stockCode}>Codice: {reference.code}</Text>
-                    </View>
-                    
-                    <View style={styles.stockDetails}>
-                      <View style={styles.stockRow}>
-                        <Text style={styles.stockLabel}>📦 Ordinati:</Text>
-                        <Text style={styles.stockValue}>{orderedPieces} pz</Text>
-                        <Text style={styles.stockPercentage}>({orderedPercentage}%)</Text>
+              <View style={styles.stockList}>
+                {entry.focusReferencesData.map((focusData) => {
+                  const reference = getFocusReferenceById(focusData.referenceId);
+                  if (!reference) return null;
+
+                  const soldPieces = parseFloat(focusData.soldPieces) || 0;
+                  const stockPieces = parseFloat(focusData.stockPieces) || 0;
+                  const orderedPieces = parseFloat(focusData.orderedPieces) || 0;
+
+                  return (
+                    <View key={focusData.referenceId} style={styles.stockItem}>
+                      <View style={styles.stockHeader}>
+                        <Text style={styles.stockCode}>{reference.code}</Text>
+                        <Text style={styles.stockDescription}>{reference.description}</Text>
                       </View>
-                      
-                      <View style={styles.stockRow}>
-                        <Text style={styles.stockLabel}>💰 Venduti:</Text>
-                        <Text style={styles.stockValue}>{soldPieces} pz</Text>
-                        <Text style={styles.stockPercentage}>({soldPercentage}%)</Text>
-                      </View>
-                      
-                      <View style={styles.stockRow}>
-                        <Text style={styles.stockLabel}>📋 Stock:</Text>
-                        <Text style={styles.stockValue}>{stockPieces} pz</Text>
-                        <Text style={styles.stockPercentage}>({stockPercentage}%)</Text>
-                      </View>
-                      
-                      <View style={styles.stockTotal}>
-                        <Text style={styles.stockTotalLabel}>📊 Totale:</Text>
-                        <Text style={styles.stockTotalValue}>{totalPieces} pz</Text>
+                      <View style={styles.stockDetails}>
+                        <View style={styles.stockRow}>
+                          <Text style={styles.stockLabel}>Ordinati:</Text>
+                          <Text style={styles.stockValue}>{orderedPieces}</Text>
+                        </View>
+                        <View style={styles.stockRow}>
+                          <Text style={styles.stockLabel}>Venduti:</Text>
+                          <Text style={styles.stockValue}>{soldPieces}</Text>
+                        </View>
+                        <View style={styles.stockRow}>
+                          <Text style={styles.stockLabel}>Scorte:</Text>
+                          <Text style={[
+                            styles.stockValue,
+                            stockPieces <= 0 && styles.stockValueWarning
+                          ]}>
+                            {stockPieces}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                );
-              })
+                  );
+                })}
+              </View>
             ) : (
-              <Text style={styles.contentText}>
-                Nessun dato stock disponibile per questo giorno
-              </Text>
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>Nessun dato stock disponibile</Text>
+                <Text style={styles.emptySubtext}>
+                  Aggiungi dati delle referenze focus per visualizzare le informazioni stock
+                </Text>
+              </View>
             )}
           </View>
         );
 
       case 'notes':
         return (
-          <View style={styles.chatContainer}>
+          <View style={styles.notesContent}>
             <Text style={styles.sectionTitle}>💬 Chat Note</Text>
             
-            {/* Chat Messages */}
-            <ScrollView 
-              ref={scrollViewRef}
-              style={styles.chatMessages}
-              showsVerticalScrollIndicator={false}
-            >
-              {entry?.chatNotes && entry.chatNotes.length > 0 ? (
-                entry.chatNotes.map((note) => {
+            {/* Lista messaggi esistenti */}
+            {entry?.chatNotes && entry.chatNotes.length > 0 ? (
+              <ScrollView 
+                ref={scrollViewRef}
+                style={styles.chatContainer}
+                showsVerticalScrollIndicator={false}
+              >
+                {entry.chatNotes.map((note) => {
                   const isCurrentUser = note.userId === 'default_user'; // TODO: Usare utente corrente
                   const userInitials = (note.userName || note.userId).substring(0, 2).toUpperCase();
                   
                   return (
                     <View key={note.id} style={[
-                      styles.messageWrapper,
-                      isCurrentUser ? styles.messageWrapperRight : styles.messageWrapperLeft
+                      styles.chatMessage,
+                      isCurrentUser ? styles.chatMessageOwn : styles.chatMessageOther
                     ]}>
-                      {/* Avatar/Iniziali per altri utenti */}
-                      {!isCurrentUser && (
-                        <View style={styles.avatarContainer}>
-                          <Text style={styles.avatarText}>{userInitials}</Text>
-                        </View>
-                      )}
-                      
-                      {/* Messaggio */}
                       <View style={[
-                        styles.messageBubble,
-                        isCurrentUser ? styles.messageBubbleRight : styles.messageBubbleLeft
+                        styles.chatBubble,
+                        isCurrentUser ? styles.chatBubbleOwn : styles.chatBubbleOther
                       ]}>
+                        <View style={styles.chatHeader}>
+                          <View style={[
+                            styles.userAvatar,
+                            isCurrentUser ? styles.userAvatarOwn : styles.userAvatarOther
+                          ]}>
+                            <Text style={styles.userInitials}>{userInitials}</Text>
+                          </View>
+                          <Text style={styles.userName}>{note.userName}</Text>
+                          <Text style={styles.messageTime}>
+                            {new Date(note.timestamp).toLocaleTimeString('it-IT', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </Text>
+                        </View>
                         <Text style={[
                           styles.messageText,
-                          isCurrentUser ? styles.messageTextRight : styles.messageTextLeft
+                          isCurrentUser ? styles.messageTextOwn : styles.messageTextOther
                         ]}>
                           {note.message}
-                        </Text>
-                        
-                        {/* Timestamp discreto */}
-                        <Text style={[
-                          styles.messageTimestamp,
-                          isCurrentUser ? styles.messageTimestampRight : styles.messageTimestampLeft
-                        ]}>
-                          {new Date(note.timestamp).toLocaleTimeString('it-IT', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
                         </Text>
                       </View>
                     </View>
                   );
-                })
-              ) : (
-                <View style={styles.emptyChat}>
-                  <Text style={styles.emptyChatText}>
-                    Nessun messaggio per questo giorno
-                  </Text>
-                  <Text style={styles.emptyChatSubtext}>
-                    Scrivi un messaggio qui sotto
-                  </Text>
-                </View>
-              )}
-            </ScrollView>
-            
-            {/* Chat Input (stile WhatsApp) */}
-            <View style={styles.chatInputContainer}>
-              <SafeTouchableOpacity
-                style={styles.emojiButton}
-                onPress={() => setShowEmojiPicker(!showEmojiPicker)}
-              >
-                <Text style={styles.emojiButtonText}>😊</Text>
-              </SafeTouchableOpacity>
-              
-              <View style={styles.inputWrapper}>
+                })}
+              </ScrollView>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>Nessun messaggio</Text>
+                <Text style={styles.emptySubtext}>
+                  Inizia la conversazione aggiungendo un messaggio
+                </Text>
+              </View>
+            )}
+
+            {/* Input per nuovo messaggio */}
+            <View style={styles.messageInputContainer}>
+              <View style={styles.messageInputRow}>
                 <TextInput
-                  style={styles.chatInput}
-                  placeholder="Messaggio..."
+                  style={styles.messageInput}
+                  placeholder="Scrivi un messaggio..."
                   value={newMessage}
                   onChangeText={setNewMessage}
                   multiline
                   maxLength={500}
-                  placeholderTextColor="#999999"
                 />
+                <SafeTouchableOpacity
+                  style={[
+                    styles.sendButton,
+                    !newMessage.trim() && styles.sendButtonDisabled
+                  ]}
+                  onPress={handleSendMessage}
+                  disabled={!newMessage.trim()}
+                >
+                  <Text style={styles.sendButtonText}>📤</Text>
+                </SafeTouchableOpacity>
               </View>
-              
-              <SafeTouchableOpacity
-                style={[
-                  styles.sendButton,
-                  !newMessage.trim() && styles.sendButtonDisabled
-                ]}
-                onPress={handleSendMessage}
-                disabled={!newMessage.trim()}
-              >
-                <Text style={styles.sendButtonText}>📤</Text>
-              </SafeTouchableOpacity>
             </View>
-            
-            {/* Emoji Picker */}
-            {showEmojiPicker && (
-              <View style={styles.emojiPickerContainer}>
-                <Text style={styles.emojiPickerTitle}>Seleziona emoji:</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.emojiGrid}>
-                    {['😊', '😂', '❤️', '👍', '🎉', '🔥', '💯', '👏', '🙏', '😍', '🤔', '😢', '😡', '😴', '🤗', '😎', '🤩', '😭', '😱', '🤯'].map((emoji, index) => (
-                      <SafeTouchableOpacity
-                        key={index}
-                        style={styles.emojiItem}
-                        onPress={() => handleEmojiSelect({ native: emoji })}
-                      >
-                        <Text style={styles.emojiText}>{emoji}</Text>
-                      </SafeTouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
-              </View>
-            )}
           </View>
         );
 
       case 'info':
-        // Conta i filtri attivi
-        const activeFiltersCount = [
-          activeFilters?.selectedLine,
-          activeFilters?.selectedAMCode,
-          activeFilters?.selectedNAMCode,
-          activeFilters?.selectedUserId,
-          activeFilters?.selectedSalesPointId,
-          ...(activeFilters?.selectedFilterItems || [])
-        ].filter(Boolean).length;
-
         return (
-          <View style={styles.contentSection}>
-            <Text style={styles.sectionTitle}>👤 Riassunto Filtri</Text>
+          <View style={styles.infoContent}>
+            <Text style={styles.sectionTitle}>👤 Informazioni</Text>
+            <Text style={styles.description}>
+              Informazioni dettagliate per questo giorno
+            </Text>
             
-            {activeFiltersCount > 0 ? (
-              <View>
-                <Text style={styles.contentText}>
-                  📊 Filtri attivi: {activeFiltersCount}
-                </Text>
-                <Text style={styles.contentText}>
-                  I filtri selezionati influenzano la visualizzazione dei dati nel calendario.
-                </Text>
+            {activeFilters ? (
+              <View style={styles.infoList}>
+                {activeFilters.selectedUserId && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Utente:</Text>
+                    <Text style={styles.infoValue}>{activeFilters.selectedUserId}</Text>
+                  </View>
+                )}
+                {activeFilters.selectedSalesPointId && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Punto Vendita:</Text>
+                    <Text style={styles.infoValue}>{activeFilters.selectedSalesPointId}</Text>
+                  </View>
+                )}
+                {activeFilters.selectedAMCode && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>AM Code:</Text>
+                    <Text style={styles.infoValue}>{activeFilters.selectedAMCode}</Text>
+                  </View>
+                )}
+                {activeFilters.selectedNAMCode && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>NAM Code:</Text>
+                    <Text style={styles.infoValue}>{activeFilters.selectedNAMCode}</Text>
+                  </View>
+                )}
+                {activeFilters.selectedLine && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Linea:</Text>
+                    <Text style={styles.infoValue}>{activeFilters.selectedLine}</Text>
+                  </View>
+                )}
               </View>
             ) : (
-              <View style={styles.noFiltersContainer}>
-                <Text style={styles.noFiltersText}>Nessun filtro attivo</Text>
-                <Text style={styles.noFiltersSubtext}>
-                  Seleziona filtri per personalizzare la vista
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>Nessun filtro attivo</Text>
+                <Text style={styles.emptySubtext}>
+                  Seleziona dei filtri per visualizzare le informazioni
                 </Text>
               </View>
             )}
@@ -335,27 +303,40 @@ export default function TooltipModal({
 
       case 'images':
         return (
-          <View style={styles.contentSection}>
-            <Text style={styles.sectionTitle}>Immagini e Documenti</Text>
-            <Text style={styles.contentText}>
-              {entry ? 'Gestione immagini per questo giorno' : 'Nessun dato per questo giorno'}
+          <View style={styles.imagesContent}>
+            <Text style={styles.sectionTitle}>📷 Immagini</Text>
+            <Text style={styles.description}>
+              Carica e visualizza immagini per questo giorno
             </Text>
-            <SafeTouchableOpacity
-              style={styles.actionButton}
-              onPress={() => {
-                console.log('📷 Azione immagini per:', date);
-                Alert.alert('Immagini', 'Funzionalità immagini in sviluppo');
-              }}
-            >
-              <Text style={styles.actionButtonText}>📷 Carica Immagine</Text>
-            </SafeTouchableOpacity>
+            
+            <View style={styles.imagesContainer}>
+              <SafeTouchableOpacity
+                style={styles.uploadButton}
+                onPress={() => {
+                  // TODO: Implementare upload immagini
+                  Alert.alert('Upload Immagini', 'Funzionalità in sviluppo');
+                }}
+              >
+                <Text style={styles.uploadButtonText}>📷 Carica Immagine</Text>
+              </SafeTouchableOpacity>
+              
+              <View style={styles.imagesList}>
+                <Text style={styles.emptyText}>Nessuna immagine caricata</Text>
+                <Text style={styles.emptySubtext}>
+                  Carica immagini per documentare questo giorno
+                </Text>
+              </View>
+            </View>
           </View>
         );
 
       default:
         return (
-          <View style={styles.contentSection}>
-            <Text style={styles.contentText}>Tooltip non riconosciuto</Text>
+          <View style={styles.defaultContent}>
+            <Text style={styles.sectionTitle}>Tooltip</Text>
+            <Text style={styles.description}>
+              Contenuto non disponibile per questo tipo di tooltip
+            </Text>
           </View>
         );
     }
@@ -365,7 +346,7 @@ export default function TooltipModal({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
+      presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView 
@@ -374,44 +355,24 @@ export default function TooltipModal({
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{getModalTitle()}</Text>
-          <SafeTouchableOpacity style={styles.closeButton} onPress={onClose}>
+          <SafeTouchableOpacity
+            style={styles.closeButton}
+            onPress={onClose}
+            accessibilityLabel="Chiudi"
+            accessibilityHint="Chiudi il modal"
+          >
             <Text style={styles.closeButtonText}>✕</Text>
           </SafeTouchableOpacity>
+          
+          <Text style={styles.title}>{getModalTitle()}</Text>
+          
+          <View style={styles.headerSpacer} />
         </View>
 
-        {/* Content */}
-        {type === 'notes' ? (
-          <View style={styles.content}>
-            <View style={styles.dateSection}>
-              <Text style={styles.dateText}>
-                📅 {new Date(date).toLocaleDateString('it-IT', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-              </Text>
-            </View>
-
-            {getModalContent()}
-          </View>
-        ) : (
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            <View style={styles.dateSection}>
-              <Text style={styles.dateText}>
-                📅 {new Date(date).toLocaleDateString('it-IT', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-              </Text>
-            </View>
-
-            {getModalContent()}
-          </ScrollView>
-        )}
+        {/* Contenuto */}
+        <View style={styles.content}>
+          {getModalContent()}
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -613,13 +574,13 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 14,
-    lineHeight: 20,
+    color: Colors.warmText,
   },
-  messageTextLeft: {
-    color: '#000000',
-  },
-  messageTextRight: {
+  messageTextOwn: {
     color: '#ffffff',
+  },
+  messageTextOther: {
+    color: Colors.warmText,
   },
   messageTimestamp: {
     fontSize: 10,
@@ -674,28 +635,18 @@ const styles = StyleSheet.create({
     borderColor: '#e9ecef',
   },
   sendButton: {
-    width: 40,
-    height: 40,
+    padding: Spacing.small,
     backgroundColor: Colors.warmPrimary,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...(Platform.OS === 'web' ? {
-      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
-    } : {
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.2,
-      shadowRadius: 2,
-      elevation: 2,
-    }),
+    marginLeft: Spacing.small,
   },
   sendButtonDisabled: {
-    backgroundColor: '#cccccc',
+    backgroundColor: Colors.warmTextSecondary,
+    opacity: 0.6,
   },
   sendButtonText: {
-    fontSize: 16,
     color: '#ffffff',
+    fontSize: 16,
   },
   chatInfoBox: {
     padding: Spacing.medium,
@@ -805,5 +756,238 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#adb5bd',
     textAlign: 'center',
+  },
+  stockContent: {
+    padding: Spacing.medium,
+    backgroundColor: Colors.warmSurface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.warmBorder,
+  },
+  description: {
+    fontSize: 14,
+    color: Colors.warmTextSecondary,
+    marginBottom: Spacing.medium,
+    textAlign: 'center',
+  },
+  stockList: {
+    marginTop: Spacing.medium,
+  },
+  stockItem: {
+    marginBottom: Spacing.medium,
+    padding: Spacing.medium,
+    backgroundColor: Colors.warmSurface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.warmBorder,
+  },
+  stockHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.small,
+  },
+  stockCode: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: Colors.warmText,
+  },
+  stockDescription: {
+    fontSize: 12,
+    color: Colors.warmTextSecondary,
+    fontStyle: 'italic',
+  },
+  stockDetails: {
+    gap: Spacing.small,
+  },
+  stockRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  stockLabel: {
+    fontSize: 12,
+    color: Colors.warmText,
+  },
+  stockValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.warmText,
+  },
+  stockValueWarning: {
+    color: '#f44336',
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: Spacing.large,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: Colors.warmTextSecondary,
+    marginBottom: Spacing.small,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: Colors.warmTextSecondary,
+    fontStyle: 'italic',
+  },
+  notesContent: {
+    padding: Spacing.medium,
+    backgroundColor: Colors.warmSurface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.warmBorder,
+  },
+  chatMessage: {
+    marginBottom: Spacing.small,
+    alignItems: 'flex-end',
+  },
+  chatMessageOther: {
+    alignItems: 'flex-start',
+  },
+  chatMessageOwn: {
+    alignItems: 'flex-end',
+  },
+  chatBubble: {
+    maxWidth: '75%',
+    paddingHorizontal: Spacing.medium,
+    paddingVertical: Spacing.small,
+    borderRadius: 18,
+    position: 'relative',
+  },
+  chatBubbleOther: {
+    backgroundColor: '#f0f0f0',
+    borderBottomLeftRadius: 4,
+  },
+  chatBubbleOwn: {
+    backgroundColor: Colors.warmPrimary,
+    borderBottomRightRadius: 4,
+  },
+  chatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.small,
+  },
+  userAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.warmPrimary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.small,
+  },
+  userAvatarOther: {
+    backgroundColor: '#e0e0e0',
+  },
+  userAvatarOwn: {
+    backgroundColor: Colors.warmPrimary,
+  },
+  userInitials: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  userName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.warmText,
+    marginRight: Spacing.small,
+  },
+  messageTime: {
+    fontSize: 10,
+    color: Colors.warmTextSecondary,
+  },
+  messageInputContainer: {
+    padding: Spacing.medium,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  messageInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  messageInput: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 100,
+    paddingHorizontal: Spacing.medium,
+    paddingVertical: Spacing.small,
+    fontSize: 14,
+    color: '#000000',
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  imagesContent: {
+    padding: Spacing.medium,
+    backgroundColor: Colors.warmSurface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.warmBorder,
+  },
+  imagesContainer: {
+    marginTop: Spacing.medium,
+  },
+  uploadButton: {
+    backgroundColor: Colors.warmPrimary,
+    padding: Spacing.medium,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: Spacing.medium,
+  },
+  uploadButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  imagesList: {
+    alignItems: 'center',
+    padding: Spacing.medium,
+  },
+  defaultContent: {
+    padding: Spacing.medium,
+    backgroundColor: Colors.warmSurface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.warmBorder,
+  },
+  headerSpacer: {
+    width: 40, // Placeholder for spacer width
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.warmText,
+    textAlign: 'center',
+  },
+  infoContent: {
+    padding: Spacing.medium,
+    backgroundColor: Colors.warmSurface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.warmBorder,
+  },
+  infoList: {
+    marginTop: Spacing.medium,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.small,
+  },
+  infoLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.warmText,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: Colors.warmPrimary,
+    fontWeight: '500',
   },
 }); 

@@ -48,14 +48,6 @@ export default function EntryFormModal({
     clearError,
   } = useFirebaseCalendar();
 
-  // Rimuoviamo questo log che causa re-render continui
-  // console.log('📝 EntryFormModal: Modal inizializzato con:', {
-  //   visible,
-  //   entryId: entry?.id,
-  //   selectedDate,
-  //   isEdit: !!entry,
-  // });
-
   // Stato del form
   const [formData, setFormData] = useState<{
     notes: string;
@@ -86,8 +78,6 @@ export default function EntryFormModal({
     focusReferencesData: [],
   });
 
-
-
   // Funzione per gestire i cambiamenti dei dati delle referenze focus
   const handleFocusReferencesDataChange = useCallback((data: {
     referenceId: string;
@@ -103,17 +93,9 @@ export default function EntryFormModal({
   // Inizializza il form quando il modal si apre
   useEffect(() => {
     if (visible) {
-      // Rimuoviamo questo log che causa re-render continui
-      // console.log('📝 EntryFormModal: Form si apre con entry:', {
-      //   entryId: entry?.id,
-      //   entryTags: entry?.tags,
-      //   entryFocusData: entry?.focusReferencesData,
-      //   selectedDate,
-      // });
-      
       if (entry) {
-        // Modalità modifica
-        const newFormData = {
+        // Modalità modifica - carica dati esistenti
+        setFormData({
           notes: entry.notes || '',
           hasProblem: entry.hasProblem || false,
           problemDescription: entry.problemDescription || '',
@@ -123,19 +105,9 @@ export default function EntryFormModal({
             weeksCount: 1,
           },
           focusReferencesData: entry.focusReferencesData || [],
-        };
-        
-        // Rimuoviamo questo log che causa re-render continui
-        // console.log('📝 EntryFormModal: Caricamento dati esistenti:', {
-        //   tags: newFormData.tags,
-        //   focusReferencesData: newFormData.focusReferencesData,
-        // });
-        
-        setFormData(newFormData);
+        });
       } else {
-        // Modalità nuovo
-        // Rimuoviamo questo log che causa re-render continui
-        // console.log('📝 EntryFormModal: Inizializzazione form vuoto');
+        // Modalità nuovo - form vuoto
         setFormData({
           notes: '',
           hasProblem: false,
@@ -152,21 +124,8 @@ export default function EntryFormModal({
   }, [visible, entry, selectedDate]);
 
   const handleSave = async () => {
-    // Rimuoviamo questi log che causano re-render continui
-    // console.log('💾 EntryFormModal: Salvataggio entry...');
-    // console.log('📊 EntryFormModal: Stato formData:', {
-    //   tags: formData.tags,
-    //   tagsLength: formData.tags.length,
-    //   focusReferencesData: formData.focusReferencesData,
-    //   focusReferencesLength: formData.focusReferencesData.length,
-    //   hasProblem: formData.hasProblem,
-    //   notes: formData.notes,
-    // });
-
     // Validazione base - permette di salvare anche solo con tag o referenze focus
     if (formData.tags.length === 0 && formData.focusReferencesData.length === 0) {
-      // Rimuoviamo questo log che causa re-render continui
-      // console.log('❌ EntryFormModal: Validazione fallita - nessun dato inserito');
       Alert.alert(
         'Dati insufficienti',
         'Inserisci almeno un tag o dati delle referenze focus per salvare l\'entry.'
@@ -188,8 +147,6 @@ export default function EntryFormModal({
         timestamp: new Date(),
       };
       chatNotes = [...existingChatNotes, newChatNote];
-    } else {
-      // Nessun nuovo messaggio, mantenuti i chatNotes esistenti
     }
 
     // Prepara l'oggetto entry senza campi undefined
@@ -218,16 +175,6 @@ export default function EntryFormModal({
       };
     }
 
-    // Rimuoviamo questo log che causa re-render continui
-    // console.log('✅ EntryFormModal: Entry pronto per salvataggio:', {
-    //   id: entryToSave.id,
-    //   date: entryToSave.date,
-    //   tagsCount: entryToSave.tags.length,
-    //   tagsDetails: entryToSave.tags,
-    //   focusReferencesCount: entryToSave.focusReferencesData?.length || 0,
-    //   hasProblem: entryToSave.hasProblem,
-    // });
-
     try {
       // Verifica se l'entry esiste effettivamente in Firebase
       const entryExistsInFirebase = await entryExists(entryToSave.id);
@@ -235,12 +182,10 @@ export default function EntryFormModal({
       if (entry && entryExistsInFirebase) {
         // Modalità modifica - aggiorna entry esistente
         await updateEntry(entryToSave);
-        console.log('✅ EntryFormModal: Entry aggiornata con Firebase');
       } else {
         // Modalità nuovo - aggiungi nuova entry
         const { id, ...entryWithoutId } = entryToSave;
-        const newEntryId = await addEntry(entryWithoutId);
-        console.log('✅ EntryFormModal: Entry aggiunta con Firebase, ID:', newEntryId);
+        await addEntry(entryWithoutId);
       }
 
       // Chiama la callback originale per aggiornare l'UI
@@ -253,7 +198,6 @@ export default function EntryFormModal({
       clearError();
       
     } catch (error) {
-      console.error('❌ EntryFormModal: Errore salvataggio Firebase:', error);
       Alert.alert(
         'Errore di Salvataggio',
         'Si è verificato un errore durante il salvataggio. Riprova.'
@@ -274,12 +218,8 @@ export default function EntryFormModal({
           style: 'destructive',
           onPress: async () => {
             try {
-              // Rimuoviamo questo log che causa re-render continui
-              // console.log('🗑️ EntryFormModal: Eliminazione entry:', entry.id);
-              
               // Elimina da Firebase
               await deleteEntry(entry.id);
-              console.log('✅ EntryFormModal: Entry eliminata da Firebase');
               
               // Chiama la callback originale per aggiornare l'UI
               onDelete(entry.id);
@@ -288,7 +228,6 @@ export default function EntryFormModal({
               clearError();
               
             } catch (error) {
-              console.error('❌ EntryFormModal: Errore eliminazione Firebase:', error);
               Alert.alert(
                 'Errore di Eliminazione',
                 'Si è verificato un errore durante l\'eliminazione. Riprova.'
@@ -300,71 +239,93 @@ export default function EntryFormModal({
     );
   };
 
+  const handleClose = () => {
+    onCancel();
+  };
 
+  const handleTagsChange = (tags: string[]) => {
+    setFormData(prev => ({ ...prev, tags }));
+  };
+
+  const handleCopyTags = () => {
+    if (onCopyTags) {
+      const copiedTags = onCopyTags(selectedDate);
+      setFormData(prev => ({ ...prev, tags: copiedTags }));
+    }
+  };
+
+  const handleCancel = () => {
+    onCancel();
+  };
 
   return (
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
+      presentationStyle="pageSheet"
+      onRequestClose={handleClose}
     >
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>
+          <SafeTouchableOpacity
+            style={styles.closeButton}
+            onPress={handleClose}
+            accessibilityLabel="Chiudi"
+            accessibilityHint="Chiudi il modal"
+          >
+            <Text style={styles.closeButtonText}>✕</Text>
+          </SafeTouchableOpacity>
+          
+          <Text style={styles.title}>
             {entry ? 'Modifica Entry' : 'Nuovo Entry'}
           </Text>
-          <View style={styles.headerActions}>
-            {entry && onDelete && (
-              <SafeTouchableOpacity
-                style={styles.deleteButton}
-                onPress={handleDelete}
-              >
-                <Text style={styles.deleteButtonText}>🗑️</Text>
-              </SafeTouchableOpacity>
-            )}
-            <SafeTouchableOpacity 
-              style={styles.closeButton} 
-                        onPress={() => {
-            // Rimuoviamo questo log che causa re-render continui
-            // console.log('🔘 EntryFormModal: Pulsante X (chiudi) cliccato');
-            onCancel();
-          }}
+          
+          {entry && onDelete && (
+            <SafeTouchableOpacity
+              style={styles.deleteButton}
+              onPress={handleDelete}
+              accessibilityLabel="Elimina"
+              accessibilityHint="Elimina questo entry"
             >
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Text style={styles.deleteButtonText}>🗑️</Text>
             </SafeTouchableOpacity>
-          </View>
+          )}
         </View>
 
+        {/* Contenuto */}
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Note */}
+          {/* Data */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>💬 Chat Note</Text>
-            <InputField
-              label="Messaggio"
-              placeholder="Scrivi un messaggio per la chat..."
-              value={formData.notes}
-              onChangeText={(text) =>
-                setFormData(prev => ({ ...prev, notes: text }))
-              }
-              multiline
-              numberOfLines={3}
-            />
-            <Text style={styles.noteHint}>
-              💡 Il messaggio verrà salvato nella chat del tooltip
+            <Text style={styles.sectionTitle}>📅 Data</Text>
+            <Text style={styles.dateText}>
+              {new Date(selectedDate).toLocaleDateString('it-IT', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
             </Text>
           </View>
 
-          {/* Tag Selector */}
+          {/* Tag */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🏷️ Tag</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>🏷️ Tag</Text>
+              {onCopyTags && (
+                <SafeTouchableOpacity
+                  style={styles.copyButton}
+                  onPress={handleCopyTags}
+                  accessibilityLabel="Copia tag"
+                  accessibilityHint="Copia i tag da un altro giorno"
+                >
+                  <Text style={styles.copyButtonText}>📋 Copia</Text>
+                </SafeTouchableOpacity>
+              )}
+            </View>
             <TagSelector
               selectedTags={formData.tags}
-              onTagsChange={(tags) => {
-                // Rimuoviamo questo log che causa re-render continui
-                // console.log('🏷️ EntryFormModal: Tags cambiati:', tags);
-                setFormData(prev => ({ ...prev, tags }));
-              }}
+              onTagsChange={handleTagsChange}
               repeatEnabled={formData.repeatSettings.enabled}
               onRepeatChange={(enabled) =>
                 setFormData(prev => ({
@@ -393,118 +354,150 @@ export default function EntryFormModal({
             />
           </View>
 
+          {/* Note */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>💬 Chat Note</Text>
+            <InputField
+              placeholder="Aggiungi una nota..."
+              value={formData.notes}
+              onChangeText={(text) =>
+                setFormData(prev => ({ ...prev, notes: text }))
+              }
+              multiline
+              numberOfLines={3}
+            />
+            <Text style={styles.noteHint}>
+              Le note vengono aggiunte alla chat esistente
+            </Text>
+          </View>
+
           {/* Problemi */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>⚠️ Problemi</Text>
-            <SafeTouchableOpacity
-              style={[
-                styles.problemToggle,
-                formData.hasProblem && styles.problemToggleActive,
-              ]}
-              onPress={() =>
-                setFormData(prev => ({ ...prev, hasProblem: !prev.hasProblem }))
-              }
-            >
-              <Text style={styles.problemToggleText}>
-                {formData.hasProblem ? '✅' : '❌'} Segnala problema
-              </Text>
-            </SafeTouchableOpacity>
+            <View style={styles.problemHeader}>
+              <Text style={styles.sectionTitle}>⚠️ Problemi</Text>
+              <SafeTouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  formData.hasProblem && styles.toggleButtonActive,
+                ]}
+                onPress={() =>
+                  setFormData(prev => ({ ...prev, hasProblem: !prev.hasProblem }))
+                }
+              >
+                <Text style={styles.toggleButtonText}>
+                  {formData.hasProblem ? 'ON' : 'OFF'}
+                </Text>
+              </SafeTouchableOpacity>
+            </View>
             
             {formData.hasProblem && (
               <InputField
-                label="Descrizione problema"
-                placeholder="Descrivi il problema riscontrato..."
+                placeholder="Descrivi il problema..."
                 value={formData.problemDescription}
                 onChangeText={(text) =>
                   setFormData(prev => ({ ...prev, problemDescription: text }))
                 }
                 multiline
-                numberOfLines={3}
+                numberOfLines={2}
               />
             )}
           </View>
 
-          {/* Riepilogo */}
-          <View style={styles.summary}>
-            <Text style={styles.summaryTitle}>📊 Riepilogo</Text>
-            {formData.hasProblem && (
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Problemi:</Text>
-                <Text style={styles.summaryValue}>⚠️ Segnalato</Text>
-              </View>
-            )}
-            {formData.tags.length > 0 && (
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Tag selezionati:</Text>
-                <Text style={styles.summaryValue}>{formData.tags.length}</Text>
-              </View>
-            )}
-            {formData.focusReferencesData.length > 0 && (
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Referenze focus:</Text>
-                <Text style={styles.summaryValue}>{formData.focusReferencesData.length}</Text>
-              </View>
-            )}
-            {formData.repeatSettings.enabled && (
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Ripetizione:</Text>
-                <Text style={styles.summaryValue}>
-                  {formData.repeatSettings.weeksCount} settimana{formData.repeatSettings.weeksCount > 1 ? 'e' : ''}
+          {/* Impostazioni ripetizione */}
+          <View style={styles.section}>
+            <View style={styles.repeatHeader}>
+              <Text style={styles.sectionTitle}>🔄 Ripetizione</Text>
+              <SafeTouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  formData.repeatSettings.enabled && styles.toggleButtonActive,
+                ]}
+                onPress={() =>
+                  setFormData(prev => ({
+                    ...prev,
+                    repeatSettings: {
+                      ...prev.repeatSettings,
+                      enabled: !prev.repeatSettings.enabled,
+                    },
+                  }))
+                }
+              >
+                <Text style={styles.toggleButtonText}>
+                  {formData.repeatSettings.enabled ? 'ON' : 'OFF'}
                 </Text>
+              </SafeTouchableOpacity>
+            </View>
+            
+            {formData.repeatSettings.enabled && (
+              <View style={styles.repeatSettings}>
+                <Text style={styles.repeatLabel}>
+                  Ripeti per {formData.repeatSettings.weeksCount} settimana{formData.repeatSettings.weeksCount !== 1 ? 'e' : ''}
+                </Text>
+                <View style={styles.weeksSelector}>
+                  {[1, 2, 3, 4].map((weeks) => (
+                    <SafeTouchableOpacity
+                      key={weeks}
+                      style={[
+                        styles.weekButton,
+                        formData.repeatSettings.weeksCount === weeks && styles.weekButtonActive,
+                      ]}
+                      onPress={() =>
+                        setFormData(prev => ({
+                          ...prev,
+                          repeatSettings: {
+                            ...prev.repeatSettings,
+                            weeksCount: weeks,
+                          },
+                        }))
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.weekButtonText,
+                          formData.repeatSettings.weeksCount === weeks && styles.weekButtonTextActive,
+                        ]}
+                      >
+                        {weeks}
+                      </Text>
+                    </SafeTouchableOpacity>
+                  ))}
+                </View>
               </View>
             )}
           </View>
         </ScrollView>
 
-        {/* Footer con azioni */}
+        {/* Footer con pulsanti */}
         <View style={styles.footer}>
-          <SafeTouchableOpacity 
-            style={styles.cancelButton} 
-            onPress={() => {
-              // Rimuoviamo questo log che causa re-render continui
-              // console.log('🔘 EntryFormModal: Pulsante Annulla cliccato');
-              onCancel();
-            }}
-            disabled={isFirebaseLoading}
+          <SafeTouchableOpacity
+            style={styles.cancelButton}
+            onPress={handleCancel}
+            accessibilityLabel="Annulla"
+            accessibilityHint="Annulla le modifiche e chiudi"
           >
             <Text style={styles.cancelButtonText}>Annulla</Text>
           </SafeTouchableOpacity>
-          <SafeTouchableOpacity 
+          
+          <SafeTouchableOpacity
             style={[
               styles.saveButton,
-              isFirebaseLoading && styles.saveButtonDisabled
-            ]} 
-            onPress={() => {
-              // Rimuoviamo questi log che causano re-render continui
-              // console.log('🔘 EntryFormModal: Pulsante Salva cliccato');
-              // console.log('📊 EntryFormModal: Stato finale formData prima del salvataggio:', {
-              //   tags: formData.tags,
-              //   tagsLength: formData.tags.length,
-              //   focusReferencesData: formData.focusReferencesData,
-              //   focusReferencesLength: formData.focusReferencesData.length,
-              //   hasProblem: formData.hasProblem,
-              //   notes: formData.notes,
-              // });
-              handleSave();
-            }}
+              isFirebaseLoading && styles.saveButtonDisabled,
+            ]}
+            onPress={handleSave}
             disabled={isFirebaseLoading}
+            accessibilityLabel="Salva"
+            accessibilityHint="Salva le modifiche"
           >
             <Text style={styles.saveButtonText}>
-              {isFirebaseLoading ? '⏳' : entry ? 'Aggiorna' : 'Salva'}
+              {isFirebaseLoading ? 'Salvando...' : 'Salva'}
             </Text>
           </SafeTouchableOpacity>
         </View>
 
-        {/* Indicatore errori Firebase */}
+        {/* Messaggio di errore */}
         {firebaseError && (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>⚠️ {firebaseError}</Text>
-            <SafeTouchableOpacity 
-              style={styles.errorDismissButton}
-              onPress={clearError}
-            >
-              <Text style={styles.errorDismissText}>✕</Text>
-            </SafeTouchableOpacity>
+            <Text style={styles.errorText}>{firebaseError}</Text>
           </View>
         )}
       </View>
@@ -526,18 +519,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.warmBorder,
   },
-  headerTitle: {
+  title: {
     fontSize: 20,
     fontWeight: 'bold',
     color: Colors.warmText,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flex: 1,
+    textAlign: 'center',
   },
   deleteButton: {
     padding: Spacing.small,
-    marginRight: Spacing.small,
+    marginLeft: Spacing.small,
   },
   deleteButtonText: {
     fontSize: 18,
@@ -561,11 +552,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.warmBorder,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.small,
+  },
   sectionTitle: {
     fontSize: 14,
     fontWeight: 'bold',
     color: Colors.warmText,
-    marginBottom: Spacing.small,
+  },
+  copyButton: {
+    padding: Spacing.small,
+    backgroundColor: Colors.warmPrimary,
+    borderRadius: 6,
+  },
+  copyButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   itemCard: {
     flexDirection: 'row',
@@ -733,6 +739,71 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.warmTextSecondary,
     fontStyle: 'italic',
+    marginTop: Spacing.small,
+  },
+  problemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.small,
+  },
+  toggleButton: {
+    padding: Spacing.small,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.warmBorder,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#ffebee',
+    borderColor: '#f44336',
+  },
+  toggleButtonText: {
+    fontSize: 14,
+    color: Colors.warmText,
+  },
+  repeatHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.small,
+  },
+  repeatSettings: {
+    marginTop: Spacing.small,
+  },
+  repeatLabel: {
+    fontSize: 14,
+    color: Colors.warmTextSecondary,
+  },
+  weeksSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: Spacing.small,
+  },
+  weekButton: {
+    paddingVertical: Spacing.small,
+    paddingHorizontal: Spacing.medium,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.warmBorder,
+  },
+  weekButtonActive: {
+    backgroundColor: Colors.warmPrimary,
+    borderColor: Colors.warmPrimary,
+  },
+  weekButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.warmText,
+  },
+  weekButtonTextActive: {
+    color: '#ffffff',
+  },
+  dateText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.warmText,
     marginTop: Spacing.small,
   },
 }); 

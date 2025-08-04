@@ -30,25 +30,15 @@ function FilterComponents({
   users,
   salesPoints,
   agents = [],
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   selectedUserId,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   selectedSalesPointId,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   selectedAMCode,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   selectedNAMCode,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   selectedLine,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onUserChange,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onSalesPointChange,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onAMCodeChange,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onNAMCodeChange,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onLineChange,
   onMultipleSelectionChange,
   onReset,
@@ -71,568 +61,392 @@ function FilterComponents({
   const filteredData = useMemo(() => {
     let data: string[] = [];
     
-    if (__DEV__) {
-      console.log('🔍 FilterComponents: Debug dati per tab', {
-        activeTab,
-        agentsCount: agents.length,
-        usersCount: users.length,
-        salesPointsCount: salesPoints.length,
-        excelDataCount: excelData.length,
-        selectedItems,
-        showAllOptions,
-        firstExcelRow: excelData[0],
-        sampleExcelRows: excelData.slice(0, 3).map(r => ({ 
-          linea: r.linea, 
-          codiceAreaManager: r.codiceAreaManager, 
-          codiceNam: r.codiceNam, 
-          codiceAgente: r.codiceAgente,
-          nomeAgente: r.nomeAgente,
-          insegna: r.insegna,
-          codiceCliente: r.codiceCliente,
-          cliente: r.cliente
-        })),
-      });
-    }
-
     // Se showAllOptions è true, usa tutti i dati Excel senza filtrare per selezioni precedenti
     let filteredExcelData = excelData;
     
     // Se ci sono selezioni precedenti E showAllOptions è false, filtra i dati Excel
-    if (selectedItems && selectedItems.length > 0 && !showAllOptions) {
-      console.log('🔍 FilterComponents: Applicando filtri progressivi con selezioni:', selectedItems);
-      console.log('🔍 FilterComponents: Tipi delle selezioni:', selectedItemTypes);
-      
-      // Filtra i dati Excel in base alle selezioni precedenti
-      filteredExcelData = excelData.filter((row: ExcelDataRow) => {
-        // Controlla se la riga corrisponde a TUTTE le selezioni precedenti (filtro progressivo)
-        return selectedItems.every(selectedItem => {
-          const itemType = selectedItemTypes[selectedItem];
-          console.log('🔍 FilterComponents: Controllando item:', selectedItem, 'di tipo:', itemType);
-          
-          // Controlla il campo appropriato in base al tipo di selezione
-          switch (itemType) {
+    if (!showAllOptions && Object.keys(selectedItemTypes).length > 0) {
+      filteredExcelData = excelData.filter(row => {
+        // Per ogni selezione precedente, verifica che la riga Excel contenga quel valore
+        return Object.entries(selectedItemTypes).every(([item, type]) => {
+          switch (type) {
             case 'linea':
-              return row.linea === selectedItem || (row as any)['Linea'] === selectedItem;
+              return row.linea === item;
             case 'areaManager':
-              return row.codiceAreaManager === selectedItem || (row as any)['Codice Area Manager'] === selectedItem;
+              return row.codiceAreaManager === item;
             case 'nam':
-              return row.codiceNam === selectedItem || (row as any)['Codice Nam'] === selectedItem;
+              return row.codiceNam === item;
             case 'agente':
-              return row.codiceAgente === selectedItem || row.nomeAgente === selectedItem || 
-                     (row as any)['Codige Agente'] === selectedItem || (row as any)['Nome Agente'] === selectedItem;
+              return row.codiceAgente === item;
             case 'insegna':
-              return row.insegna === selectedItem || (row as any)['Insegna'] === selectedItem;
+              return row.insegna === item;
             case 'codice':
-              return row.codiceCliente === selectedItem || (row as any)['Codice Cliente'] === selectedItem;
+              return row.codiceCliente === item;
             case 'cliente':
-              return row.cliente === selectedItem || (row as any)['Cliente'] === selectedItem;
+              return row.cliente === item;
             default:
-              // Fallback: controlla tutti i campi possibili
-              return (
-                row.linea === selectedItem || (row as any)['Linea'] === selectedItem ||
-                row.codiceAreaManager === selectedItem || (row as any)['Codice Area Manager'] === selectedItem ||
-                row.codiceNam === selectedItem || (row as any)['Codice Nam'] === selectedItem ||
-                row.codiceAgente === selectedItem || (row as any)['Codige Agente'] === selectedItem ||
-                row.nomeAgente === selectedItem || (row as any)['Nome Agente'] === selectedItem ||
-                row.insegna === selectedItem || (row as any)['Insegna'] === selectedItem ||
-                row.codiceCliente === selectedItem || (row as any)['Codice Cliente'] === selectedItem ||
-                row.cliente === selectedItem || (row as any)['Cliente'] === selectedItem
-              );
+              return true;
           }
         });
       });
-      
-      console.log('🔍 FilterComponents: Dati Excel filtrati progressivamente:', filteredExcelData.length, 'righe');
-    } else if (showAllOptions) {
-      console.log('🔍 FilterComponents: Mostrando tutte le opzioni per il filtro corrente');
     }
-    
+
+    // Estrai i dati unici per il tab corrente
     switch (activeTab) {
       case 'linea':
-        // Usa i dati Excel se disponibili, altrimenti fallback
-        if (filteredExcelData.length > 0) {
-          console.log('📊 FilterComponents: Usando dati Excel per Linea');
-          const lineeValues = filteredExcelData.map((row: ExcelDataRow) => {
-            // Prova prima il campo normalizzato, poi il campo originale
-            return row.linea || (row as any)['Linea'] || '';
-          });
-          console.log('📊 FilterComponents: Valori linea estratti:', lineeValues.slice(0, 10));
-          data = Array.from(new Set(lineeValues.filter((linea): linea is string => Boolean(linea)))).sort();
-          console.log('📊 FilterComponents: Linee trovate:', data);
-        } else {
-          console.log('📊 FilterComponents: Fallback per Linea');
-          // Fallback con agents e users
-          const lineeFromAgents = agents.map(agent => agent.line).filter((line): line is string => Boolean(line));
-          const lineeFromUsers = users.filter(user => user.role === 'agent').map(user => {
-            const name = user.name.toLowerCase();
-            if (name.includes('linea') || name.includes('liv')) {
-              const match = name.match(/(liv|linea)\s*(\d+)/i);
-              return match ? `LIV ${match[2]}` : '';
-            }
-            return '';
-          }).filter(Boolean);
-          data = Array.from(new Set([...lineeFromAgents, ...lineeFromUsers])).sort();
-        }
+        data = [...new Set(filteredExcelData.map(row => row.linea).filter((linea): linea is string => Boolean(linea)))];
         break;
       case 'areaManager':
-        // Usa i dati Excel se disponibili, altrimenti fallback
-        if (filteredExcelData.length > 0) {
-          console.log('📊 FilterComponents: Usando dati Excel per Area Manager');
-          const amValues = filteredExcelData.map((row: ExcelDataRow) => {
-            // Prova prima il campo normalizzato, poi il campo originale
-            return row.codiceAreaManager || (row as any)['Codice Area Manager'] || '';
-          });
-          console.log('📊 FilterComponents: Valori Area Manager estratti:', amValues.slice(0, 10));
-          data = Array.from(new Set(amValues.filter((code): code is string => Boolean(code)))).sort();
-          console.log('📊 FilterComponents: Area Manager trovati:', data);
-        } else {
-          console.log('📊 FilterComponents: Fallback per Area Manager');
-          // Fallback con agents e users
-          const amCodesFromAgents = agents.map(agent => agent.amCode).filter((code): code is string => Boolean(code));
-          const amCodesFromUsers = users.filter(user => user.role === 'agent').map(user => {
-            const name = user.name.toLowerCase();
-            if (name.includes('am')) {
-              const match = name.match(/am\s*(\w+)/i);
-              return match ? `AM ${match[1]}` : '';
-            }
-            return '';
-          }).filter(Boolean);
-          data = Array.from(new Set([...amCodesFromAgents, ...amCodesFromUsers])).sort();
-        }
+        data = [...new Set(filteredExcelData.map(row => row.codiceAreaManager).filter((code): code is string => Boolean(code)))];
         break;
       case 'nam':
-        // Usa i dati Excel se disponibili, altrimenti fallback
-        if (filteredExcelData.length > 0) {
-          console.log('📊 FilterComponents: Usando dati Excel per NAM Code');
-          const namValues = filteredExcelData.map((row: ExcelDataRow) => {
-            // Prova prima il campo normalizzato, poi il campo originale
-            return row.codiceNam || (row as any)['Codice Nam'] || '';
-          });
-          console.log('📊 FilterComponents: Valori NAM estratti:', namValues.slice(0, 10));
-          data = Array.from(new Set(namValues.filter((code): code is string => Boolean(code)))).sort();
-          console.log('📊 FilterComponents: NAM Codes trovati:', data);
-        } else {
-          console.log('📊 FilterComponents: Fallback per NAM Code');
-          // Fallback con agents e users
-          const namCodesFromAgents = agents.map(agent => agent.namCode).filter((code): code is string => Boolean(code));
-          const namCodesFromUsers = users.filter(user => user.role === 'agent').map(user => {
-            const name = user.name.toLowerCase();
-            if (name.includes('nam')) {
-              const match = name.match(/nam\s*(\w+)/i);
-              return match ? `NAM ${match[1]}` : '';
-            }
-            return '';
-          }).filter(Boolean);
-          data = Array.from(new Set([...namCodesFromAgents, ...namCodesFromUsers])).sort();
-        }
+        data = [...new Set(filteredExcelData.map(row => row.codiceNam).filter((code): code is string => Boolean(code)))];
         break;
       case 'agente':
-        // Usa i dati Excel se disponibili, altrimenti fallback
-        if (filteredExcelData.length > 0) {
-          console.log('📊 FilterComponents: Usando dati Excel per Agente');
-          const agenteValues = filteredExcelData.map((row: ExcelDataRow) => {
-            // Prova prima il campo normalizzato, poi il campo originale
-            return row.codiceAgente || (row as any)['Codige Agente'] || '';
-          });
-          console.log('📊 FilterComponents: Valori Agente estratti:', agenteValues.slice(0, 10));
-          // Usa codiceAgente invece di nomeAgente per consistenza
-          data = Array.from(new Set(agenteValues.filter((code): code is string => Boolean(code)))).sort();
-          console.log('📊 FilterComponents: Agenti trovati:', data);
-        } else {
-          console.log('📊 FilterComponents: Fallback per Agente');
-          // Fallback con users
-          data = Array.from(new Set(users.filter(user => user.role === 'agent').map(user => user.name).filter(Boolean))).sort();
-        }
+        data = [...new Set(filteredExcelData.map(row => row.codiceAgente).filter((code): code is string => Boolean(code)))];
         break;
       case 'insegna':
-        // Usa i dati Excel se disponibili, altrimenti fallback
-        if (filteredExcelData.length > 0) {
-          console.log('📊 FilterComponents: Usando dati Excel per Insegna');
-          const insegnaValues = filteredExcelData.map((row: ExcelDataRow) => {
-            // Prova prima il campo normalizzato, poi il campo originale
-            return row.insegna || (row as any)['Insegna'] || '';
-          });
-          console.log('📊 FilterComponents: Valori Insegna estratti:', insegnaValues.slice(0, 10));
-          
-          // Debug: mostra anche i valori cliente per confronto
-          const clienteValues = filteredExcelData.map((row: ExcelDataRow) => row.cliente);
-          console.log('📊 FilterComponents: Valori Cliente per confronto:', clienteValues.slice(0, 10));
-          
-          // Debug: mostra alcuni record completi per capire la differenza
-          console.log('📊 FilterComponents: Esempi di record filtrati (primi 3):', 
-            filteredExcelData.slice(0, 3).map(row => ({
-              linea: row.linea,
-              insegna: row.insegna,
-              cliente: row.cliente,
-              codiceCliente: row.codiceCliente
-            }))
-          );
-          
-          data = Array.from(new Set(insegnaValues.filter((insegna): insegna is string => Boolean(insegna)))).sort();
-          console.log('📊 FilterComponents: Insegne trovate:', data);
-        } else {
-          console.log('📊 FilterComponents: Fallback per Insegna');
-          // Fallback con salesPoints
-          data = Array.from(new Set(salesPoints.map(sp => sp.name).filter(Boolean))).sort();
-        }
+        data = [...new Set(filteredExcelData.map(row => row.insegna).filter((insegna): insegna is string => Boolean(insegna)))];
         break;
       case 'codice':
-        // Usa i dati Excel se disponibili, altrimenti fallback
-        if (filteredExcelData.length > 0) {
-          console.log('📊 FilterComponents: Usando dati Excel per Codice Cliente');
-          const codiceValues = filteredExcelData.map((row: ExcelDataRow) => {
-            // Prova prima il campo normalizzato, poi il campo originale
-            return row.codiceCliente || (row as any)['Codice Cliente'] || '';
-          });
-          console.log('📊 FilterComponents: Valori Codice Cliente estratti:', codiceValues.slice(0, 10));
-          data = Array.from(new Set(codiceValues.filter((code): code is string => Boolean(code)))).sort();
-          console.log('📊 FilterComponents: Codici Cliente trovati:', data);
-        } else {
-          console.log('📊 FilterComponents: Fallback per Codice Cliente');
-          // Fallback con salesPoints
-          data = Array.from(new Set(salesPoints.map(sp => sp.name).filter(Boolean))).sort();
-        }
+        data = [...new Set(filteredExcelData.map(row => row.codiceCliente).filter((code): code is string => Boolean(code)))];
         break;
       case 'cliente':
-        // Usa i dati Excel se disponibili, altrimenti fallback
-        if (filteredExcelData.length > 0) {
-          console.log('📊 FilterComponents: Usando dati Excel per Cliente');
-          const clienteValues = filteredExcelData.map((row: ExcelDataRow) => {
-            // Prova prima il campo normalizzato, poi il campo originale
-            return row.cliente || (row as any)['Cliente'] || '';
-          });
-          console.log('📊 FilterComponents: Valori Cliente estratti:', clienteValues.slice(0, 10));
-          
-          // Debug: mostra anche i valori insegna per confronto
-          const insegnaValues = filteredExcelData.map((row: ExcelDataRow) => row.insegna);
-          console.log('📊 FilterComponents: Valori Insegna per confronto:', insegnaValues.slice(0, 10));
-          
-          data = Array.from(new Set(clienteValues.filter((cliente): cliente is string => Boolean(cliente)))).sort();
-          console.log('📊 FilterComponents: Clienti trovati:', data);
-        } else {
-          console.log('📊 FilterComponents: Fallback per Cliente');
-          // Fallback con salesPoints
-          data = Array.from(new Set(salesPoints.map(sp => sp.name).filter(Boolean))).sort();
-        }
+        data = [...new Set(filteredExcelData.map(row => row.cliente).filter((cliente): cliente is string => Boolean(cliente)))];
         break;
     }
-    
-    console.log('🔍 FilterComponents: Dati estratti per', activeTab, ':', data.length, 'elementi');
-    
+
     // Applica filtro di ricerca
-    if (searchText) {
+    if (searchText.trim()) {
       data = data.filter(item => 
         item.toLowerCase().includes(searchText.toLowerCase())
       );
     }
-    
-    return data;
-  }, [activeTab, excelData, selectedItems, selectedItemTypes, agents, users, salesPoints, showAllOptions]);
+
+    return data.sort();
+  }, [activeTab, excelData, searchText, selectedItemTypes, showAllOptions]);
 
   // Paginazione
-  const paginatedData = filteredData.slice(
-    (currentPage - 1) * itemsPerPage, 
-    currentPage * itemsPerPage
-  );
-
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentData = filteredData.slice(startIndex, endIndex);
 
-  // Reset solo paginazione quando cambia tab, mantieni le selezioni
+  // Reset della paginazione quando cambiano i filtri
   useEffect(() => {
     setCurrentPage(1);
-    setSelectAll(false);
-    setShowAllOptions(false); // Reset showAllOptions quando cambia tab
-  }, [activeTab, searchText]);
+  }, [activeTab, searchText, showAllOptions]);
 
-  // Gestione selezione multipla
+  // Reset della selezione quando cambia il tab
+  useEffect(() => {
+    setSelectedItems([]);
+    setSelectAll(false);
+  }, [activeTab]);
+
+  // Aggiorna la selezione globale quando cambiano gli elementi selezionati
+  useEffect(() => {
+    if (onMultipleSelectionChange) {
+      onMultipleSelectionChange(selectedItems);
+    }
+  }, [selectedItems, onMultipleSelectionChange]);
+
+  const handleTabChange = (tab: typeof activeTab) => {
+    setActiveTab(tab);
+    setSearchText('');
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchText(text);
+    setCurrentPage(1);
+  };
+
   const handleItemSelect = (item: string) => {
     if (multiSelectEnabled) {
-      const newSelectedItems = selectedItems.includes(item)
-        ? selectedItems.filter(i => i !== item)
-        : [...selectedItems, item];
-      
-      // Aggiorna anche i tipi delle selezioni
-      const newSelectedItemTypes = { ...selectedItemTypes };
-      if (selectedItems.includes(item)) {
-        // Rimuovi l'item
-        delete newSelectedItemTypes[item];
-      } else {
-        // Aggiungi l'item con il suo tipo
-        newSelectedItemTypes[item] = activeTab;
-      }
-      
-      setSelectedItems(newSelectedItems);
-      setSelectedItemTypes(newSelectedItemTypes);
-      onMultipleSelectionChange?.(newSelectedItems);
+      // Modalità selezione multipla
+      setSelectedItems(prev => {
+        const newSelection = prev.includes(item)
+          ? prev.filter(i => i !== item)
+          : [...prev, item];
+        
+        // Aggiorna il tipo di selezione
+        setSelectedItemTypes(prevTypes => {
+          const newTypes = { ...prevTypes };
+          if (newSelection.includes(item)) {
+            newTypes[item] = activeTab;
+          } else {
+            delete newTypes[item];
+          }
+          return newTypes;
+        });
+        
+        return newSelection;
+      });
     } else {
-      // Selezione singola
-      const newSelectedItems = [item];
-      const newSelectedItemTypes = { [item]: activeTab };
-      
-      setSelectedItems(newSelectedItems);
-      setSelectedItemTypes(newSelectedItemTypes);
-      onMultipleSelectionChange?.(newSelectedItems);
+      // Modalità selezione singola
+      setSelectedItems([item]);
+      setSelectedItemTypes({ [item]: activeTab });
     }
   };
 
   const handleSelectAll = () => {
     if (selectAll) {
+      // Deseleziona tutto
       setSelectedItems([]);
       setSelectedItemTypes({});
-      onMultipleSelectionChange?.([]);
+      setSelectAll(false);
     } else {
-      setSelectedItems(filteredData);
-      // Assegna il tipo corrente a tutti gli elementi
-      const newSelectedItemTypes: {[key: string]: string} = {};
-      filteredData.forEach(item => {
-        newSelectedItemTypes[item] = activeTab;
+      // Seleziona tutto
+      const allItems = currentData;
+      setSelectedItems(allItems);
+      const newTypes: {[key: string]: string} = {};
+      allItems.forEach(item => {
+        newTypes[item] = activeTab;
       });
-      setSelectedItemTypes(newSelectedItemTypes);
-      onMultipleSelectionChange?.(filteredData);
+      setSelectedItemTypes(newTypes);
+      setSelectAll(true);
     }
-    setSelectAll(!selectAll);
   };
 
   const isItemSelected = (item: string) => {
     return selectedItems.includes(item);
   };
 
+  const getTabTitle = (tab: typeof activeTab) => {
+    switch (tab) {
+      case 'linea': return 'Linea';
+      case 'areaManager': return 'Area Manager';
+      case 'nam': return 'NAM';
+      case 'agente': return 'Agente';
+      case 'insegna': return 'Insegna';
+      case 'codice': return 'Codice Cliente';
+      case 'cliente': return 'Cliente';
+      default: return tab;
+    }
+  };
+
+  const getTabIcon = (tab: typeof activeTab) => {
+    switch (tab) {
+      case 'linea': return '📊';
+      case 'areaManager': return '👨‍💼';
+      case 'nam': return '👩‍💼';
+      case 'agente': return '👤';
+      case 'insegna': return '🏪';
+      case 'codice': return '🔢';
+      case 'cliente': return '👥';
+      default: return '📋';
+    }
+  };
+
+  const handleReset = () => {
+    setSelectedItems([]);
+    setSelectedItemTypes({});
+    setSelectAll(false);
+    setSearchText('');
+    setCurrentPage(1);
+    setShowAllOptions(false);
+    onReset();
+  };
+
+  const handleToggleShowAll = () => {
+    setShowAllOptions(!showAllOptions);
+    setCurrentPage(1);
+  };
+
+  if (excelDataLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Caricamento filtri...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* Header filtri */}
-      <View style={styles.filterHeader}>
-        <Text style={styles.filterTitle}>🔍 Filtri Excel</Text>
-        <Text style={styles.filterSubtitle}>
-          {selectedItems && selectedItems.length > 0 
-            ? `Filtri progressivi (${selectedItems.length} selezioni attive)` 
-            : 'Filtra per colonna Excel'
-          }
-        </Text>
-        {excelDataLoading && (
-          <Text style={styles.filterInfo}>
-            🔄 Caricamento dati da Firebase...
-          </Text>
-        )}
-        {selectedItems && selectedItems.length > 0 && (
-          <Text style={styles.filterInfo}>
-            📊 Mostrando solo elementi che corrispondono a TUTTE le selezioni
-          </Text>
-        )}
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>🔍 Filtri Avanzati</Text>
+        <View style={styles.headerActions}>
+          <SafeTouchableOpacity
+            style={styles.resetButton}
+            onPress={handleReset}
+            accessibilityLabel="Reset filtri"
+            accessibilityHint="Rimuovi tutti i filtri applicati"
+          >
+            <Text style={styles.resetButtonText}>🔄 Reset</Text>
+          </SafeTouchableOpacity>
+          
+          {onClose && (
+            <SafeTouchableOpacity
+              style={styles.closeButton}
+              onPress={onClose}
+              accessibilityLabel="Chiudi"
+              accessibilityHint="Chiudi i filtri"
+            >
+              <Text style={styles.closeButtonText}>✕</Text>
+            </SafeTouchableOpacity>
+          )}
+        </View>
       </View>
 
-      {/* Tab Navigation */}
-      <View style={styles.tabContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'linea' && styles.activeTab]}
-            onPress={() => setActiveTab('linea')}
+      {/* Tabs */}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabsContainer}
+        contentContainerStyle={styles.tabsContent}
+      >
+        {(['linea', 'areaManager', 'nam', 'agente', 'insegna', 'codice', 'cliente'] as const).map((tab) => (
+          <SafeTouchableOpacity
+            key={tab}
+            style={[
+              styles.tab,
+              activeTab === tab && styles.activeTab
+            ]}
+            onPress={() => handleTabChange(tab)}
+            accessibilityLabel={`Tab ${getTabTitle(tab)}`}
+            accessibilityHint={`Seleziona il tab ${getTabTitle(tab)}`}
           >
-            <Text style={[styles.tabText, activeTab === 'linea' && styles.activeTabText]}>
-              📊 Linea
+            <Text style={styles.tabIcon}>{getTabIcon(tab)}</Text>
+            <Text style={[
+              styles.tabText,
+              activeTab === tab && styles.activeTabText
+            ]}>
+              {getTabTitle(tab)}
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'areaManager' && styles.activeTab]}
-            onPress={() => setActiveTab('areaManager')}
-          >
-            <Text style={[styles.tabText, activeTab === 'areaManager' && styles.activeTabText]}>
-              👨‍💼 Area Manager
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'nam' && styles.activeTab]}
-            onPress={() => setActiveTab('nam')}
-          >
-            <Text style={[styles.tabText, activeTab === 'nam' && styles.activeTabText]}>
-              👩‍💼 NAM Code
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'agente' && styles.activeTab]}
-            onPress={() => setActiveTab('agente')}
-          >
-            <Text style={[styles.tabText, activeTab === 'agente' && styles.activeTabText]}>
-              👤 Agente
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'insegna' && styles.activeTab]}
-            onPress={() => setActiveTab('insegna')}
-          >
-            <Text style={[styles.tabText, activeTab === 'insegna' && styles.activeTabText]}>
-              🏪 Insegna
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'codice' && styles.activeTab]}
-            onPress={() => setActiveTab('codice')}
-          >
-            <Text style={[styles.tabText, activeTab === 'codice' && styles.activeTabText]}>
-              🔢 Codice
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'cliente' && styles.activeTab]}
-            onPress={() => setActiveTab('cliente')}
-          >
-            <Text style={[styles.tabText, activeTab === 'cliente' && styles.activeTabText]}>
-              🏢 Cliente
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
+          </SafeTouchableOpacity>
+        ))}
+      </ScrollView>
 
-      {/* Contenuto principale con scroll */}
-      <View style={styles.mainContent}>
-        {/* Campo di ricerca */}
+      {/* Controlli */}
+      <View style={styles.controls}>
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
-            placeholder={`🔍 Cerca ${activeTab}...`}
+            placeholder="Cerca..."
             value={searchText}
-            onChangeText={setSearchText}
-            placeholderTextColor="#999"
+            onChangeText={handleSearchChange}
+            placeholderTextColor="#999999"
           />
-          {/* Pulsante per mostrare tutte le opzioni */}
-          {selectedItems && selectedItems.length > 0 && (
-            <TouchableOpacity
-              style={[styles.showAllOptionsButton, showAllOptions && styles.showAllOptionsButtonActive]}
-              onPress={() => setShowAllOptions(!showAllOptions)}
-            >
-              <Text style={[styles.showAllOptionsButtonText, showAllOptions && styles.showAllOptionsButtonTextActive]}>
-                {showAllOptions ? '🔍 Mostra filtrati' : '📋 Mostra tutte le opzioni'}
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
-
-        {/* Risultati con Checkbox - Virtualizzati con FlatList */}
-        <View style={styles.resultsContainer}>
-          {/* Opzione "Tutti" con checkbox */}
-          <View style={styles.filterItemContainer}>
-            <TouchableOpacity
-              style={styles.checkboxContainer}
-              onPress={handleSelectAll}
-            >
-              <View style={[styles.checkbox, selectAll && styles.checkboxChecked]}>
-                {selectAll && <Text style={styles.checkmark}>✓</Text>}
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.filterItemText}
-              onPress={handleSelectAll}
-            >
-              <Text style={styles.filterItemLabel}>
-                📋 Tutti ({filteredData.length})
-              </Text>
-            </TouchableOpacity>
-          </View>
-          
-          {/* Lista elementi in griglia con FlatList */}
-          <FlatList
-            data={paginatedData}
-            keyExtractor={(item, index) => `${activeTab}-${index}`}
-            numColumns={Platform.OS === 'web' ? 3 : 2} // 3 colonne su web, 2 su mobile
-            renderItem={({ item }) => (
-              <View style={styles.filterItemGridContainer}>
-                <TouchableOpacity
-                  style={styles.checkboxContainer}
-                  onPress={() => handleItemSelect(item)}
-                >
-                  <View style={[styles.checkbox, isItemSelected(item) && styles.checkboxChecked]}>
-                    {isItemSelected(item) && <Text style={styles.checkmark}>✓</Text>}
-                  </View>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.filterItemText}
-                  onPress={() => handleItemSelect(item)}
-                >
-                  <Text style={styles.filterItemLabel} numberOfLines={2}>
-                    {item}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            showsVerticalScrollIndicator={false}
-            removeClippedSubviews={true}
-            maxToRenderPerBatch={15}
-            windowSize={10}
-            initialNumToRender={15}
-            updateCellsBatchingPeriod={50}
-            contentContainerStyle={styles.gridContentContainer}
-          />
-
-          {/* Opzione selezione multipla */}
-          <View style={styles.multiSelectContainer}>
-            <TouchableOpacity
-              style={styles.checkboxContainer}
-              onPress={() => setMultiSelectEnabled(!multiSelectEnabled)}
-            >
-              <View style={[styles.checkbox, multiSelectEnabled && styles.checkboxChecked]}>
-                {multiSelectEnabled && <Text style={styles.checkmark}>✓</Text>}
-              </View>
-            </TouchableOpacity>
-            <Text style={styles.multiSelectLabel}>
-              Seleziona più elementi ({selectedItems.length} selezionati)
+        
+        <View style={styles.controlButtons}>
+          <SafeTouchableOpacity
+            style={[
+              styles.controlButton,
+              showAllOptions && styles.controlButtonActive
+            ]}
+            onPress={handleToggleShowAll}
+          >
+            <Text style={styles.controlButtonText}>
+              {showAllOptions ? '🔒 Solo Correlati' : '🔓 Tutte le Opzioni'}
             </Text>
-          </View>
-
-          {/* Paginazione */}
-          {totalPages > 1 && (
-            <View style={styles.paginationContainer}>
-              <TouchableOpacity
-                style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
-                onPress={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-              >
-                <Text style={styles.paginationButtonText}>‹</Text>
-              </TouchableOpacity>
-              
-              <Text style={styles.paginationText}>
-                Pagina {currentPage} di {totalPages}
-              </Text>
-              
-              <TouchableOpacity
-                style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
-                onPress={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-              >
-                <Text style={styles.paginationButtonText}>›</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          </SafeTouchableOpacity>
+          
+          <SafeTouchableOpacity
+            style={[
+              styles.controlButton,
+              multiSelectEnabled && styles.controlButtonActive
+            ]}
+            onPress={() => setMultiSelectEnabled(!multiSelectEnabled)}
+          >
+            <Text style={styles.controlButtonText}>
+              {multiSelectEnabled ? '☑️ Multi' : '☑️ Singolo'}
+            </Text>
+          </SafeTouchableOpacity>
         </View>
       </View>
 
-      {/* Azioni filtri - Fissate in basso */}
-      <View style={styles.filterActions}>
-        {selectedItems && selectedItems.length > 0 && (
-          <SafeTouchableOpacity
-            style={styles.clearFiltersButton}
-            onPress={() => {
-              setSelectedItems([]);
-              setSelectedItemTypes({});
-              onMultipleSelectionChange?.([]);
-            }}
-          >
-            <Text style={styles.clearFiltersButtonText}>🗑️ Cancella</Text>
-          </SafeTouchableOpacity>
-        )}
-        <SafeTouchableOpacity
-          style={styles.resetButton}
-          onPress={onReset}
-        >
-          <Text style={styles.resetButtonText}>🔄 Reset</Text>
-        </SafeTouchableOpacity>
-        {onClose && (
-          <SafeTouchableOpacity
-            style={styles.closeButton}
-            onPress={onClose}
-          >
-            <Text style={styles.closeButtonText}>❌ Chiudi</Text>
-          </SafeTouchableOpacity>
+      {/* Contenuto */}
+      <View style={styles.content}>
+        {/* Header della lista */}
+        <View style={styles.listHeader}>
+          <Text style={styles.listTitle}>
+            {getTabTitle(activeTab)} ({filteredData.length})
+          </Text>
+          
+          {multiSelectEnabled && (
+            <SafeTouchableOpacity
+              style={[
+                styles.selectAllButton,
+                selectAll && styles.selectAllButtonActive
+              ]}
+              onPress={handleSelectAll}
+            >
+              <Text style={styles.selectAllButtonText}>
+                {selectAll ? '☑️ Deseleziona Tutto' : '☐ Seleziona Tutto'}
+              </Text>
+            </SafeTouchableOpacity>
+          )}
+        </View>
+
+        {/* Lista elementi */}
+        <FlatList
+          data={currentData}
+          keyExtractor={(item) => item}
+          renderItem={({ item }) => (
+            <SafeTouchableOpacity
+              style={[
+                styles.listItem,
+                isItemSelected(item) && styles.selectedItem
+              ]}
+              onPress={() => handleItemSelect(item)}
+            >
+              <Text style={[
+                styles.itemText,
+                isItemSelected(item) && styles.selectedItemText
+              ]}>
+                {item}
+              </Text>
+              {isItemSelected(item) && (
+                <Text style={styles.checkmark}>✓</Text>
+              )}
+            </SafeTouchableOpacity>
+          )}
+          showsVerticalScrollIndicator={false}
+          style={styles.list}
+        />
+
+        {/* Paginazione */}
+        {totalPages > 1 && (
+          <View style={styles.pagination}>
+            <SafeTouchableOpacity
+              style={[
+                styles.pageButton,
+                currentPage === 1 && styles.pageButtonDisabled
+              ]}
+              onPress={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+            >
+              <Text style={styles.pageButtonText}>‹</Text>
+            </SafeTouchableOpacity>
+            
+            <Text style={styles.pageInfo}>
+              Pagina {currentPage} di {totalPages}
+            </Text>
+            
+            <SafeTouchableOpacity
+              style={[
+                styles.pageButton,
+                currentPage === totalPages && styles.pageButtonDisabled
+              ]}
+              onPress={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+            >
+              <Text style={styles.pageButtonText}>›</Text>
+            </SafeTouchableOpacity>
+          </View>
         )}
       </View>
+
+      {/* Footer con selezione */}
+      {selectedItems.length > 0 && (
+        <View style={styles.footer}>
+          <Text style={styles.selectionInfo}>
+            {selectedItems.length} elemento{selectedItems.length !== 1 ? 'i' : ''} selezionato{selectedItems.length !== 1 ? 'i' : ''}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -662,113 +476,25 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  filterHeader: {
+  header: {
     backgroundColor: '#2196F3',
     padding: Platform.OS === 'web' ? 12 : 16,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
-  filterTitle: {
+  title: {
     fontSize: Platform.OS === 'web' ? 16 : 18,
     fontWeight: 'bold',
     color: '#ffffff',
     textAlign: 'center',
     marginBottom: Platform.OS === 'web' ? 2 : 4,
   },
-  filterSubtitle: {
-    fontSize: Platform.OS === 'web' ? 12 : 14,
-    color: '#ffffff',
-    textAlign: 'center',
-    marginTop: Platform.OS === 'web' ? 2 : 4,
-  },
-  filterInfo: {
-    fontSize: Platform.OS === 'web' ? 10 : 12,
-    color: '#ffffff',
-    textAlign: 'center',
-    marginTop: Platform.OS === 'web' ? 2 : 4,
-    opacity: 0.8,
-  },
-  filterGrid: {
-    maxHeight: 300,
-    padding: 16,
-  },
-  filterSection: {
-    marginBottom: 20,
-  },
-  filterSectionHeader: {
-    marginBottom: 8,
-  },
-  filterLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2d4150',
-  },
-  filterDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  filterOptions: {
+  headerActions: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  filterOption: {
-    backgroundColor: '#f5f5f5',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-  },
-  filterOptionActive: {
-    backgroundColor: '#2196F3',
-    borderColor: '#2196F3',
-  },
-  filterOptionText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  filterOptionTextActive: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-  },
-  filterActions: {
-    flexDirection: 'row',
-    padding: Platform.OS === 'web' ? 12 : 16,
-    gap: Platform.OS === 'web' ? 12 : 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    backgroundColor: '#ffffff',
-    ...Platform.select({
-      web: {
-        justifyContent: 'space-between',
-        flexShrink: 0,
-        minHeight: 60,
-      },
-    }),
-  },
-  clearFiltersButton: {
-    flex: Platform.OS === 'web' ? 0 : 1,
-    backgroundColor: '#ff9800',
-    paddingVertical: Platform.OS === 'web' ? 10 : 12,
-    paddingHorizontal: Platform.OS === 'web' ? 16 : 12,
-    borderRadius: 6,
+    justifyContent: 'space-between',
     alignItems: 'center',
-    ...Platform.select({
-      web: {
-        minWidth: 100,
-      },
-    }),
-  },
-  clearFiltersButtonText: {
-    fontSize: Platform.OS === 'web' ? 12 : 16,
-    fontWeight: '600',
-    color: '#ffffff',
   },
   resetButton: {
-    flex: Platform.OS === 'web' ? 0 : 1,
     backgroundColor: '#f5f5f5',
     paddingVertical: Platform.OS === 'web' ? 10 : 12,
     paddingHorizontal: Platform.OS === 'web' ? 16 : 12,
@@ -787,26 +513,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#666',
   },
-  saveButton: {
-    flex: Platform.OS === 'web' ? 0 : 1,
-    backgroundColor: '#4CAF50',
-    paddingVertical: Platform.OS === 'web' ? 10 : 12,
-    paddingHorizontal: Platform.OS === 'web' ? 16 : 12,
-    borderRadius: 6,
-    alignItems: 'center',
-    ...Platform.select({
-      web: {
-        minWidth: 100,
-      },
-    }),
-  },
-  saveButtonText: {
-    fontSize: Platform.OS === 'web' ? 12 : 16,
-    fontWeight: 'bold',
-    color: '#ffffff',
-  },
   closeButton: {
-    flex: Platform.OS === 'web' ? 0 : 1,
     backgroundColor: '#f44336',
     paddingVertical: Platform.OS === 'web' ? 10 : 12,
     paddingHorizontal: Platform.OS === 'web' ? 16 : 12,
@@ -823,7 +530,56 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#ffffff',
   },
-  // Stili per i filtri intelligenti
+  tabsContainer: {
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    paddingVertical: Platform.OS === 'web' ? 4 : 8,
+    ...Platform.select({
+      web: {
+        paddingHorizontal: 4,
+      },
+    }),
+  },
+  tabsContent: {
+    alignItems: 'center',
+  },
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Platform.OS === 'web' ? 8 : 12,
+    paddingVertical: Platform.OS === 'web' ? 6 : 10,
+    marginHorizontal: Platform.OS === 'web' ? 1 : 2,
+    borderRadius: 6,
+    backgroundColor: 'transparent',
+    ...Platform.select({
+      web: {
+        minWidth: 70,
+      },
+    }),
+  },
+  activeTab: {
+    backgroundColor: '#2196F3',
+  },
+  tabIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+  },
+  activeTabText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  controls: {
+    padding: Platform.OS === 'web' ? 12 : 16,
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
   searchContainer: {
     marginBottom: Platform.OS === 'web' ? 8 : 12,
   },
@@ -842,102 +598,35 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  paginationContainer: {
+  controlButtons: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 12,
+    justifyContent: 'space-between',
     gap: 8,
   },
-  paginationButton: {
-    backgroundColor: '#2196F3',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  paginationButtonDisabled: {
+  controlButton: {
     backgroundColor: '#e0e0e0',
-  },
-  paginationButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#ffffff',
-  },
-  paginationText: {
-    fontSize: 14,
-    color: '#666',
-    marginHorizontal: 8,
-  },
-  // Stili per i filtri avanzati
-  advancedFilterToggle: {
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 8,
+    paddingVertical: Platform.OS === 'web' ? 8 : 10,
+    paddingHorizontal: Platform.OS === 'web' ? 12 : 14,
+    borderRadius: 6,
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#2196F3',
+    ...Platform.select({
+      web: {
+        minWidth: 100,
+      },
+    }),
   },
-  advancedFilterToggleText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2196F3',
-    textAlign: 'center',
+  controlButtonActive: {
+    backgroundColor: '#2196F3',
+    borderColor: '#2196F3',
   },
-  advancedFiltersContainer: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  advancedFilterSection: {
-    marginBottom: 16,
-  },
-  advancedFilterLabel: {
-    fontSize: 14,
+  controlButtonText: {
+    fontSize: Platform.OS === 'web' ? 12 : 14,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 8,
   },
-  // Stili per i tab
-  tabContainer: {
-    backgroundColor: '#f8f9fa',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    paddingVertical: Platform.OS === 'web' ? 4 : 8,
-    ...Platform.select({
-      web: {
-        paddingHorizontal: 4,
-      },
-    }),
-  },
-  tab: {
-    paddingHorizontal: Platform.OS === 'web' ? 8 : 12,
-    paddingVertical: Platform.OS === 'web' ? 6 : 10,
-    marginHorizontal: Platform.OS === 'web' ? 1 : 2,
-    borderRadius: 6,
-    backgroundColor: 'transparent',
-    ...Platform.select({
-      web: {
-        minWidth: 70,
-      },
-    }),
-  },
-  activeTab: {
-    backgroundColor: '#2196F3',
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-  },
-  activeTabText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-  },
-  mainContent: {
+  content: {
     flex: 1,
     padding: Platform.OS === 'web' ? 12 : 16,
     ...Platform.select({
@@ -949,9 +638,42 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  resultsContainer: {
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Platform.OS === 'web' ? 8 : 12,
+  },
+  listTitle: {
+    fontSize: Platform.OS === 'web' ? 16 : 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  selectAllButton: {
+    backgroundColor: '#e0e0e0',
+    paddingVertical: Platform.OS === 'web' ? 8 : 10,
+    paddingHorizontal: Platform.OS === 'web' ? 12 : 14,
+    borderRadius: 6,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2196F3',
+    ...Platform.select({
+      web: {
+        minWidth: 100,
+      },
+    }),
+  },
+  selectAllButtonActive: {
+    backgroundColor: '#2196F3',
+    borderColor: '#2196F3',
+  },
+  selectAllButtonText: {
+    fontSize: Platform.OS === 'web' ? 12 : 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  list: {
     flex: 1,
-    marginTop: Platform.OS === 'web' ? 8 : 12,
     ...Platform.select({
       web: {
         maxHeight: 250,
@@ -960,26 +682,15 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  // Stili per checkbox e selezione multipla
-  filterItemContainer: {
+  listItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Platform.OS === 'web' ? 6 : 8,
-    paddingHorizontal: Platform.OS === 'web' ? 8 : 12,
-    backgroundColor: '#ffffff',
-    borderRadius: 4,
-    marginBottom: Platform.OS === 'web' ? 2 : 4,
-  },
-  // Stili per layout a griglia
-  filterItemGridContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: Platform.OS === 'web' ? 8 : 10,
     paddingHorizontal: Platform.OS === 'web' ? 10 : 12,
     backgroundColor: '#ffffff',
     borderRadius: 6,
-    margin: Platform.OS === 'web' ? 4 : 6,
+    marginBottom: Platform.OS === 'web' ? 4 : 6,
     minHeight: Platform.OS === 'web' ? 50 : 60,
     ...Platform.select({
       web: {
@@ -990,75 +701,94 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  gridContentContainer: {
-    paddingHorizontal: Platform.OS === 'web' ? 8 : 12,
-    paddingBottom: Platform.OS === 'web' ? 8 : 12,
-  },
-  checkboxContainer: {
-    marginRight: Platform.OS === 'web' ? 8 : 12,
-  },
-  checkbox: {
-    width: Platform.OS === 'web' ? 16 : 20,
-    height: Platform.OS === 'web' ? 16 : 20,
-    borderWidth: Platform.OS === 'web' ? 1.5 : 2,
+  selectedItem: {
+    backgroundColor: '#e0f7fa', // Light blue background for selected items
+    borderWidth: 1,
     borderColor: '#2196F3',
-    borderRadius: 3,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
   },
-  checkboxChecked: {
-    backgroundColor: '#2196F3',
-  },
-  checkmark: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  filterItemText: {
+  itemText: {
     flex: 1,
-  },
-  filterItemLabel: {
     fontSize: Platform.OS === 'web' ? 13 : 14,
     color: '#333',
   },
-  multiSelectContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Platform.OS === 'web' ? 8 : 12,
-    paddingHorizontal: Platform.OS === 'web' ? 12 : 16,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 6,
-    marginTop: Platform.OS === 'web' ? 8 : 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+  selectedItemText: {
+    fontWeight: 'bold',
+    color: '#2196F3',
   },
-  multiSelectLabel: {
+  checkmark: {
+    color: '#2196F3',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  pagination: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 8,
+  },
+  pageButton: {
+    backgroundColor: '#2196F3',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pageButtonDisabled: {
+    backgroundColor: '#e0e0e0',
+  },
+  pageButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  pageInfo: {
+    fontSize: 14,
+    color: '#666',
+    marginHorizontal: 8,
+  },
+  footer: {
+    backgroundColor: '#f8f9fa',
+    padding: Platform.OS === 'web' ? 12 : 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    alignItems: 'center',
+  },
+  selectionInfo: {
     fontSize: Platform.OS === 'web' ? 12 : 14,
     color: '#666',
-    marginLeft: Platform.OS === 'web' ? 6 : 8,
   },
-  showAllOptionsButton: {
-    backgroundColor: '#e0e0e0',
-    paddingVertical: Platform.OS === 'web' ? 8 : 10,
-    paddingHorizontal: Platform.OS === 'web' ? 12 : 14,
-    borderRadius: 6,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: Platform.OS === 'web' ? 8 : 10,
-    borderWidth: 1,
-    borderColor: '#2196F3',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    margin: 8,
+    elevation: 4,
+    maxWidth: Platform.OS === 'web' ? 800 : '100%',
+    alignSelf: Platform.OS === 'web' ? 'center' : 'stretch',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 3.84px rgba(0, 0, 0, 0.25)',
+        minHeight: 600,
+        maxHeight: 700,
+        display: 'flex',
+        flexDirection: 'column',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        flex: 1,
+      },
+    }),
   },
-  showAllOptionsButtonActive: {
-    backgroundColor: '#2196F3',
-    borderColor: '#2196F3',
-  },
-  showAllOptionsButtonText: {
-    fontSize: Platform.OS === 'web' ? 12 : 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  showAllOptionsButtonTextActive: {
-    color: '#ffffff',
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
   },
 });
 

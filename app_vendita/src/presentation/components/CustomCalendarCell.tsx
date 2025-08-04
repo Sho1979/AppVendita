@@ -37,38 +37,21 @@ function CustomCalendarCell({
   const isInitialized = progressiveSystem.isInitialized;
   const { getDisplayDataForDate, loadFocusReferencesData } = progressiveSystem;
   
-  // Rimuoviamo il log che causa re-render continui
-  // console.log(`🔍 CustomCalendarCell ${date}: isInitialized=${isInitialized}`);
-  
   // Carica i dati focusReferencesData nel sistema progressivo quando l'entry ha questi dati
   useEffect(() => {
     if (entry?.focusReferencesData && entry.focusReferencesData.length > 0) {
-      console.log(`📊 CustomCalendarCell ${date}: Caricamento ${entry.focusReferencesData.length} focus references nel sistema progressivo`);
       loadFocusReferencesData(date, entry.focusReferencesData);
     }
   }, [entry?.focusReferencesData, date, loadFocusReferencesData]);
-  
-
   
   const dayNumber = new Date(date).getDate();
   const hasProblem = entry?.hasProblem || false;
   const totalSales = entry?.sales.reduce((sum, sale) => sum + sale.value, 0) || 0;
   const totalActions = entry?.actions.reduce((sum, action) => sum + action.count, 0) || 0;
   
-
-
   // Calcola il sell-in totale dalle referenze focus
   const totalSellIn = useMemo(() => {
-    // Ottieni i dati di visualizzazione
     const displayData = getDisplayDataForDate(date, entry, isInitialized);
-    
-    console.log(`💰 totalSellIn per ${date}:`, {
-      isInitialized,
-      useOriginalData: displayData.useOriginalData,
-      sellInProgressivo: displayData.progressiveData?.sellInProgressivo || 0,
-      hasEntry: !!entry,
-      focusReferencesCount: entry?.focusReferencesData?.length || 0
-    });
     
     // Se il sistema progressivo non è inizializzato, usa i dati originali
     if (displayData.useOriginalData) {
@@ -97,7 +80,6 @@ function CustomCalendarCell({
         }
         
         const sellIn = orderedPieces * netPrice;
-        console.log(`💰 Calcolo sell-in per ${focusData.referenceId}: ${orderedPieces} × ${netPrice} = ${sellIn}`);
         return total + sellIn;
       }, 0);
     }
@@ -106,14 +88,12 @@ function CustomCalendarCell({
     return displayData.progressiveData?.sellInProgressivo || 0;
   }, [entry?.focusReferencesData, entry?.id, date, getDisplayDataForDate, isInitialized]);
 
-
-
   // Notifica il sell-in al componente padre solo quando cambia
   useEffect(() => {
     if (onSellInChange) {
       onSellInChange(date, totalSellIn);
     }
-  }, [date, totalSellIn]); // Rimuoviamo entry dalle dipendenze per evitare loop
+  }, [date, totalSellIn, onSellInChange]);
 
   // Funzioni per determinare se i tooltip hanno contenuto
   const hasStockContent = () => {
@@ -133,21 +113,9 @@ function CustomCalendarCell({
     return false;
   };
 
-
-
   // Componente per visualizzare le referenze focus
   const FocusReferencesDisplay = () => {
-    // Ottieni i dati di visualizzazione (originali o progressivi)
     const displayData = getDisplayDataForDate(date, entry, isInitialized);
-    
-    // Rimuoviamo il log che causa re-render continui
-    // console.log(`🔍 FocusReferencesDisplay per ${date}:`, {
-    //   isInitialized,
-    //   useOriginalData: displayData.useOriginalData,
-    //   hasProgressiveData: !!displayData.progressiveData,
-    //   progressiveEntriesCount: displayData.progressiveData?.displayData?.progressiveEntries?.length || 0,
-    //   originalEntriesCount: entry?.focusReferencesData?.length || 0
-    // });
     
     // Se il sistema progressivo non è inizializzato, usa i dati originali
     if (displayData.useOriginalData) {
@@ -161,7 +129,7 @@ function CustomCalendarCell({
             const reference = getFocusReferenceById(focusData.referenceId);
             if (!reference) return null;
 
-                        const soldPieces = parseFloat(focusData.soldPieces) || 0;
+            const soldPieces = parseFloat(focusData.soldPieces) || 0;
             const stockPieces = parseFloat(focusData.stockPieces) || 0;
             
             // Determina il colore del bordo in base alla situazione stock
@@ -312,15 +280,10 @@ function CustomCalendarCell({
               </View>
             </View>
           );
-                 })}
-       </View>
-     );
-   };
-   
-   // Forza re-render quando isInitialized cambia
-   // useEffect(() => {
-   //   // Questo useEffect forza il re-render del componente quando isInitialized cambia
-   // }, [isInitialized]);
+        })}
+      </View>
+    );
+  };
 
   // Tooltip content per settimana (guida principale)
   const getWeekTooltip = () => {
@@ -353,18 +316,12 @@ function CustomCalendarCell({
 
   // Gestione tooltip per settimana
   const handleTooltipPress = (type: 'stock' | 'notes' | 'info' | 'images') => {
-    // Rimuoviamo il log che causa re-render continui
-    // console.log(`🔘 CustomCalendarCell: Tooltip ${type} cliccato per data: ${date}`);
     if (onTooltipPress) {
       onTooltipPress(type, date, entry);
     }
   };
 
-
-
   const handleCellPress = () => {
-    // Rimuoviamo il log che causa re-render continui
-    // console.log(`🔘 CustomCalendarCell: Cella cliccata per data: ${date}, entry: ${entry ? 'presente' : 'assente'}`);
     onPress();
   };
 
@@ -381,7 +338,7 @@ function CustomCalendarCell({
       activeOpacity={0.7}
       accessibilityLabel={isWeekView ? getWeekTooltip() : getMonthTooltip()}
     >
-            {/* Vista Settimanale - Struttura a 4 parti */}
+      {/* Vista Settimanale - Struttura a 4 parti */}
       {isWeekView ? (
         <View style={styles.weekStructure}>
           {/* PARTE 1: Numero del giorno + Pulsante + */}
@@ -399,17 +356,7 @@ function CustomCalendarCell({
               style={styles.addButton}
               onPress={(e) => {
                 e.stopPropagation();
-                // Rimuoviamo il log che causa re-render continui
-                // console.log('➕ CustomCalendarCell: Pulsante + cliccato per data:', date);
                 onPress();
-              }}
-              onPressIn={() => {
-                // Rimuoviamo il log che causa re-render continui
-                // console.log('➕ CustomCalendarCell: Pulsante + pressIn per data:', date);
-              }}
-              onPressOut={() => {
-                // Rimuoviamo il log che causa re-render continui
-                // console.log('➕ CustomCalendarCell: Pulsante + pressOut per data:', date);
               }}
               activeOpacity={0.7}
               hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
@@ -419,18 +366,8 @@ function CustomCalendarCell({
           </View>
 
           {/* PARTE 2: Tag su 2 righe */}
-          {(() => {
-            // Rimuoviamo questo log che causa re-render continui
-    // console.log('🔍 CustomCalendarCell: Controllo tag per data:', date, 'Entry tags:', entry?.tags, 'Tags length:', entry?.tags?.length);
-            return null;
-          })()}
           {entry?.tags && entry.tags.length > 0 && (
             <View style={styles.tagsSection}>
-              {/* Rimuoviamo questo log che causa re-render continui */}
-              {/* {(() => {
-                console.log('🔍 CustomCalendarCell: Visualizzando tag per data:', date, 'Tags:', entry.tags);
-                return null;
-              })()} */}
               <CellTags 
                 tagIds={entry.tags} 
                 size="tiny" 
