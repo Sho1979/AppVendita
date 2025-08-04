@@ -10,20 +10,9 @@ import {
   FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { AsyncStorageCalendarRepository } from '../../data/repositories/CalendarRepository';
+import { useFocusReferencesStore, FocusReference } from '../../stores/focusReferencesStore';
 
-interface PriceReference {
-  id: string;
-  brand: string;
-  subBrand: string;
-  typology: string;
-  ean: string;
-  code: string;
-  description: string;
-  piecesPerCarton: number;
-  unitPrice: number;
-  netPrice: number;
-}
+// Rimuovo l'interfaccia PriceReference perché ora uso FocusReference dal store
 
 interface FocusReferencesModalProps {
   visible: boolean;
@@ -34,75 +23,50 @@ const FocusReferencesModal: React.FC<FocusReferencesModalProps> = ({
   visible,
   onClose,
 }) => {
-  const [allReferences, setAllReferences] = useState<PriceReference[]>([]);
-  const [focusReferences, setFocusReferences] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [netPrices, setNetPrices] = useState<{ [key: string]: string }>({});
-  const repository = new AsyncStorageCalendarRepository();
+  
+  // Usa il nuovo store per le referenze focus
+  const focusReferencesStore = useFocusReferencesStore();
+  const allReferences = focusReferencesStore.getAllReferences();
+  const focusReferences = focusReferencesStore.getFocusReferences();
+  const netPrices = focusReferencesStore.getNetPrices();
+  const loading = focusReferencesStore.isLoading;
 
-  // Carica tutte le referenze e quelle focus
+  // Carica tutte le referenze e le configurazioni focus quando si apre il modal
   useEffect(() => {
     if (visible) {
-      loadReferences();
-    }
-  }, [visible]);
-
-  const loadReferences = async () => {
-    try {
-      setLoading(true);
+      const loadData = async () => {
+        // Carica il listino completo (statico)
+        focusReferencesStore.loadAllReferences();
+        
+        // Carica le configurazioni focus da Firestore (globali)
+        await focusReferencesStore.loadFocusReferencesFromFirestore();
+      };
       
-      // Carica tutte le referenze
-      const references = await repository.getPriceReferences();
-      console.log('🔍 FocusReferencesModal: Referenze caricate:', references.length);
-      setAllReferences(references);
-
-      // Carica le referenze focus salvate
-      const focus = await repository.getFocusReferences();
-      console.log('🔍 FocusReferencesModal: Focus references caricate:', focus);
-      setFocusReferences(focus);
-
-      // Carica i prezzi netti salvati
-      const savedNetPrices = await repository.getFocusNetPrices();
-      console.log('🔍 FocusReferencesModal: Prezzi netti caricati:', Object.keys(savedNetPrices).length);
-      setNetPrices(savedNetPrices);
-    } catch (error) {
-      console.error('Errore nel caricamento referenze:', error);
-      Alert.alert('Errore', 'Impossibile caricare le referenze');
-    } finally {
-      setLoading(false);
+      loadData();
     }
-  };
+  }, [visible]); // Rimuovo focusReferencesStore dalle dipendenze per evitare loop infinito
 
   const toggleFocusReference = (referenceId: string) => {
     console.log('🔍 FocusReferencesModal: Toggle referenza:', referenceId);
-    setFocusReferences(prev => {
-      const newSelection = prev.includes(referenceId)
-        ? prev.filter(id => id !== referenceId)
-        : [...prev, referenceId];
-      
-      console.log('🔍 FocusReferencesModal: Nuova selezione:', newSelection);
-      return newSelection;
-    });
+    focusReferencesStore.toggleFocusReference(referenceId);
   };
 
   const saveFocusReferences = async () => {
     try {
-      console.log('💾 FocusReferencesModal: Salvataggio referenze focus...', {
+      console.log('💾 FocusReferencesModal: Salvataggio referenze focus su Firestore...', {
         focusReferences: focusReferences.length,
         netPrices: Object.keys(netPrices).length
       });
       
-      // Salva le referenze focus
-      await repository.saveFocusReferences(focusReferences);
+      // Salva le configurazioni focus su Firestore (globale per tutti gli utenti)
+      await focusReferencesStore.saveFocusReferencesToFirestore();
       
-      // Salva i prezzi netti
-      await repository.saveFocusNetPrices(netPrices);
+      console.log('✅ FocusReferencesModal: Salvataggio completato su Firestore');
+      Alert.alert('Successo', 'Referenze focus salvate con successo (configurazione globale)');
       
-      console.log('✅ FocusReferencesModal: Salvataggio completato');
-      
-      // Chiudi direttamente il modal senza Alert
-      console.log('🚪 FocusReferencesModal: Chiusura modal, onClose è:', typeof onClose);
+      // Chiudi il modal
+      console.log('🚪 FocusReferencesModal: Chiusura modal');
       if (typeof onClose === 'function') {
         onClose();
       } else {
@@ -111,14 +75,14 @@ const FocusReferencesModal: React.FC<FocusReferencesModalProps> = ({
       
     } catch (error) {
       console.error('❌ FocusReferencesModal: Errore nel salvataggio:', error);
-      Alert.alert('Errore', 'Impossibile salvare le referenze focus');
+      Alert.alert('Errore', 'Impossibile salvare le referenze focus su Firestore');
     }
   };
 
   const clearAllFocus = () => {
     Alert.alert(
       'Conferma',
-      'Sei sicuro di voler rimuovere tutte le referenze focus?',
+      'Sei sicuro di voler rimuovere tutte le referenze focus? Questa azione sarà applicata a tutti gli utenti.',
       [
         { text: 'Annulla', style: 'cancel' },
         { 
@@ -126,8 +90,14 @@ const FocusReferencesModal: React.FC<FocusReferencesModalProps> = ({
           style: 'destructive', 
           onPress: async () => {
             try {
-              await repository.clearFocusReferences();
-              setFocusReferences([]);
+              // Pulisce lo store locale
+              focusReferencesStore.clearFocusReferences();
+              
+              // Salva la configurazione vuota su Firestore (globale)
+              await focusReferencesStore.saveFocusReferencesToFirestore();
+              
+              console.log('🗑️ FocusReferencesModal: Tutte le referenze focus rimosse (configurazione globale)');
+              Alert.alert('Successo', 'Referenze focus rimosse con successo (configurazione globale)');
             } catch (error) {
               console.error('Errore nella rimozione:', error);
               Alert.alert('Errore', 'Impossibile rimuovere le referenze focus');
@@ -145,7 +115,7 @@ const FocusReferencesModal: React.FC<FocusReferencesModalProps> = ({
     ref.code.includes(searchTerm)
   );
 
-    const renderReferenceItem = ({ item }: { item: PriceReference }) => {
+    const renderReferenceItem = ({ item }: { item: FocusReference }) => {
     const isSelected = focusReferences.includes(item.id);
     const currentNetPrice = netPrices[item.id] || item.netPrice.toString();
     
@@ -183,10 +153,7 @@ const FocusReferencesModal: React.FC<FocusReferencesModalProps> = ({
             value={currentNetPrice}
             onChangeText={(text) => {
               if (isSelected) {
-                setNetPrices(prev => ({
-                  ...prev,
-                  [item.id]: text
-                }));
+                focusReferencesStore.updateNetPrice(item.id, text);
               }
             }}
             keyboardType="numeric"
@@ -212,7 +179,7 @@ const FocusReferencesModal: React.FC<FocusReferencesModalProps> = ({
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color="#007AFF" />
           </TouchableOpacity>
-          <Text style={styles.title}>Gestisci Referenze Focus</Text>
+          <Text style={styles.title}>Gestisci Referenze Focus (Globale)</Text>
           <TouchableOpacity 
             onPress={() => {
               console.log('🔘 FocusReferencesModal: Pulsante Salva premuto');
@@ -220,18 +187,18 @@ const FocusReferencesModal: React.FC<FocusReferencesModalProps> = ({
             }} 
             style={styles.saveButton}
           >
-            <Text style={styles.saveButtonText}>Salva</Text>
+                         <Text style={styles.saveButtonText}>Salva Globale</Text>
           </TouchableOpacity>
         </View>
 
         {/* Info Section */}
         <View style={styles.infoSection}>
-                     <View style={styles.infoRow}>
-             <Ionicons name="information-circle" size={20} color="#007AFF" />
-             <Text style={styles.infoText}>
-               Seleziona le referenze per il focus del calendario
-             </Text>
-           </View>
+                                 <View style={styles.infoRow}>
+              <Ionicons name="information-circle" size={20} color="#007AFF" />
+              <Text style={styles.infoText}>
+                Seleziona le referenze per il focus del calendario (configurazione globale)
+              </Text>
+            </View>
                        <View style={styles.counterRow}>
               <Text style={styles.counterText}>
                 Selezionate: {focusReferences.length}

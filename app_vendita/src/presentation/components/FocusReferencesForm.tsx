@@ -8,7 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusReferences } from '../../hooks/useFocusReferences';
+import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
 import { FocusReferenceData } from '../../data/models/FocusReferenceData';
 
 interface FocusReferencesFormProps {
@@ -22,14 +22,37 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
   existingData,
   onDataChange,
 }) => {
-  const {
-    focusReferences,
-    loading,
-    getNetPrice,
-  } = useFocusReferences();
+  const focusReferencesStore = useFocusReferencesStore();
+  const focusReferences = focusReferencesStore.getAllReferences().filter(ref => 
+    focusReferencesStore.getFocusReferences().includes(ref.id)
+  );
+  const loading = focusReferencesStore.isLoading;
+  
+  const getNetPrice = (referenceId: string): string => {
+    const netPrices = focusReferencesStore.getNetPrices();
+    const netPrice = netPrices[referenceId];
+    return netPrice || '0';
+  };
 
   const [focusData, setFocusData] = useState<FocusReferenceData[]>([]);
   const isInitialized = useRef(false);
+
+  // Carica le referenze focus all'inizializzazione del componente
+  useEffect(() => {
+    const loadFocusReferences = async () => {
+      console.log('🔍 FocusReferencesForm: Caricamento referenze focus...');
+      
+      // Carica il listino completo (statico)
+      focusReferencesStore.loadAllReferences();
+      
+      // Carica le configurazioni focus da Firestore (globali)
+      await focusReferencesStore.loadFocusReferencesFromFirestore();
+      
+      console.log('✅ FocusReferencesForm: Referenze focus caricate');
+    };
+    
+    loadFocusReferences();
+  }, []); // Esegui solo all'inizializzazione - nessuna dipendenza per evitare loop
 
   // Carica le referenze focus quando cambia la data
   useEffect(() => {
@@ -49,7 +72,7 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
       setFocusData(initialData);
       isInitialized.current = true;
     }
-  }, [focusReferences, existingData]); // I prezzi netti sono fissi, non servono nelle dipendenze
+  }, [focusReferences.length, existingData]); // Uso focusReferences.length invece di focusReferences per evitare loop
 
   // Notifica il parent quando focusData cambia
   useEffect(() => {

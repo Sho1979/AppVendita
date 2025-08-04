@@ -14,7 +14,7 @@ import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { Colors } from '../../constants/Colors';
 import { Spacing } from '../../constants/Spacing';
-import { useFocusReferences } from '../../hooks/useFocusReferences';
+import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
 
 interface TooltipModalProps {
   visible: boolean;
@@ -48,7 +48,11 @@ export default function TooltipModal({
   onUpdateEntry,
   activeFilters,
 }: TooltipModalProps) {
-  const { getFocusReferenceById } = useFocusReferences();
+  const focusReferencesStore = useFocusReferencesStore();
+  
+  const getFocusReferenceById = (id: string) => {
+    return focusReferencesStore.getAllReferences().find(ref => ref.id === id);
+  };
   const scrollViewRef = useRef<ScrollView>(null);
   const [newMessage, setNewMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);

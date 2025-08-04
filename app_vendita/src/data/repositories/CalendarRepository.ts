@@ -58,12 +58,12 @@ export interface CalendarRepository {
   getActivePriceReferences(): Promise<PriceReference[]>;
   togglePriceReferenceActive(id: string, isActive: boolean): Promise<void>;
   
-  // Metodi per Focus References
-  getFocusReferences(): Promise<string[]>;
-  saveFocusReferences(referenceIds: string[]): Promise<void>;
-  clearFocusReferences(): Promise<void>;
-  saveFocusNetPrices(netPrices: { [key: string]: string }): Promise<void>;
-  getFocusNetPrices(): Promise<{ [key: string]: string }>;
+  // Metodi per Focus References (DEPRECATI - ora usiamo focusReferencesStore)
+  // getFocusReferences(): Promise<string[]>;
+  // saveFocusReferences(referenceIds: string[]): Promise<void>;
+  // clearFocusReferences(): Promise<void>;
+  // saveFocusNetPrices(netPrices: { [key: string]: string }): Promise<void>;
+  // getFocusNetPrices(): Promise<{ [key: string]: string }>;
 
   // Metodi per import/export
   importFromExcel(data: any): Promise<void>;
@@ -721,87 +721,87 @@ export class AsyncStorageCalendarRepository implements CalendarRepository {
     await this.updatePriceReference(id, { isActive });
   }
 
-  // Metodi per Focus References
-  async getFocusReferences(): Promise<string[]> {
-    try {
-      const focusData = await AsyncStorage.getItem(this.FOCUS_REFERENCES_KEY);
-      if (focusData) {
-        const focusReferences = JSON.parse(focusData);
-        if (__DEV__) {
-          console.log('📥 Repository: Referenze focus caricate:', focusReferences.length);
-        }
-        return focusReferences;
-      }
-      return [];
-    } catch (error) {
-      if (__DEV__) {
-        console.error('❌ Repository: Errore nel caricamento referenze focus:', error);
-      }
-      return [];
-    }
-  }
+  // DEPRECATO: Metodi per Focus References (ora usiamo focusReferencesStore)
+  // async getFocusReferences(): Promise<string[]> {
+  //   try {
+  //     const focusData = await AsyncStorage.getItem(this.FOCUS_REFERENCES_KEY);
+  //     if (focusData) {
+  //       const focusReferences = JSON.parse(focusData);
+  //       if (__DEV__) {
+  //         console.log('📥 Repository: Referenze focus caricate:', focusReferences.length);
+  //       }
+  //       return focusReferences;
+  //     }
+  //     return [];
+  //   } catch (error) {
+  //     if (__DEV__) {
+  //       console.error('❌ Repository: Errore nel caricamento referenze focus:', error);
+  //     }
+  //     return [];
+  //   }
+  // }
 
-  async saveFocusReferences(referenceIds: string[]): Promise<void> {
-    try {
-      await AsyncStorage.setItem(this.FOCUS_REFERENCES_KEY, JSON.stringify(referenceIds));
-      if (__DEV__) {
-        console.log('💾 Repository: Referenze focus salvate:', referenceIds.length);
-      }
-    } catch (error) {
-      if (__DEV__) {
-        console.error('❌ Repository: Errore nel salvataggio referenze focus:', error);
-      }
-      throw error;
-    }
-  }
+  // async saveFocusReferences(referenceIds: string[]): Promise<void> {
+  //   try {
+  //     await AsyncStorage.setItem(this.FOCUS_REFERENCES_KEY, JSON.stringify(referenceIds));
+  //     if (__DEV__) {
+  //       console.log('💾 Repository: Referenze focus salvate:', referenceIds.length);
+  //     }
+  //   } catch (error) {
+  //     if (__DEV__) {
+  //       console.error('❌ Repository: Errore nel salvataggio referenze focus:', error);
+  //     }
+  //     throw error;
+  //   }
+  // }
 
-  async clearFocusReferences(): Promise<void> {
-    try {
-      await AsyncStorage.removeItem(this.FOCUS_REFERENCES_KEY);
-      await AsyncStorage.removeItem(this.FOCUS_NET_PRICES_KEY);
-      if (__DEV__) {
-        console.log('🗑️ Repository: Referenze focus rimosse');
-      }
-    } catch (error) {
-      if (__DEV__) {
-        console.error('❌ Repository: Errore nella rimozione referenze focus:', error);
-      }
-      throw error;
-    }
-  }
+  // async clearFocusReferences(): Promise<void> {
+  //   try {
+  //     await AsyncStorage.removeItem(this.FOCUS_REFERENCES_KEY);
+  //     await AsyncStorage.removeItem(this.FOCUS_NET_PRICES_KEY);
+  //     if (__DEV__) {
+  //       console.log('🗑️ Repository: Referenze focus rimosse');
+  //     }
+  //   } catch (error) {
+  //     if (__DEV__) {
+  //       console.error('❌ Repository: Errore nella rimozione referenze focus:', error);
+  //     }
+  //     throw error;
+  //   }
+  // }
 
-  async saveFocusNetPrices(netPrices: { [key: string]: string }): Promise<void> {
-    try {
-      await AsyncStorage.setItem(this.FOCUS_NET_PRICES_KEY, JSON.stringify(netPrices));
-      if (__DEV__) {
-        console.log('💾 Repository: Prezzi netti focus salvati:', Object.keys(netPrices).length);
-      }
-    } catch (error) {
-      if (__DEV__) {
-        console.error('❌ Repository: Errore nel salvataggio prezzi netti focus:', error);
-      }
-      throw error;
-    }
-  }
+  // async saveFocusNetPrices(netPrices: { [key: string]: string }): Promise<void> {
+  //   try {
+  //     await AsyncStorage.setItem(this.FOCUS_NET_PRICES_KEY, JSON.stringify(netPrices));
+  //     if (__DEV__) {
+  //       console.log('💾 Repository: Prezzi netti focus salvati:', Object.keys(netPrices).length);
+  //     }
+  //   } catch (error) {
+  //     if (__DEV__) {
+  //       console.error('❌ Repository: Errore nel salvataggio prezzi netti focus:', error);
+  //     }
+  //     throw error;
+  //   }
+  // }
 
-  async getFocusNetPrices(): Promise<{ [key: string]: string }> {
-    try {
-      const netPricesData = await AsyncStorage.getItem(this.FOCUS_NET_PRICES_KEY);
-      if (netPricesData) {
-        const netPrices = JSON.parse(netPricesData);
-        if (__DEV__) {
-          console.log('📥 Repository: Prezzi netti focus caricati:', Object.keys(netPrices).length);
-        }
-        return netPrices;
-      }
-      return {};
-    } catch (error) {
-      if (__DEV__) {
-        console.error('❌ Repository: Errore nel caricamento prezzi netti focus:', error);
-      }
-      return {};
-    }
-  }
+  // async getFocusNetPrices(): Promise<{ [key: string]: string }> {
+  //   try {
+  //     const netPricesData = await AsyncStorage.getItem(this.FOCUS_NET_PRICES_KEY);
+  //     if (netPricesData) {
+  //       const netPrices = JSON.parse(netPricesData);
+  //       if (__DEV__) {
+  //         console.log('📥 Repository: Prezzi netti focus caricati:', Object.keys(netPrices).length);
+  //       }
+  //       return netPrices;
+  //     }
+  //     return {};
+  //   } catch (error) {
+  //     if (__DEV__) {
+  //       console.error('❌ Repository: Errore nel caricamento prezzi netti focus:', error);
+  //     }
+  //     return {};
+  //   }
+  // }
 
   private generateId(): string {
     const id = Date.now().toString() + Math.random().toString(36).substr(2, 9);

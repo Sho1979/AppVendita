@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { CalendarEntry } from '../../data/models/CalendarEntry';
 import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import { CellTags } from './common/CellTags';
-import { useFocusReferences } from '../../hooks/useFocusReferences';
+import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
 import { useCalendar } from '../../presentation/providers/CalendarContext';
 
 
@@ -32,7 +32,17 @@ function CustomCalendarCell({
 }: CustomCalendarCellProps) {
   
   const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
-  const { getFocusReferenceById, getNetPrice } = useFocusReferences();
+  const focusReferencesStore = useFocusReferencesStore();
+  
+  const getFocusReferenceById = (id: string) => {
+    return focusReferencesStore.getAllReferences().find(ref => ref.id === id);
+  };
+  
+  const getNetPrice = (referenceId: string): string => {
+    const netPrices = focusReferencesStore.getNetPrices();
+    const netPrice = netPrices[referenceId];
+    return netPrice || '0';
+  };
   const { progressiveSystem } = useCalendar();
   
   const isInitialized = progressiveSystem.isInitialized;

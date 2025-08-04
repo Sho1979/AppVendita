@@ -50,6 +50,11 @@ function FilterComponents({
   const [selectedItemTypes, setSelectedItemTypes] = useState<{[key: string]: string}>({});
   const [showAllOptions, setShowAllOptions] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  
+  // Stato temporaneo per i filtri (non applicati finché non si conferma)
+  const [tempSelectedItems, setTempSelectedItems] = useState<string[]>([]);
+  const [tempSelectedItemTypes, setTempSelectedItemTypes] = useState<{[key: string]: string}>({});
+  const [tempShowAllOptions, setTempShowAllOptions] = useState(false);
 
   // Usa i dati da Firebase Excel
   const { excelData, isLoading: excelDataLoading } = useFirebaseExcelData();
@@ -60,9 +65,13 @@ function FilterComponents({
     
     let filteredExcelData = excelData;
     
-    if (!showAllOptions && Object.keys(selectedItemTypes).length > 0) {
+    console.log('🔍 FilterComponents: Dati Excel ricevuti:', excelData.length);
+    console.log('🔍 FilterComponents: showAllOptions:', showAllOptions);
+    console.log('🔍 FilterComponents: selectedItemTypes:', selectedItemTypes);
+    
+    if (!tempShowAllOptions && Object.keys(tempSelectedItemTypes).length > 0) {
       filteredExcelData = excelData.filter(row => {
-        return Object.entries(selectedItemTypes).every(([item, type]) => {
+        return Object.entries(tempSelectedItemTypes).every(([item, type]) => {
           switch (type) {
             case 'linea':
               return row.linea === item;
@@ -83,6 +92,7 @@ function FilterComponents({
           }
         });
       });
+      console.log('🔍 FilterComponents: Dati filtrati dopo selezione:', filteredExcelData.length);
     }
 
     switch (activeTab) {
@@ -109,6 +119,9 @@ function FilterComponents({
         break;
     }
 
+    console.log(`🔍 FilterComponents: ${activeTab} - Valori unici trovati:`, data.length);
+    console.log(`🔍 FilterComponents: ${activeTab} - Primi 5 valori:`, data.slice(0, 5));
+
     if (searchText.trim()) {
       data = data.filter(item => 
         item.toLowerCase().includes(searchText.toLowerCase())
@@ -116,7 +129,7 @@ function FilterComponents({
     }
 
     return data.sort();
-  }, [activeTab, excelData, searchText, showAllOptions, selectedItemTypes]);
+  }, [activeTab, excelData, searchText, tempShowAllOptions, tempSelectedItemTypes]);
 
   // Aggiorna la selezione globale quando cambiano gli elementi selezionati
   useEffect(() => {
@@ -124,6 +137,15 @@ function FilterComponents({
       onMultipleSelectionChange(selectedItems);
     }
   }, [selectedItems]);
+
+  // Inizializza lo stato temporaneo quando si apre il modal
+  useEffect(() => {
+    if (isModalVisible) {
+      setTempSelectedItems(selectedItems);
+      setTempSelectedItemTypes(selectedItemTypes);
+      setTempShowAllOptions(showAllOptions);
+    }
+  }, [isModalVisible, selectedItems, selectedItemTypes, showAllOptions]);
 
   const handleTabChange = (tab: typeof activeTab) => {
     setActiveTab(tab);
@@ -135,12 +157,12 @@ function FilterComponents({
   };
 
   const handleItemSelect = (item: string) => {
-    setSelectedItems(prev => {
+    setTempSelectedItems(prev => {
       const newSelection = prev.includes(item)
         ? prev.filter(i => i !== item)
         : [...prev, item];
       
-      setSelectedItemTypes(prevTypes => {
+      setTempSelectedItemTypes(prevTypes => {
         const newTypes = { ...prevTypes };
         if (newSelection.includes(item)) {
           newTypes[item] = activeTab;
@@ -155,7 +177,7 @@ function FilterComponents({
   };
 
   const isItemSelected = (item: string) => {
-    return selectedItems.includes(item);
+    return tempSelectedItems.includes(item);
   };
 
   const getTabTitle = (tab: typeof activeTab) => {
@@ -185,18 +207,39 @@ function FilterComponents({
   };
 
   const handleReset = () => {
-    setSelectedItems([]);
-    setSelectedItemTypes({});
+    setTempSelectedItems([]);
+    setTempSelectedItemTypes({});
     setSearchText('');
-    setShowAllOptions(false);
+    setTempShowAllOptions(false);
     onReset();
   };
 
   const handleToggleShowAll = () => {
-    setShowAllOptions(!showAllOptions);
+    setTempShowAllOptions(!tempShowAllOptions);
   };
 
   const handleClose = () => {
+    // Annulla le modifiche e ripristina lo stato originale
+    setTempSelectedItems(selectedItems);
+    setTempSelectedItemTypes(selectedItemTypes);
+    setTempShowAllOptions(showAllOptions);
+    setIsModalVisible(false);
+    if (onClose) {
+      onClose();
+    }
+  };
+
+  const handleConfirm = () => {
+    // Applica le modifiche temporanee
+    setSelectedItems(tempSelectedItems);
+    setSelectedItemTypes(tempSelectedItemTypes);
+    setShowAllOptions(tempShowAllOptions);
+    
+    // Notifica il cambio
+    if (onMultipleSelectionChange) {
+      onMultipleSelectionChange(tempSelectedItems);
+    }
+    
     setIsModalVisible(false);
     if (onClose) {
       onClose();
@@ -234,14 +277,7 @@ function FilterComponents({
                 style={styles.mobileResetButton}
                 onPress={handleReset}
               >
-                <Text style={styles.mobileResetButtonText}>🔄</Text>
-              </SafeTouchableOpacity>
-              
-              <SafeTouchableOpacity
-                style={styles.mobileCloseButton}
-                onPress={handleClose}
-              >
-                <Text style={styles.mobileCloseButtonText}>✕</Text>
+                <Text style={styles.mobileResetButtonText}>🔄 Reset</Text>
               </SafeTouchableOpacity>
             </View>
           </View>
@@ -283,12 +319,12 @@ function FilterComponents({
             <SafeTouchableOpacity
               style={[
                 styles.mobileToggleButton,
-                showAllOptions && styles.mobileToggleButtonActive
+                tempShowAllOptions && styles.mobileToggleButtonActive
               ]}
               onPress={handleToggleShowAll}
             >
               <Text style={styles.mobileToggleButtonText}>
-                {showAllOptions ? '🔒 Correlati' : '🔓 Tutti'}
+                {tempShowAllOptions ? '🔒 Correlati' : '🔓 Tutti'}
               </Text>
             </SafeTouchableOpacity>
           </View>
@@ -326,13 +362,31 @@ function FilterComponents({
           />
 
           {/* Footer Mobile */}
-          {selectedItems.length > 0 && (
-            <View style={styles.mobileFooter}>
+          {/* Footer con selezione e pulsanti */}
+          <View style={styles.mobileFooter}>
+            {tempSelectedItems.length > 0 && (
               <Text style={styles.mobileSelectionInfo}>
-                {selectedItems.length} selezionato{selectedItems.length !== 1 ? 'i' : ''}
+                {tempSelectedItems.length} elemento{tempSelectedItems.length !== 1 ? 'i' : ''} selezionato{tempSelectedItems.length !== 1 ? 'i' : ''}
               </Text>
+            )}
+            
+            {/* Pulsanti di azione */}
+            <View style={styles.mobileFooterActions}>
+              <SafeTouchableOpacity
+                style={styles.mobileCancelButton}
+                onPress={handleClose}
+              >
+                <Text style={styles.mobileCancelButtonText}>❌ Annulla</Text>
+              </SafeTouchableOpacity>
+              
+              <SafeTouchableOpacity
+                style={styles.mobileConfirmButton}
+                onPress={handleConfirm}
+              >
+                <Text style={styles.mobileConfirmButtonText}>✅ Conferma</Text>
+              </SafeTouchableOpacity>
             </View>
-          )}
+          </View>
         </View>
       </Modal>
     );
@@ -368,33 +422,30 @@ function FilterComponents({
       </View>
 
       {/* Tabs */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabsContainer}
-        contentContainerStyle={styles.tabsContent}
-      >
-        {(['linea', 'areaManager', 'nam', 'agente', 'insegna', 'codice', 'cliente'] as const).map((tab) => (
-          <SafeTouchableOpacity
-            key={tab}
-            style={[
-              styles.tab,
-              activeTab === tab && styles.activeTab
-            ]}
-            onPress={() => handleTabChange(tab)}
-            accessibilityLabel={`Tab ${getTabTitle(tab)}`}
-            accessibilityHint={`Seleziona il tab ${getTabTitle(tab)}`}
-          >
-            <Text style={styles.tabIcon}>{getTabIcon(tab)}</Text>
-            <Text style={[
-              styles.tabText,
-              activeTab === tab && styles.activeTabText
-            ]}>
-              {getTabTitle(tab)}
-            </Text>
-          </SafeTouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.tabsContainer}>
+        <View style={styles.tabsGrid}>
+          {(['linea', 'areaManager', 'nam', 'agente', 'insegna', 'codice', 'cliente'] as const).map((tab) => (
+            <SafeTouchableOpacity
+              key={tab}
+              style={[
+                styles.tab,
+                activeTab === tab && styles.activeTab
+              ]}
+              onPress={() => handleTabChange(tab)}
+              accessibilityLabel={`Tab ${getTabTitle(tab)}`}
+              accessibilityHint={`Seleziona il tab ${getTabTitle(tab)}`}
+            >
+              <Text style={styles.tabIcon}>{getTabIcon(tab)}</Text>
+              <Text style={[
+                styles.tabText,
+                activeTab === tab && styles.activeTabText
+              ]}>
+                {getTabTitle(tab)}
+              </Text>
+            </SafeTouchableOpacity>
+          ))}
+        </View>
+      </View>
 
       {/* Controlli */}
       <View style={styles.controls}>
@@ -409,17 +460,17 @@ function FilterComponents({
         </View>
         
         <View style={styles.controlButtons}>
-          <SafeTouchableOpacity
-            style={[
-              styles.controlButton,
-              showAllOptions && styles.controlButtonActive
-            ]}
-            onPress={handleToggleShowAll}
-          >
-            <Text style={styles.controlButtonText}>
-              {showAllOptions ? '🔒 Solo Correlati' : '🔓 Tutte le Opzioni'}
-            </Text>
-          </SafeTouchableOpacity>
+                      <SafeTouchableOpacity
+              style={[
+                styles.controlButton,
+                tempShowAllOptions && styles.controlButtonActive
+              ]}
+              onPress={handleToggleShowAll}
+            >
+              <Text style={styles.controlButtonText}>
+                {tempShowAllOptions ? '🔒 Solo Correlati' : '🔓 Tutte le Opzioni'}
+              </Text>
+            </SafeTouchableOpacity>
         </View>
       </View>
 
@@ -436,6 +487,7 @@ function FilterComponents({
         <FlatList
           data={filteredData}
           keyExtractor={(item) => item}
+          onLayout={() => console.log('🔍 FilterComponents: FlatList renderizzata con', filteredData.length, 'elementi')}
           renderItem={({ item }) => (
             <SafeTouchableOpacity
               style={[
@@ -460,14 +512,31 @@ function FilterComponents({
         />
       </View>
 
-      {/* Footer con selezione */}
-      {selectedItems.length > 0 && (
-        <View style={styles.footer}>
+      {/* Footer con selezione e pulsanti */}
+      <View style={styles.footer}>
+        {tempSelectedItems.length > 0 && (
           <Text style={styles.selectionInfo}>
-            {selectedItems.length} elemento{selectedItems.length !== 1 ? 'i' : ''} selezionato{selectedItems.length !== 1 ? 'i' : ''}
+            {tempSelectedItems.length} elemento{tempSelectedItems.length !== 1 ? 'i' : ''} selezionato{tempSelectedItems.length !== 1 ? 'i' : ''}
           </Text>
+        )}
+        
+        {/* Pulsanti di azione */}
+        <View style={styles.footerActions}>
+          <SafeTouchableOpacity
+            style={styles.cancelButton}
+            onPress={handleClose}
+          >
+            <Text style={styles.cancelButtonText}>❌ Annulla</Text>
+          </SafeTouchableOpacity>
+          
+          <SafeTouchableOpacity
+            style={styles.confirmButton}
+            onPress={handleConfirm}
+          >
+            <Text style={styles.confirmButtonText}>✅ Conferma</Text>
+          </SafeTouchableOpacity>
         </View>
-      )}
+      </View>
     </View>
   );
 }
@@ -555,12 +624,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-    paddingVertical: Platform.OS === 'web' ? 4 : 8,
+    paddingVertical: Platform.OS === 'web' ? 2 : 8,
     ...Platform.select({
       web: {
         paddingHorizontal: 4,
+        maxHeight: 80,
       },
     }),
+  },
+  tabsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingHorizontal: 4,
   },
   tabsContent: {
     alignItems: 'center',
@@ -568,14 +645,16 @@ const styles = StyleSheet.create({
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Platform.OS === 'web' ? 8 : 12,
-    paddingVertical: Platform.OS === 'web' ? 6 : 10,
+    paddingHorizontal: Platform.OS === 'web' ? 6 : 12,
+    paddingVertical: Platform.OS === 'web' ? 4 : 10,
     marginHorizontal: Platform.OS === 'web' ? 1 : 2,
+    marginVertical: Platform.OS === 'web' ? 1 : 0,
     borderRadius: 6,
     backgroundColor: 'transparent',
     ...Platform.select({
       web: {
-        minWidth: 70,
+        minWidth: 60,
+        maxWidth: 80,
       },
     }),
   },
@@ -583,11 +662,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#2196F3',
   },
   tabIcon: {
-    fontSize: 18,
-    marginRight: 8,
+    fontSize: Platform.OS === 'web' ? 14 : 18,
+    marginRight: Platform.OS === 'web' ? 4 : 8,
   },
   tabText: {
-    fontSize: 14,
+    fontSize: Platform.OS === 'web' ? 12 : 14,
     fontWeight: '500',
     color: '#666',
   },
@@ -776,6 +855,47 @@ const styles = StyleSheet.create({
     borderTopColor: '#e0e0e0',
     alignItems: 'center',
   },
+  footerActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    width: '100%',
+    marginTop: Platform.OS === 'web' ? 8 : 8,
+  },
+  cancelButton: {
+    backgroundColor: '#f44336',
+    paddingVertical: Platform.OS === 'web' ? 10 : 12,
+    paddingHorizontal: Platform.OS === 'web' ? 16 : 12,
+    borderRadius: 6,
+    alignItems: 'center',
+    ...Platform.select({
+      web: {
+        minWidth: 100,
+      },
+    }),
+  },
+  cancelButtonText: {
+    fontSize: Platform.OS === 'web' ? 12 : 16,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  confirmButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: Platform.OS === 'web' ? 10 : 12,
+    paddingHorizontal: Platform.OS === 'web' ? 16 : 12,
+    borderRadius: 6,
+    alignItems: 'center',
+    ...Platform.select({
+      web: {
+        minWidth: 100,
+      },
+    }),
+  },
+  confirmButtonText: {
+    fontSize: Platform.OS === 'web' ? 12 : 16,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
   selectionInfo: {
     fontSize: Platform.OS === 'web' ? 12 : 14,
     color: '#666',
@@ -857,7 +977,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#666',
   },
-  mobileCloseButton: {
+  mobileCancelButton: {
     backgroundColor: '#f44336',
     paddingVertical: Platform.OS === 'web' ? 10 : 12,
     paddingHorizontal: Platform.OS === 'web' ? 16 : 12,
@@ -869,7 +989,24 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  mobileCloseButtonText: {
+  mobileCancelButtonText: {
+    fontSize: Platform.OS === 'web' ? 12 : 16,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  mobileConfirmButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: Platform.OS === 'web' ? 10 : 12,
+    paddingHorizontal: Platform.OS === 'web' ? 16 : 12,
+    borderRadius: 6,
+    alignItems: 'center',
+    ...Platform.select({
+      web: {
+        minWidth: 100,
+      },
+    }),
+  },
+  mobileConfirmButtonText: {
     fontSize: Platform.OS === 'web' ? 12 : 16,
     fontWeight: 'bold',
     color: '#ffffff',
@@ -878,10 +1015,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-    paddingVertical: Platform.OS === 'web' ? 4 : 4,
+    paddingVertical: Platform.OS === 'web' ? 2 : 2,
     ...Platform.select({
       web: {
         paddingHorizontal: 4,
+        maxHeight: 80,
       },
     }),
   },
@@ -895,15 +1033,16 @@ const styles = StyleSheet.create({
   mobileTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Platform.OS === 'web' ? 8 : 6,
-    paddingVertical: Platform.OS === 'web' ? 6 : 4,
+    paddingHorizontal: Platform.OS === 'web' ? 6 : 6,
+    paddingVertical: Platform.OS === 'web' ? 4 : 4,
     marginHorizontal: Platform.OS === 'web' ? 1 : 1,
-    marginVertical: Platform.OS === 'web' ? 0 : 2,
+    marginVertical: Platform.OS === 'web' ? 1 : 2,
     borderRadius: 6,
     backgroundColor: 'transparent',
     ...Platform.select({
       web: {
-        minWidth: 70,
+        minWidth: 60,
+        maxWidth: 80,
       },
       default: {
         minWidth: 80,
@@ -915,11 +1054,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#2196F3',
   },
   mobileTabIcon: {
-    fontSize: Platform.OS === 'web' ? 18 : 14,
-    marginRight: Platform.OS === 'web' ? 8 : 4,
+    fontSize: Platform.OS === 'web' ? 14 : 14,
+    marginRight: Platform.OS === 'web' ? 4 : 4,
   },
   mobileTabText: {
-    fontSize: Platform.OS === 'web' ? 14 : 12,
+    fontSize: Platform.OS === 'web' ? 12 : 12,
     fontWeight: '500',
     color: '#666',
   },
@@ -975,9 +1114,10 @@ const styles = StyleSheet.create({
     flex: 1,
     ...Platform.select({
       web: {
-        maxHeight: 250,
+        maxHeight: 300,
         overflowY: 'auto',
         flex: 1,
+        minHeight: 200,
       },
     }),
   },
@@ -1031,6 +1171,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     alignItems: 'center',
+  },
+  mobileFooterActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    width: '100%',
+    marginTop: Platform.OS === 'web' ? 8 : 8,
   },
   mobileSelectionInfo: {
     fontSize: Platform.OS === 'web' ? 12 : 14,

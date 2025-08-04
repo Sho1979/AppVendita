@@ -29,7 +29,7 @@ import { useFirebaseExcelData } from '../../hooks/useFirebaseExcelData';
 import { Colors } from '../../constants/Colors';
 import { Spacing } from '../../constants/Spacing';
 import { getTagById } from '../../constants/Tags';
-import { useFocusReferences } from '../../hooks/useFocusReferences';
+import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
 import { logger } from '../../utils/logger';
 
 interface MainCalendarPageProps {
@@ -45,7 +45,17 @@ export default function MainCalendarPage({
   }
 
   const { state, dispatch, progressiveSystem } = useCalendar();
-  const { getFocusReferenceById, getNetPrice } = useFocusReferences();
+  const focusReferencesStore = useFocusReferencesStore();
+  
+  const getFocusReferenceById = (id: string) => {
+    return focusReferencesStore.getAllReferences().find(ref => ref.id === id);
+  };
+  
+  const getNetPrice = (referenceId: string): string => {
+    const netPrices = focusReferencesStore.getNetPrices();
+    const netPrice = netPrices[referenceId];
+    return netPrice || '0';
+  };
   if (__DEV__) {
     // Rimuoviamo questo log che causa re-render continui
     // console.log('✅ MainCalendarPage: useCalendar hook eseguito con successo');
@@ -252,6 +262,12 @@ export default function MainCalendarPage({
 
         // Dati Excel ora caricati automaticamente dal hook useFirebaseExcelData
         console.log('📊 MainCalendarPage: Dati Excel disponibili:', excelRows.length, 'righe');
+        
+        // Carica le referenze focus (statiche + configurazioni globali)
+        console.log('🔍 MainCalendarPage: Caricamento referenze focus...');
+        focusReferencesStore.loadAllReferences();
+        await focusReferencesStore.loadFocusReferencesFromFirestore();
+        console.log('✅ MainCalendarPage: Referenze focus caricate');
 
         // Carica entries del periodo corrente (esteso per includere più giorni)
         const now = new Date();

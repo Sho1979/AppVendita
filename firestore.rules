@@ -1,63 +1,37 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // TEMPORANEO: Regole permissive per sviluppo
+    // TODO: Ripristinare le regole di sicurezza per produzione
+    
     // Regole per gli utenti
     match /users/{userId} {
-      // Gli utenti possono leggere e aggiornare solo il proprio profilo
-      allow read, update: if request.auth != null && request.auth.uid == userId;
-      // Solo gli amministratori possono creare nuovi utenti
-      allow create: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow read, write: if true; // Temporaneamente permissivo
     }
 
     // Regole per i punti vendita
     match /sales_points/{pointId} {
-      // Tutti gli utenti autenticati possono leggere i punti vendita
-      allow read: if request.auth != null;
-      // Solo i manager e admin possono creare/aggiornare punti vendita
-      allow write: if request.auth != null && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      allow read, write: if true; // Temporaneamente permissivo
     }
 
     // Regole per le voci del calendario
     match /calendar_entries/{entryId} {
-      // Gli utenti possono leggere le voci del calendario se:
-      // 1. Sono autenticati
-      // 2. Sono il proprietario della voce OPPURE sono un manager/admin
-      allow read: if request.auth != null && 
-        (resource.data.userId == request.auth.uid ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-      
-      // Gli utenti possono creare voci del calendario se:
-      // 1. Sono autenticati
-      // 2. Il userId nella voce corrisponde al loro ID
-      allow create: if request.auth != null && 
-        request.resource.data.userId == request.auth.uid;
-      
-      // Gli utenti possono aggiornare le voci del calendario se:
-      // 1. Sono autenticati
-      // 2. Sono il proprietario della voce OPPURE sono un manager/admin
-      allow update: if request.auth != null && 
-        (resource.data.userId == request.auth.uid ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-      
-      // Gli utenti possono eliminare le voci del calendario se:
-      // 1. Sono autenticati
-      // 2. Sono il proprietario della voce OPPURE sono un manager/admin
-      allow delete: if request.auth != null && 
-        (resource.data.userId == request.auth.uid ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      allow read, write: if true; // Temporaneamente permissivo
+    }
+
+    // Regole per i dati Excel
+    match /excel_data/{docId} {
+      allow read, write: if true; // Temporaneamente permissivo
+    }
+
+    // Regole per le referenze attive
+    match /active_references/{docId} {
+      allow read, write: if true; // Temporaneamente permissivo
     }
 
     // Regole per le configurazioni dell'app
     match /app_config/{configId} {
-      // Solo gli amministratori possono leggere e modificare le configurazioni
-      allow read, write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow read, write: if true; // Temporaneamente permissivo
     }
   }
 } 

@@ -254,19 +254,20 @@ export class FirebaseCalendarRepository {
     }
   }
 
-  async getExcelData(): Promise<any[]> {
-    try {
-      const querySnapshot = await getDocs(collection(db, this.COLLECTIONS.EXCEL_DATA));
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate()
-      }));
-    } catch (error) {
-      console.error('❌ FirebaseCalendarRepository: Errore nel recupero dati Excel:', error);
-      throw error;
-    }
-  }
+  // DEPRECATO: Ora usiamo i dati statici invece di Firebase
+  // async getExcelData(): Promise<any[]> {
+  //   try {
+  //     const querySnapshot = await getDocs(collection(db, this.COLLECTIONS.EXCEL_DATA));
+  //     return querySnapshot.docs.map(doc => ({
+  //       id: doc.id,
+  //       ...doc.data(),
+  //       createdAt: doc.data().createdAt?.toDate()
+  //     }));
+  //   } catch (error) {
+  //     console.error('❌ FirebaseCalendarRepository: Errore nel recupero dati Excel:', error);
+  //     throw error;
+  //   }
+  // }
 
   // ===== REAL-TIME LISTENERS =====
   

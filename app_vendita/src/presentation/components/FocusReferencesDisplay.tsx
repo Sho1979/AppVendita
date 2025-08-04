@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusReferences } from '../../hooks/useFocusReferences';
+import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
 
 
 interface FocusReferencesDisplayProps {
@@ -19,15 +19,41 @@ interface FocusReferencesDisplayProps {
 const FocusReferencesDisplay: React.FC<FocusReferencesDisplayProps> = ({
   onRefresh,
 }) => {
-  const {
-    focusReferences,
-    loading,
-    updateNetPrice,
-    getNetPrice,
-  } = useFocusReferences();
+  const focusReferencesStore = useFocusReferencesStore();
+  const focusReferences = focusReferencesStore.getAllReferences().filter(ref => 
+    focusReferencesStore.getFocusReferences().includes(ref.id)
+  );
+  const loading = focusReferencesStore.isLoading;
+  
+  const getNetPrice = (referenceId: string): string => {
+    const netPrices = focusReferencesStore.getNetPrices();
+    const netPrice = netPrices[referenceId];
+    return netPrice || '0';
+  };
+
+  // Carica le referenze focus all'inizializzazione del componente
+  useEffect(() => {
+    const loadFocusReferences = async () => {
+      console.log('🔍 FocusReferencesDisplay: Caricamento referenze focus...');
+      
+      // Carica il listino completo (statico)
+      focusReferencesStore.loadAllReferences();
+      
+      // Carica le configurazioni focus da Firestore (globali)
+      await focusReferencesStore.loadFocusReferencesFromFirestore();
+      
+      console.log('✅ FocusReferencesDisplay: Referenze focus caricate');
+    };
+    
+    loadFocusReferences();
+  }, []); // Esegui solo all'inizializzazione - nessuna dipendenza per evitare loop
 
   const handleNetPriceChange = async (referenceId: string, value: string) => {
-    await updateNetPrice(referenceId, value);
+    // Aggiorna il prezzo nello store
+    focusReferencesStore.updateNetPrice(referenceId, value);
+    
+    // Salva su Firestore (globale)
+    await focusReferencesStore.saveNetPricesToFirestore();
   };
 
   if (loading) {
