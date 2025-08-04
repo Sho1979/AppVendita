@@ -56,6 +56,13 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
 
   // Carica le referenze focus quando cambia la data
   useEffect(() => {
+    console.log('🔍 FocusReferencesForm: useEffect triggered:', {
+      focusReferencesLength: focusReferences.length,
+      existingData: existingData,
+      existingDataLength: existingData?.length || 0,
+      isInitialized: isInitialized.current
+    });
+    
     if (focusReferences.length > 0) {
       // Se abbiamo dati esistenti, li utilizziamo, altrimenti creiamo dati vuoti
       const initialData = existingData && existingData.length > 0 
@@ -68,6 +75,12 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
             soldVsStockPercentage: '',
             netPrice: getNetPrice(ref.id), // Prezzo netto fisso da Firebase
           }));
+      
+      console.log('📋 FocusReferencesForm: Dati iniziali impostati:', {
+        usingExistingData: existingData && existingData.length > 0,
+        initialDataLength: initialData.length,
+        firstItem: initialData[0]
+      });
       
       setFocusData(initialData);
       isInitialized.current = true;

@@ -9,6 +9,7 @@ import {
       PerformanceMetrics,
   CellVisualizationResult
 } from '../data/models/ProgressiveData';
+import { CalendarEntry } from '../data/models/CalendarEntry';
 
 export class ProgressiveCalculationService {
   private state: ProgressiveState;
@@ -451,13 +452,24 @@ export class ProgressiveCalculationService {
   /**
    * Calcola il sell-in totale del sistema progressivo
    */
-  public getTotalSellIn(): number {
+  public getTotalSellIn(activeEntries?: CalendarEntry[]): number {
     let totalSellIn = 0;
-    const entriesCount = this.state.entries.size;
     
-    for (const [date, entry] of this.state.entries) {
-      if (entry.progressiveTotals) {
-        totalSellIn += entry.progressiveTotals.sellIn;
+    if (activeEntries) {
+      // Usa solo le entries attive dal database
+      for (const calendarEntry of activeEntries) {
+        const date = calendarEntry.date;
+        const entry = this.state.entries.get(date);
+        if (entry && entry.progressiveTotals) {
+          totalSellIn += entry.progressiveTotals.sellIn;
+        }
+      }
+    } else {
+      // Fallback: usa tutte le entries del service (per compatibilità)
+      for (const [date, entry] of this.state.entries) {
+        if (entry.progressiveTotals) {
+          totalSellIn += entry.progressiveTotals.sellIn;
+        }
       }
     }
     
@@ -467,19 +479,36 @@ export class ProgressiveCalculationService {
   /**
    * Calcola il sell-in mensile per un mese specifico
    */
-  public getMonthlySellIn(year: number, month: number): number {
+  public getMonthlySellIn(year: number, month: number, activeEntries?: CalendarEntry[]): number {
     let monthlySellIn = 0;
     const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
     const endDate = `${year}-${month.toString().padStart(2, '0')}-31`;
     
-    // Calcola solo il sell-in delle entries del mese specifico
-    for (const [date, entry] of this.state.entries) {
-      if (date >= startDate && date <= endDate) {
-        // Calcola il sell-in giornaliero per questa entry
-        const dailySellIn = entry.entries.reduce((total, product) => {
-          return total + (product.ordinati * product.prezzoNetto);
-        }, 0);
-        monthlySellIn += dailySellIn;
+    if (activeEntries) {
+      // Usa solo le entries attive del mese specifico
+      for (const calendarEntry of activeEntries) {
+        const date = calendarEntry.date;
+        if (date >= startDate && date <= endDate) {
+          const entry = this.state.entries.get(date);
+          if (entry) {
+            // Calcola il sell-in giornaliero per questa entry
+            const dailySellIn = entry.entries.reduce((total, product) => {
+              return total + (product.ordinati * product.prezzoNetto);
+            }, 0);
+            monthlySellIn += dailySellIn;
+          }
+        }
+      }
+    } else {
+      // Fallback: usa tutte le entries del service (per compatibilità)
+      for (const [date, entry] of this.state.entries) {
+        if (date >= startDate && date <= endDate) {
+          // Calcola il sell-in giornaliero per questa entry
+          const dailySellIn = entry.entries.reduce((total, product) => {
+            return total + (product.ordinati * product.prezzoNetto);
+          }, 0);
+          monthlySellIn += dailySellIn;
+        }
       }
     }
     

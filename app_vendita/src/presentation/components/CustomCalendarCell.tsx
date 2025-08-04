@@ -60,6 +60,18 @@ function CustomCalendarCell({
   const totalSales = entry?.sales.reduce((sum, sale) => sum + sale.value, 0) || 0;
   const totalActions = entry?.actions.reduce((sum, action) => sum + action.count, 0) || 0;
   
+  // Log per debug dei tag
+  useEffect(() => {
+    if (entry) {
+      console.log('🏷️ CustomCalendarCell: Entry ricevuto per data', date, {
+        entryId: entry.id,
+        tags: entry.tags,
+        tagsLength: entry.tags?.length || 0,
+        hasTags: !!entry.tags && entry.tags.length > 0
+      });
+    }
+  }, [entry, date]);
+  
   // Stabilizza la chiamata a getDisplayDataForDate per evitare re-render continui
   const displayData = useMemo(() => {
     return getDisplayDataForDate(date, entry, isInitialized);
@@ -192,16 +204,28 @@ function CustomCalendarCell({
             return (
               <View key={focusData.referenceId} style={[
                 styles.focusReferenceItem,
+                isWeekView && styles.focusReferenceItemWeek,
                 { borderColor: getBorderColor() }
               ]}>
                 <View style={styles.focusReferenceHeader}>
-                  <Text style={styles.focusReferenceAcronym}>{acronym}</Text>
+                  <Text style={[
+                    styles.focusReferenceAcronym,
+                    isWeekView && styles.focusReferenceAcronymWeek
+                  ]}>{acronym}</Text>
                 </View>
                 <View style={styles.focusReferenceNumbers}>
-                  <Text style={[styles.focusReferenceSold, soldPieces > 0 && styles.focusReferenceSoldActive]}>
+                  <Text style={[
+                    styles.focusReferenceSold, 
+                    soldPieces > 0 && styles.focusReferenceSoldActive,
+                    isWeekView && styles.focusReferenceTextWeek
+                  ]}>
                     V: {soldPieces}
                   </Text>
-                  <Text style={[styles.focusReferenceStock, stockPieces > 0 && styles.focusReferenceStockActive]}>
+                  <Text style={[
+                    styles.focusReferenceStock, 
+                    stockPieces > 0 && styles.focusReferenceStockActive,
+                    isWeekView && styles.focusReferenceTextWeek
+                  ]}>
                     S: {stockPieces}
                   </Text>
                 </View>
@@ -396,8 +420,12 @@ function CustomCalendarCell({
               if (hasSales) defaultTags.push('sell_in'); // SI per vendite
               if (hasActions) defaultTags.push('check'); // ✓ per azioni
               tagIds = defaultTags;
-              
-
+            }
+            
+            // Se l'entry ha tag espliciti (anche vuoti), rispetta la scelta dell'utente
+            // Non aggiungere tag automatici se l'utente ha rimosso tutti i tag
+            if (entry?.tags !== undefined && entry.tags.length === 0) {
+              tagIds = []; // Forza array vuoto se l'utente ha rimosso tutti i tag
             }
             
 
@@ -607,6 +635,12 @@ function CustomCalendarCell({
               if (hasSales) defaultTags.push('sell_in'); // SI per vendite
               if (hasActions) defaultTags.push('check'); // ✓ per azioni
               tagIds = defaultTags;
+            }
+            
+            // Se l'entry ha tag espliciti (anche vuoti), rispetta la scelta dell'utente
+            // Non aggiungere tag automatici se l'utente ha rimosso tutti i tag
+            if (entry?.tags !== undefined && entry.tags.length === 0) {
+              tagIds = []; // Forza array vuoto se l'utente ha rimosso tutti i tag
             }
             
             return hasContent ? (
@@ -1001,6 +1035,11 @@ const styles = StyleSheet.create({
     width: '48%', // Metà larghezza per 2 colonne
     minHeight: 40,
   },
+  focusReferenceItemWeek: {
+    padding: 2,
+    marginBottom: 1,
+    minHeight: 30,
+  },
   focusReferenceHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1015,6 +1054,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
     paddingVertical: 1,
     borderRadius: 3,
+  },
+  focusReferenceAcronymWeek: {
+    fontSize: 8,
+    paddingHorizontal: 2,
+    paddingVertical: 1,
   },
 
   focusReferenceDesc: {
@@ -1044,6 +1088,9 @@ const styles = StyleSheet.create({
   focusReferenceStockActive: {
     color: '#E65100',
     fontWeight: 'bold',
+  },
+  focusReferenceTextWeek: {
+    fontSize: 6,
   },
   // Stili per l'indicatore dei messaggi
   tooltipButtonContent: {

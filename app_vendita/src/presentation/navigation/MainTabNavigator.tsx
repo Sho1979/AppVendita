@@ -16,14 +16,14 @@ export default function MainTabNavigator() {
           backgroundColor: '#ffffff',
           borderTopWidth: 1,
           borderTopColor: '#e0e0e0',
-          paddingBottom: 8,
-          paddingTop: 8,
-          height: 60,
+          paddingBottom: 4, // Riduce il padding
+          paddingTop: 4, // Riduce il padding
+          height: 30, // Dimezza l'altezza
         },
         tabBarActiveTintColor: '#2196F3',
         tabBarInactiveTintColor: '#666',
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 8, // Riduce la dimensione del font
           fontWeight: '600',
         },
       }}
@@ -33,7 +33,7 @@ export default function MainTabNavigator() {
         component={MainCalendarPage}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ color, fontSize: size }}>📅</Text>
+            <Text style={{ color, fontSize: size * 0.7 }}>📅</Text>
           ),
         }}
       />
@@ -42,7 +42,7 @@ export default function MainTabNavigator() {
         component={TagTestPage}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ color, fontSize: size }}>🏷️</Text>
+            <Text style={{ color, fontSize: size * 0.7 }}>🏷️</Text>
           ),
         }}
       />
@@ -51,7 +51,7 @@ export default function MainTabNavigator() {
         component={SettingsPage}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ color, fontSize: size }}>⚙️</Text>
+            <Text style={{ color, fontSize: size * 0.7 }}>⚙️</Text>
           ),
         }}
       />

@@ -79,8 +79,8 @@ export class FirebaseCalendarService {
    */
   async entryExists(entryId: string): Promise<boolean> {
     try {
-      await this.repository.getEntry(entryId);
-      return true;
+      const entry = await this.repository.getEntryById(entryId);
+      return entry !== null;
     } catch (error) {
       return false;
     }

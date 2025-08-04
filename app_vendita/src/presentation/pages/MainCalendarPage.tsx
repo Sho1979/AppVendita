@@ -1053,16 +1053,16 @@ export default function MainCalendarPage({
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>💰 Sell-In</Text>
               <Text style={styles.statValue}>
-                €{progressiveSystem.isInitialized ? progressiveSystem.getTotalSellIn() : 0}
+                €{progressiveSystem.isInitialized ? progressiveSystem.getTotalSellIn(state.entries) : 0}
               </Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>📅 Sell-In Mensile</Text>
-              <Text style={styles.statValue}>
+                              <Text style={styles.statValue}>
                 €{(() => {
                   const year = currentDate.getFullYear();
                   const month = currentDate.getMonth() + 1;
-                  const monthlySellIn = progressiveSystem.isInitialized ? progressiveSystem.getMonthlySellIn(year, month) : 0;
+                  const monthlySellIn = progressiveSystem.isInitialized ? progressiveSystem.getMonthlySellIn(year, month, state.entries) : 0;
                   console.log('🔍 Debug Sell-In Mensile:', { year, month, monthlySellIn, isInitialized: progressiveSystem.isInitialized });
                   return monthlySellIn;
                 })()}
@@ -1448,17 +1448,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     flex: 1,
+    maxHeight: 20, // Dimezza l'altezza massima
   },
   statItem: {
     alignItems: 'center',
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: 8, // Riduce la dimensione del font
     color: Colors.warmTextSecondary,
-    marginTop: Spacing.xs,
+    marginTop: 1, // Riduce il margin
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 12, // Riduce la dimensione del font
     fontWeight: 'bold',
     color: Colors.warmPrimary,
   },

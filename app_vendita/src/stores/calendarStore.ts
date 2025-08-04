@@ -99,6 +99,12 @@ export const useCalendarStore = create<CalendarState>()(
       
       updateEntry: (entry) => {
         devLog('✏️ CalendarStore: Aggiornando entry:', entry.id);
+        devLog('📋 CalendarStore: Dettagli entry aggiornata:', {
+          id: entry.id,
+          tags: entry.tags,
+          tagsLength: entry.tags?.length || 0,
+          hasTags: !!entry.tags && entry.tags.length > 0
+        });
         set((state) => ({
           entries: state.entries.map(e => e.id === entry.id ? entry : e)
         }));

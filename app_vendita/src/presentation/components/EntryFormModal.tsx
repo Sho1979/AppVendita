@@ -96,19 +96,29 @@ export default function EntryFormModal({
     if (visible) {
       if (entry) {
         // Modalità modifica - carica dati esistenti
+        console.log('📋 EntryFormModal: Caricamento dati entry esistente:', {
+          entryId: entry.id,
+          focusReferencesData: entry.focusReferencesData,
+          focusReferencesCount: entry.focusReferencesData?.length || 0,
+          tags: entry.tags,
+          tagsCount: entry.tags?.length || 0
+        });
+        // Gestisci repeatSettings: se esiste ma non è abilitato, non includerlo
+        const repeatSettings = entry.repeatSettings && entry.repeatSettings.enabled 
+          ? entry.repeatSettings 
+          : { enabled: false, weeksCount: 1 };
+        
         setFormData({
           notes: entry.notes || '',
           hasProblem: entry.hasProblem || false,
           problemDescription: entry.problemDescription || '',
           tags: entry.tags || [],
-          repeatSettings: entry.repeatSettings || {
-            enabled: false,
-            weeksCount: 1,
-          },
+          repeatSettings: repeatSettings,
           focusReferencesData: entry.focusReferencesData || [],
         });
       } else {
         // Modalità nuovo - form vuoto
+        console.log('📋 EntryFormModal: Creazione nuovo entry - form vuoto');
         setFormData({
           notes: '',
           hasProblem: false,
@@ -150,8 +160,8 @@ export default function EntryFormModal({
       chatNotes = [...existingChatNotes, newChatNote];
     }
 
-    // Prepara l'oggetto entry senza campi undefined
-    const entryToSave: CalendarEntry = {
+    // Prepara l'oggetto entry base senza campi undefined
+    const entryToSave: any = {
       id: entry?.id || `entry_${Date.now()}`,
       date: new Date(selectedDate),
       userId: 'default_user', // TODO: Usare utente selezionato
@@ -168,16 +178,14 @@ export default function EntryFormModal({
       updatedAt: new Date(),
     };
 
-    // Aggiungi repeatSettings solo se è abilitato
+    // Aggiungi repeatSettings SOLO se è abilitato
     if (formData.repeatSettings.enabled) {
       entryToSave.repeatSettings = {
         enabled: formData.repeatSettings.enabled,
         weeksCount: formData.repeatSettings.weeksCount
       };
-    } else {
-      // Rimuovi repeatSettings se non è abilitato
-      delete entryToSave.repeatSettings;
     }
+    // Se non è abilitato, NON aggiungere il campo repeatSettings (non deve esistere nell'oggetto)
 
     try {
       // Usa Firebase sempre
@@ -191,9 +199,38 @@ export default function EntryFormModal({
         }
       });
       
+      // Rimuovi repeatSettings se non è abilitato (anche se esiste nell'oggetto)
+      if (!formData.repeatSettings.enabled) {
+        delete cleanEntry.repeatSettings;
+      }
+      
+      // Rimuovi anche altri campi che potrebbero essere undefined
+      if (cleanEntry.repeatSettings && !cleanEntry.repeatSettings.enabled) {
+        delete cleanEntry.repeatSettings;
+      }
+      
       console.log('🧹 EntryFormModal: Entry pulita:', cleanEntry);
+      console.log('🔍 EntryFormModal: Verifica repeatSettings:', {
+        hasRepeatSettings: 'repeatSettings' in cleanEntry,
+        repeatSettingsValue: cleanEntry.repeatSettings,
+        formDataRepeatEnabled: formData.repeatSettings.enabled
+      });
+      
+      // Controllo finale: assicurati che repeatSettings non esista se non abilitato
+      if (!formData.repeatSettings.enabled && 'repeatSettings' in cleanEntry) {
+        console.log('⚠️ EntryFormModal: Rimozione finale repeatSettings non abilitato');
+        delete cleanEntry.repeatSettings;
+      }
       
       const entryExistsInFirebase = await entryExists(cleanEntry.id);
+      
+      console.log('🔍 EntryFormModal: Verifica entry esistente:', {
+        hasEntry: !!entry,
+        entryId: entry?.id,
+        cleanEntryId: cleanEntry.id,
+        entryExistsInFirebase,
+        shouldUpdate: !!(entry && entryExistsInFirebase)
+      });
       
       if (entry && entryExistsInFirebase) {
         // Modalità modifica - aggiorna entry esistente
@@ -208,7 +245,7 @@ export default function EntryFormModal({
       }
 
       // Chiama la callback originale per aggiornare l'UI
-      onSave(entryToSave);
+      onSave(cleanEntry as CalendarEntry);
       
       // Reset del campo note dopo il salvataggio
       setFormData(prev => ({ ...prev, notes: '' }));
@@ -263,6 +300,11 @@ export default function EntryFormModal({
   };
 
   const handleTagsChange = (tags: string[]) => {
+    console.log('🏷️ EntryFormModal: Cambio tag selezionati:', {
+      previousTags: formData.tags,
+      newTags: tags,
+      newTagsLength: tags.length
+    });
     setFormData(prev => ({ ...prev, tags }));
   };
 

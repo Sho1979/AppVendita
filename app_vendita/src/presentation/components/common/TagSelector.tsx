@@ -47,9 +47,20 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
   });
 
   const handleTagPress = (tag: TagConfig) => {
-    const newSelectedTags = selectedTags.includes(tag.id)
+    const isCurrentlySelected = selectedTags.includes(tag.id);
+    const newSelectedTags = isCurrentlySelected
       ? selectedTags.filter(id => id !== tag.id)
       : [...selectedTags, tag.id];
+    
+    console.log('🏷️ TagSelector: Tag premuto:', {
+      tagId: tag.id,
+      tagLabel: tag.label,
+      isCurrentlySelected,
+      previousSelectedCount: selectedTags.length,
+      newSelectedCount: newSelectedTags.length,
+      newSelectedTags
+    });
+    
     onTagsChange(newSelectedTags);
   };
 
