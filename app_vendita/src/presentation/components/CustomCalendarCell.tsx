@@ -16,6 +16,7 @@ interface CustomCalendarCellProps {
   onPress: () => void;
   isWeekView: boolean;
   onTooltipPress?: ((type: 'stock' | 'notes' | 'info' | 'images', date: string, entry?: CalendarEntry) => void) | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onSellInChange?: ((date: string, sellIn: number) => void) | undefined;
 }
 
@@ -52,9 +53,10 @@ function CustomCalendarCell({
   // Stabilizza la chiamata a getDisplayDataForDate per evitare re-render continui
   const displayData = useMemo(() => {
     return getDisplayDataForDate(date, entry, isInitialized);
-  }, [date, entry?.id, isInitialized]);
+  }, [date, entry, isInitialized, getDisplayDataForDate]);
   
   // Calcola il sell-in totale dalle referenze focus
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const totalSellIn = useMemo(() => {
     // Se il sistema progressivo non è inizializzato, usa i dati originali
     if (displayData.useOriginalData) {
@@ -89,7 +91,7 @@ function CustomCalendarCell({
 
     // Altrimenti usa il sell-in progressivo
     return displayData.progressiveData?.sellInProgressivo || 0;
-  }, [displayData, entry?.focusReferencesData]);
+  }, [displayData, entry?.focusReferencesData, getFocusReferenceById, getNetPrice]);
 
   // Rimuovo il useEffect problematico che causa loop infinito
   // useEffect(() => {
@@ -581,7 +583,7 @@ function CustomCalendarCell({
           {/* Mostra i tag se ci sono tag espliciti O se la cella ha altri contenuti */}
           {(() => {
             const hasTags = entry?.tags && entry.tags.length > 0;
-            const hasFocusData = entry?.focusReferencesData?.length > 0;
+            const hasFocusData = entry?.focusReferencesData && entry.focusReferencesData.length > 0;
             const hasSales = entry?.sales && entry.sales.length > 0;
             const hasActions = entry?.actions && entry.actions.length > 0;
             const hasContent = hasTags || hasFocusData || hasSales || hasActions;

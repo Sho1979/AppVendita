@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Pressable,
   Modal,
-  ScrollView,
   Alert,
   TextInput,
   FlatList,
@@ -43,6 +42,7 @@ export default function CompactPriceManagementModal({
   const [filteredReferences, setFilteredReferences] = useState<PriceReference[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [editingPrice, setEditingPrice] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
   const [modifiedPrices, setModifiedPrices] = useState<{[key: string]: number}>({});
@@ -66,7 +66,7 @@ export default function CompactPriceManagementModal({
     try {
       setIsLoading(true);
       // Carica solo le referenze attive (focus) invece di tutte
-      const references = await firebaseCalendarService.getActivePriceReferences();
+      const references = await firebaseCalendarService.getActiveReferences();
       setPriceReferences(references);
       console.log('✅ CompactPriceManagementModal: Caricate', references.length, 'referenze focus');
     } catch (error) {
@@ -92,7 +92,9 @@ export default function CompactPriceManagementModal({
     setFilteredReferences(filtered);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleEditPrice = (referenceId: string, currentPrice: number) => {
+    // eslint-disable-next-line no-console
     console.log('🔍 CompactPriceManagementModal: handleEditPrice chiamato:', {
       referenceId,
       currentPrice,
@@ -107,6 +109,7 @@ export default function CompactPriceManagementModal({
     console.log('🔍 CompactPriceManagementModal: Valore iniziale impostato:', initialValue);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleSavePrice = async (referenceId: string) => {
     try {
       console.log('🔍 CompactPriceManagementModal: handleSavePrice chiamato:', {
@@ -142,7 +145,7 @@ export default function CompactPriceManagementModal({
         
         console.log('🔍 CompactPriceManagementModal: Dati da salvare:', updatedReference);
         
-        await firebaseCalendarService.updatePriceReference(updatedReference);
+        await firebaseCalendarService.updateActiveReference(referenceId, { netPrice: newPrice });
         
         console.log('✅ CompactPriceManagementModal: Prezzo salvato su Firebase:', newPrice);
       } else {
@@ -179,6 +182,7 @@ export default function CompactPriceManagementModal({
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleCancelEdit = () => {
     setEditingPrice(null);
     setEditingValue('');
@@ -200,8 +204,7 @@ export default function CompactPriceManagementModal({
         if (reference) {
           console.log('🔍 CompactPriceManagementModal: Salvataggio prezzo per', referenceId, '=', newPrice);
           
-          await firebaseCalendarService.updatePriceReference({
-            ...reference,
+          await firebaseCalendarService.updateActiveReference(referenceId, {
             netPrice: newPrice,
             updatedAt: new Date()
           });
