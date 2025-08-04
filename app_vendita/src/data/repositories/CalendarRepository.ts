@@ -112,14 +112,7 @@ export class AsyncStorageCalendarRepository implements CalendarRepository {
 
     try {
       const entriesJson = await AsyncStorage.getItem(this.CALENDAR_ENTRIES_KEY);
-      console.log(
-        '📥 Repository: Dati AsyncStorage calendar_entries:',
-        entriesJson ? 'presenti' : 'assenti'
-      );
-      if (entriesJson) {
-        console.log('📥 Repository: Lunghezza JSON caricato:', entriesJson.length);
-        console.log('📥 Repository: Primi 200 caratteri JSON:', entriesJson.substring(0, 200));
-      }
+
 
       if (!entriesJson) {
         console.log(
@@ -129,36 +122,21 @@ export class AsyncStorageCalendarRepository implements CalendarRepository {
       }
 
       const parsedEntries = JSON.parse(entriesJson, (key, value) => {
-        if (key === 'focusReferencesData' && Array.isArray(value)) {
-          console.log('📥 Repository: Parsing focusReferencesData:', value);
-        }
+
         return value;
       });
-      console.log(
-        '📥 Repository: Entries parseati:',
-        parsedEntries.length,
-        'entries'
-      );
+
       
       // Debug: verifica se il parsing JSON ha mantenuto i dati
       if (parsedEntries.length > 0) {
         const firstParsedEntry = parsedEntries[0];
-        console.log('📥 Repository: Primo entry dopo parsing (raw):', {
-          id: firstParsedEntry.id,
-          focusReferencesData: firstParsedEntry.focusReferencesData,
-          focusReferencesCount: firstParsedEntry.focusReferencesData?.length || 0,
-        });
+
       }
       
       // Validazione e correzione dei dati dopo parsing
       const entries: CalendarEntry[] = parsedEntries.map((entry: any) => {
         // Debug: log dei dati raw prima della correzione
-        console.log('📥 Repository: Entry raw prima correzione:', {
-          id: entry.id,
-          focusReferencesData: entry.focusReferencesData,
-          focusReferencesDataType: typeof entry.focusReferencesData,
-          focusReferencesDataLength: entry.focusReferencesData?.length,
-        });
+
         
         // Assicuriamoci che tutti i campi opzionali siano presenti
         const correctedEntry: CalendarEntry = {
@@ -185,23 +163,11 @@ export class AsyncStorageCalendarRepository implements CalendarRepository {
           
           correctedEntry.tags = defaultTags;
           
-          console.log('📥 Repository: Aggiunti tag di default per entry:', {
-            id: correctedEntry.id,
-            defaultTags,
-            hasFocusData,
-            hasSales,
-            hasActions
-          });
+          
         }
         
         // Debug: log dei dati dopo la correzione
-        console.log('📥 Repository: Entry dopo correzione:', {
-          id: correctedEntry.id,
-          focusReferencesData: correctedEntry.focusReferencesData,
-          focusReferencesDataLength: correctedEntry.focusReferencesData?.length,
-          tags: correctedEntry.tags,
-          tagsLength: correctedEntry.tags?.length
-        });
+        
         
         return correctedEntry;
       });
@@ -209,11 +175,7 @@ export class AsyncStorageCalendarRepository implements CalendarRepository {
       // Debug: verifica dopo la correzione
       if (entries.length > 0) {
         const firstEntry = entries[0];
-        console.log('📥 Repository: Primo entry dopo correzione:', {
-          id: firstEntry.id,
-          focusReferencesData: firstEntry.focusReferencesData,
-          focusReferencesCount: firstEntry.focusReferencesData?.length || 0,
-        });
+
       }
 
       const filteredEntries = entries.filter(entry => {
@@ -234,12 +196,7 @@ export class AsyncStorageCalendarRepository implements CalendarRepository {
       
       // Debug: log dei dettagli degli entry per verificare focusReferencesData
       filteredEntries.forEach((entry, index) => {
-        console.log(`📥 Repository: Entry ${index + 1}:`, {
-          id: entry.id,
-          date: entry.date,
-          focusReferencesData: entry.focusReferencesData,
-          focusReferencesCount: entry.focusReferencesData?.length || 0,
-        });
+
       });
       
       return filteredEntries;
@@ -288,13 +245,7 @@ export class AsyncStorageCalendarRepository implements CalendarRepository {
           
           correctedEntry.tags = defaultTags;
           
-          console.log('📥 Repository: Aggiunti tag di default per entry singola:', {
-            id: correctedEntry.id,
-            defaultTags,
-            hasFocusData,
-            hasSales,
-            hasActions
-          });
+          
         }
         
         console.log('📥 Repository: Entry trovata e corretta:', {

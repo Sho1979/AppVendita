@@ -23,58 +23,30 @@ export const useProgressiveIntegration = (sharedService?: ProgressiveCalculation
    * ATTENZIONE: Questo è un passaggio critico!
    */
   const initializeWithExistingData = useCallback((entries: CalendarEntry[]) => {
-    console.log('🔄 useProgressiveIntegration: Inizializzazione con dati esistenti...');
-    console.log(`📊 Totale entries ricevute: ${entries.length}`);
+
     
     try {
       // Filtra solo gli entry con dati focus references
       const entriesWithData = entries.filter(DataAdapter.hasFocusData);
       
-      console.log(`📊 Trovati ${entriesWithData.length} entry con dati da processare`);
-      console.log('📋 Dettagli entries con dati:', entriesWithData.map(entry => ({
-        id: entry.id,
-        date: entry.date,
-        focusReferencesCount: entry.focusReferencesData?.length || 0,
-        focusReferencesData: entry.focusReferencesData?.map(ref => ({
-          referenceId: ref.referenceId,
-          soldPieces: ref.soldPieces,
-          stockPieces: ref.stockPieces,
-          orderedPieces: ref.orderedPieces
-        }))
-      })));
+
       
       // Importa ogni entry nel sistema progressivo
       for (const entry of entriesWithData) {
-        console.log(`🔍 Processando entry:`, {
-          id: entry.id,
-          date: entry.date,
-          dateType: typeof entry.date,
-          isDate: entry.date instanceof Date,
-          focusReferencesCount: entry.focusReferencesData?.length || 0
-        });
+
         
         const dateString = DataAdapter.getDateString(entry);
         const productEntries = DataAdapter.calendarEntryToProductEntries(entry);
         
-        console.log(`📅 Entry ${entry.id}: data=${dateString}, prodotti=${productEntries.length}`);
-        console.log('📦 ProductEntries generati:', productEntries.map(prod => ({
-          productId: prod.productId,
-          vendite: prod.vendite,
-          scorte: prod.scorte,
-          ordinati: prod.ordinati
-        })));
+
         
         if (productEntries.length > 0) {
-          console.log(`📅 Processando entry per ${dateString}: ${productEntries.length} prodotti`);
           const result = updateCell(dateString, productEntries);
-          console.log(`✅ Entry ${entry.id} processato con successo:`, result);
-        } else {
-          console.log(`⚠️ Entry ${entry.id} non ha productEntries validi`);
         }
       }
       
       setIsInitialized(true);
-      console.log('✅ Sistema progressivo inizializzato con successo');
+
       
     } catch (error) {
       console.error('❌ Errore durante l\'inizializzazione del sistema progressivo:', error);

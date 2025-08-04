@@ -1030,7 +1030,13 @@ export default function MainCalendarPage({
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>📅 Sell-In Mensile</Text>
               <Text style={styles.statValue}>
-                €{progressiveSystem.isInitialized ? progressiveSystem.getMonthlySellIn(currentDate.getFullYear(), currentDate.getMonth() + 1) : 0}
+                €{(() => {
+                  const year = currentDate.getFullYear();
+                  const month = currentDate.getMonth() + 1;
+                  const monthlySellIn = progressiveSystem.isInitialized ? progressiveSystem.getMonthlySellIn(year, month) : 0;
+                  console.log('🔍 Debug Sell-In Mensile:', { year, month, monthlySellIn, isInitialized: progressiveSystem.isInitialized });
+                  return monthlySellIn;
+                })()}
               </Text>
             </View>
             <View style={styles.statItem}>

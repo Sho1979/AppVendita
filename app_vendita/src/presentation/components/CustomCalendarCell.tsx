@@ -373,19 +373,7 @@ function CustomCalendarCell({
             const hasActions = entry?.actions && entry.actions.length > 0;
             const hasContent = hasTags || hasFocusData || hasSales || hasActions;
             
-            // Debug: log per capire cosa contiene l'entry
-            console.log('🔍 CustomCalendarCell: Debug entry per data', date, {
-              id: entry?.id,
-              hasTags,
-              tags: entry?.tags,
-              hasFocusData,
-              focusReferencesDataLength: entry?.focusReferencesData?.length,
-              hasSales,
-              salesLength: entry?.sales?.length,
-              hasActions,
-              actionsLength: entry?.actions?.length,
-              hasContent
-            });
+            
             
             // Se non ci sono tag espliciti ma c'è contenuto, genera tag di default
             let tagIds = entry?.tags || [];
@@ -397,26 +385,15 @@ function CustomCalendarCell({
               if (hasActions) defaultTags.push('check'); // ✓ per azioni
               tagIds = defaultTags;
               
-              console.log('🔍 CustomCalendarCell: Generati tag di default per data', date, {
-                defaultTags,
-                tagIds
-              });
+
             }
             
-            console.log('🔍 CustomCalendarCell: Tag finali per data', date, {
-              tagIds,
-              tagIdsLength: tagIds.length,
-              hasContent
-            });
+
             
             // Forza la visualizzazione se c'è contenuto, indipendentemente dai tag
             const shouldShowTags = hasContent && tagIds.length > 0;
             
-            console.log('🔍 CustomCalendarCell: Should show tags per data', date, {
-              shouldShowTags,
-              hasContent,
-              tagIdsLength: tagIds.length
-            });
+
             
             return shouldShowTags ? (
               <View style={styles.tagsSection}>

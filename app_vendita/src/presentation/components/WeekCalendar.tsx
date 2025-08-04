@@ -22,22 +22,7 @@ export default function WeekCalendar({
   onDayPress,
   onTooltipPress,
 }: WeekCalendarProps) {
-  console.log('📅 WeekCalendar: Componente inizializzato con:', {
-    currentDate: currentDate.toISOString(),
-    entriesCount: entries.length,
-    selectedDate,
-  });
-
-  // Log dettagliato delle entries ricevute
-  console.log('📅 WeekCalendar: Dettagli entries ricevute:', entries.map(entry => ({
-    id: entry.id,
-    date: new Date(entry.date).toISOString().split('T')[0],
-    tags: entry.tags,
-    tagsLength: entry.tags?.length,
-    salesLength: entry.sales?.length,
-    actionsLength: entry.actions?.length,
-    focusReferencesDataLength: entry.focusReferencesData?.length
-  })));
+  
 
   // Genera le date della settimana corrente
   const getWeekDates = (date: Date): Date[] => {
@@ -58,36 +43,18 @@ export default function WeekCalendar({
   const weekDates = getWeekDates(currentDate);
   const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 
-  console.log(
-    '📅 WeekCalendar: Date settimana generate:',
-    weekDates.map(d => d.toISOString().split('T')[0])
-  );
+
 
   const getEntryForDate = (date: Date): CalendarEntry | undefined => {
     const dateStr = date.toISOString().split('T')[0];
-    console.log('🔍 WeekCalendar: Cercando entry per data', dateStr, {
-      entriesCount: entries.length,
-      entriesDates: entries.map(e => new Date(e.date).toISOString().split('T')[0])
-    });
+
     
     const entry = entries.find(entry => {
       const entryDate = new Date(entry.date).toISOString().split('T')[0];
       return entryDate === dateStr;
     });
 
-    if (entry) {
-      console.log('📅 WeekCalendar: Entry trovata per', dateStr, ':', {
-        id: entry.id,
-        sales: entry.sales.length,
-        actions: entry.actions.length,
-        hasProblem: entry.hasProblem,
-        notes: entry.notes?.substring(0, 20) + '...',
-        tags: entry.tags,
-        tagsLength: entry.tags?.length
-      });
-    } else {
-      console.log('❌ WeekCalendar: Nessuna entry trovata per', dateStr);
-    }
+
 
     return entry;
   };

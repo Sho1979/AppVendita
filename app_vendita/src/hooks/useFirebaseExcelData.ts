@@ -170,37 +170,11 @@ export const useFirebaseExcelData = () => {
   };
 
   const loadExcelData = useCallback(async () => {
-    console.log('📊 useFirebaseExcelData: Caricamento dati Excel da Firebase...');
     try {
       setIsLoading(true);
       setError(null);
       
-      console.log('📊 useFirebaseExcelData: Chiamata repository.getExcelData()...');
       const data = await repository.getExcelData();
-      console.log('✅ useFirebaseExcelData: Dati Excel caricati da Firebase:', data.length, 'righe');
-      
-      // Debug: mostra la struttura dei primi 3 record
-      if (data.length > 0) {
-        console.log('🔍 useFirebaseExcelData: Struttura dati raw (primi 3 record):', 
-          data.slice(0, 3).map(row => {
-            const keys = Object.keys(row);
-            return {
-              id: row.id,
-              keys: keys,
-              sampleValues: keys.slice(0, 10).map(key => ({ [key]: row[key] }))
-            };
-          })
-        );
-        
-        // Debug: mostra tutti i campi disponibili nel primo record
-        if (data[0]) {
-          console.log('🔍 useFirebaseExcelData: Tutti i campi disponibili nel primo record:', 
-            Object.keys(data[0]).map(key => `${key}: ${data[0][key]}`)
-          );
-        }
-      } else {
-        console.log('⚠️ useFirebaseExcelData: Nessun dato Excel trovato in Firebase');
-      }
       
       // Normalizza i dati per compatibilità con i filtri esistenti
       const normalizedData = data.map((row, index) => {
@@ -269,24 +243,9 @@ export const useFirebaseExcelData = () => {
           ...row // Mantieni tutti gli altri campi originali
         };
         
-        // Debug: log per i primi 3 record normalizzati
-        if (index < 3) {
-          console.log(`🔍 useFirebaseExcelData: Record ${index + 1} normalizzato:`, {
-            linea: normalized.linea,
-            codiceAreaManager: normalized.codiceAreaManager,
-            codiceNam: normalized.codiceNam,
-            codiceAgente: normalized.codiceAgente,
-            nomeAgente: normalized.nomeAgente,
-            insegna: normalized.insegna,
-            codiceCliente: normalized.codiceCliente,
-            cliente: normalized.cliente
-          });
-        }
-        
         return normalized;
       });
       
-      console.log('✅ useFirebaseExcelData: Dati normalizzati pronti:', normalizedData.length, 'righe');
       setExcelData(normalizedData);
     } catch (err) {
       console.error('❌ useFirebaseExcelData: Errore nel caricamento dati Excel:', err);
@@ -298,13 +257,11 @@ export const useFirebaseExcelData = () => {
 
   // Carica i dati all'inizializzazione
   useEffect(() => {
-    console.log('🔄 useFirebaseExcelData: useEffect triggered - caricamento dati iniziali');
     loadExcelData();
   }, [loadExcelData]);
 
   // Funzione per ricaricare i dati
   const reloadData = useCallback(() => {
-    console.log('🔄 useFirebaseExcelData: reloadData chiamato');
     loadExcelData();
   }, [loadExcelData]);
 

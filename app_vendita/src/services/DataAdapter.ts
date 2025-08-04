@@ -19,7 +19,7 @@ export class DataAdapter {
       } else {
         // Prezzo di default per i dati esistenti (€2 come mostrato nel form)
         netPrice = 2.0;
-        console.log(`💰 DataAdapter: Usando prezzo di default €${netPrice} per ${focusData.referenceId}`);
+
       }
 
       return {
@@ -34,14 +34,7 @@ export class DataAdapter {
       };
     });
 
-    console.log(`📊 DataAdapter: Convertiti ${productEntries.length} entries per ${entry.date}:`, 
-      productEntries.map(prod => ({
-        productId: prod.productId,
-        ordinati: prod.ordinati,
-        prezzoNetto: prod.prezzoNetto,
-        sellIn: prod.ordinati * prod.prezzoNetto
-      }))
-    );
+
 
     return productEntries;
   }
