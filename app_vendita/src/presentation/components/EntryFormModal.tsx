@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -72,6 +72,7 @@ export default function EntryFormModal({
       soldPieces: string;
       stockPieces: string;
       soldVsStockPercentage: string;
+      netPrice: string;
     }[];
   }>({
     notes: '',
@@ -86,6 +87,18 @@ export default function EntryFormModal({
   });
 
 
+
+  // Funzione per gestire i cambiamenti dei dati delle referenze focus
+  const handleFocusReferencesDataChange = useCallback((data: {
+    referenceId: string;
+    orderedPieces: string;
+    soldPieces: string;
+    stockPieces: string;
+    soldVsStockPercentage: string;
+    netPrice: string;
+  }[]) => {
+    setFormData(prev => ({ ...prev, focusReferencesData: data }));
+  }, []);
 
   // Inizializza il form quando il modal si apre
   useEffect(() => {
@@ -376,11 +389,7 @@ export default function EntryFormModal({
             <FocusReferencesForm
               selectedDate={selectedDate}
               existingData={entry?.focusReferencesData}
-              onDataChange={(data) => {
-                // Rimuoviamo questo log che causa re-render continui
-                // console.log('🎯 EntryFormModal: FocusReferencesData cambiati:', data);
-                setFormData(prev => ({ ...prev, focusReferencesData: data }));
-              }}
+              onDataChange={handleFocusReferencesDataChange}
             />
           </View>
 

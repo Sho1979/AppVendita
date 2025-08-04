@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import SafeTouchableOpacity from '../components/common/SafeTouchableOpacity';
 import FocusReferencesModal from '../components/FocusReferencesModal';
@@ -311,10 +312,14 @@ const styles = StyleSheet.create({
     padding: Spacing.medium,
     marginBottom: Spacing.small,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+    } : {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+    }),
   },
   settingIcon: {
     width: 40,

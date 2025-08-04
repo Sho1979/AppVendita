@@ -3,6 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import SafeTouchableOpacity from '../components/common/SafeTouchableOpacity';
 import { LoginModal } from '../components/LoginModal';
@@ -105,14 +106,18 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.large,
     paddingHorizontal: Spacing.xlarge,
     marginBottom: Spacing.large,
-    shadowColor: Colors.black,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0 2px 3.84px rgba(0, 0, 0, 0.25)',
+    } : {
+      shadowColor: Colors.black,
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+    }),
   },
   loginButtonText: {
     color: Colors.white,

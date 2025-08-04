@@ -511,9 +511,14 @@ export class ProgressiveCalculationService {
     const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
     const endDate = `${year}-${month.toString().padStart(2, '0')}-31`;
     
+    // Calcola solo il sell-in delle entries del mese specifico
     for (const [date, entry] of this.state.entries) {
-      if (date >= startDate && date <= endDate && entry.progressiveTotals) {
-        monthlySellIn += entry.progressiveTotals.sellIn;
+      if (date >= startDate && date <= endDate) {
+        // Calcola il sell-in giornaliero per questa entry
+        const dailySellIn = entry.entries.reduce((total, product) => {
+          return total + (product.ordinati * product.prezzoNetto);
+        }, 0);
+        monthlySellIn += dailySellIn;
       }
     }
     

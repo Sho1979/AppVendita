@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TextInput,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusReferences } from '../../hooks/useFocusReferences';
@@ -28,6 +29,7 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
   } = useFocusReferences();
 
   const [focusData, setFocusData] = useState<FocusReferenceData[]>([]);
+  const isInitialized = useRef(false);
 
   // Carica le referenze focus quando cambia la data
   useEffect(() => {
@@ -41,12 +43,20 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
             soldPieces: '',
             stockPieces: '',
             soldVsStockPercentage: '',
-            netPrice: getNetPrice(ref.id), // Aggiungi il prezzo netto
+            netPrice: getNetPrice(ref.id), // Prezzo netto fisso da Firebase
           }));
       
       setFocusData(initialData);
+      isInitialized.current = true;
     }
-  }, [focusReferences, existingData, getNetPrice]);
+  }, [focusReferences, existingData]); // I prezzi netti sono fissi, non servono nelle dipendenze
+
+  // Notifica il parent quando focusData cambia
+  useEffect(() => {
+    if (focusData.length > 0 && onDataChange && isInitialized.current) {
+      onDataChange(focusData);
+    }
+  }, [focusData]); // Rimossa onDataChange dalle dipendenze per evitare loop
 
   const calculatePercentage = (sold: string, ordered: string): string => {
     const soldNum = parseFloat(sold) || 0;
@@ -59,6 +69,7 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
   };
 
   const handleSoldChange = (referenceId: string, value: string) => {
+    console.log('🔍 handleSoldChange called:', { referenceId, value, type: typeof value });
     setFocusData(prev => {
       const updatedData = prev.map(item => {
         if (item.referenceId === referenceId) {
@@ -77,18 +88,12 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
         return item;
       });
       
-      // Notifica il cambiamento dopo il render
-      setTimeout(() => {
-        if (onDataChange) {
-          onDataChange(updatedData);
-        }
-      }, 0);
-      
       return updatedData;
     });
   };
 
   const handleOrderedChange = (referenceId: string, value: string) => {
+    console.log('🔍 handleOrderedChange called:', { referenceId, value, type: typeof value });
     setFocusData(prev => {
       const updatedData = prev.map(item => {
         if (item.referenceId === referenceId) {
@@ -106,13 +111,6 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
         }
         return item;
       });
-      
-      // Notifica il cambiamento dopo il render
-      setTimeout(() => {
-        if (onDataChange) {
-          onDataChange(updatedData);
-        }
-      }, 0);
       
       return updatedData;
     });
@@ -148,7 +146,11 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
         <Text style={styles.headerCount}>({focusReferences.length})</Text>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Header della tabella */}
         <View style={styles.tableHeader}>
           <View style={styles.headerCell}>
@@ -216,10 +218,15 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
                  <TextInput
                    style={styles.inputCell}
                    value={data.orderedPieces}
-                   onChangeText={(text) => handleOrderedChange(reference.id, text)}
+                   onChangeText={(text) => {
+                     console.log('🔍 Ordinato onChangeText:', { text, currentValue: data.orderedPieces });
+                     handleOrderedChange(reference.id, text);
+                   }}
                    keyboardType="numeric"
                    placeholder="0"
                    placeholderTextColor="#8E8E93"
+                   editable={true}
+                   selectTextOnFocus={true}
                  />
                </View>
 
@@ -228,10 +235,15 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
                 <TextInput
                   style={styles.inputCell}
                   value={data.soldPieces}
-                  onChangeText={(text) => handleSoldChange(reference.id, text)}
+                  onChangeText={(text) => {
+                    console.log('🔍 Venduto onChangeText:', { text, currentValue: data.soldPieces });
+                    handleSoldChange(reference.id, text);
+                  }}
                   keyboardType="numeric"
                   placeholder="0"
                   placeholderTextColor="#8E8E93"
+                  editable={true}
+                  selectTextOnFocus={true}
                 />
               </View>
 
@@ -263,10 +275,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginVertical: 8,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+    } : {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+    }),
+    zIndex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -312,7 +329,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
-    minHeight: 60,
+    minHeight: 70,
   },
   cell: {
     flex: 1,
@@ -320,6 +337,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1,
   },
   codeText: {
     fontSize: 10,
@@ -350,11 +368,13 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
     borderRadius: 4,
     paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingVertical: 8,
     fontSize: 10,
     backgroundColor: '#FFFFFF',
     width: '90%',
     textAlign: 'center',
+    minHeight: 35,
+    zIndex: 1,
   },
   calculatedCell: {
     backgroundColor: '#F8F9FA',

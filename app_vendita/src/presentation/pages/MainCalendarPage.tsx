@@ -86,6 +86,31 @@ export default function MainCalendarPage({
   const [dailySellIn, setDailySellIn] = useState<{ [date: string]: number }>({});
 
   const repository = new AsyncStorageCalendarRepository();
+
+  // Funzione per filtrare le entries in base ai filtri attivi
+  const getFilteredEntries = useCallback(() => {
+    const filtersState = useFiltersStore.getState();
+    return state.entries.filter(entry => {
+      if (filtersState.selectedSalesPointId && entry.salesPointId !== filtersState.selectedSalesPointId) return false;
+      if (filtersState.selectedUserId && entry.userId !== filtersState.selectedUserId) return false;
+      if (filtersState.selectedDate) {
+        // Gestisci il caso in cui entry.date potrebbe essere una stringa
+        let entryDate: Date;
+        if (entry.date instanceof Date) {
+          entryDate = entry.date;
+        } else if (typeof entry.date === 'string') {
+          entryDate = new Date(entry.date);
+        } else {
+          // Se non è né Date né stringa, salta questa entry
+          return false;
+        }
+        
+        const entryDateString = entryDate.toISOString().split('T')[0];
+        if (entryDateString !== filtersState.selectedDate) return false;
+      }
+      return true;
+    });
+  }, [state.entries]);
   
 
 
@@ -953,7 +978,7 @@ export default function MainCalendarPage({
           {calendarView === 'week' ? (
             <WeekCalendar
               currentDate={currentDate}
-              entries={state.entries}
+              entries={getFilteredEntries()}
               selectedDate={selectedDate}
               onDayPress={onDayPress}
               onTooltipPress={handleTooltipPress}
@@ -962,7 +987,7 @@ export default function MainCalendarPage({
           ) : (
             <MonthCalendar
               currentDate={currentDate}
-              entries={state.entries}
+              entries={getFilteredEntries()}
               selectedDate={selectedDate}
               onDayPress={onDayPress}
               onTooltipPress={handleTooltipPress}
@@ -984,74 +1009,18 @@ export default function MainCalendarPage({
           <View style={styles.footerStats}>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>📊 Entries</Text>
-              <Text style={styles.statValue}>{state.entries.length}</Text>
+              <Text style={styles.statValue}>{getFilteredEntries().length}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>💰 Sell-In</Text>
               <Text style={styles.statValue}>
-                €{state.entries.reduce((total, entry) => {
-                  if (!entry.focusReferencesData || entry.focusReferencesData.length === 0) {
-                    return total;
-                  }
-                  
-                  return total + entry.focusReferencesData.reduce((entryTotal, focusData) => {
-                    const reference = getFocusReferenceById(focusData.referenceId);
-                    if (!reference) {
-                      return entryTotal;
-                    }
-
-                    const orderedPieces = parseFloat(focusData.orderedPieces) || 0;
-                    
-                    // Usa il prezzo netto salvato invece del prezzo originale
-                    const savedNetPrice = getNetPrice(focusData.referenceId);
-                    
-                    // Correggi il parsing del netPrice per gestire formato "02,40" → 2.40
-                    let netPrice = 0;
-                    if (savedNetPrice) {
-                      const priceStr = savedNetPrice.toString();
-                      // Rimuovi zero iniziale e sostituisci virgola con punto
-                      const cleanPrice = priceStr.replace(/^0+/, '').replace(',', '.');
-                      netPrice = parseFloat(cleanPrice) || 0;
-                    }
-                    
-                    const sellIn = orderedPieces * netPrice;
-                    return entryTotal + sellIn;
-                  }, 0);
-                }, 0)}
+                €{progressiveSystem.isInitialized ? progressiveSystem.getTotalSellIn() : 0}
               </Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>📅 Sell-In Mensile</Text>
               <Text style={styles.statValue}>
-                €{state.entries.reduce((total, entry) => {
-                  if (!entry.focusReferencesData || entry.focusReferencesData.length === 0) {
-                    return total;
-                  }
-                  
-                  return total + entry.focusReferencesData.reduce((entryTotal, focusData) => {
-                    const reference = getFocusReferenceById(focusData.referenceId);
-                    if (!reference) {
-                      return entryTotal;
-                    }
-
-                    const orderedPieces = parseFloat(focusData.orderedPieces) || 0;
-                    
-                    // Usa il prezzo netto salvato invece del prezzo originale
-                    const savedNetPrice = getNetPrice(focusData.referenceId);
-                    
-                    // Correggi il parsing del netPrice per gestire formato "02,40" → 2.40
-                    let netPrice = 0;
-                    if (savedNetPrice) {
-                      const priceStr = savedNetPrice.toString();
-                      // Rimuovi zero iniziale e sostituisci virgola con punto
-                      const cleanPrice = priceStr.replace(/^0+/, '').replace(',', '.');
-                      netPrice = parseFloat(cleanPrice) || 0;
-                    }
-                    
-                    const sellIn = orderedPieces * netPrice;
-                    return entryTotal + sellIn;
-                  }, 0);
-                }, 0)}
+                €{progressiveSystem.isInitialized ? progressiveSystem.getMonthlySellIn(currentDate.getFullYear(), currentDate.getMonth() + 1) : 0}
               </Text>
             </View>
             <View style={styles.statItem}>
