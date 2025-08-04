@@ -174,7 +174,9 @@ export const useFirebaseExcelData = () => {
       setIsLoading(true);
       setError(null);
       
+      console.log('🔍 useFirebaseExcelData: Caricamento dati Excel...');
       const data = await repository.getExcelData();
+      console.log('📊 useFirebaseExcelData: Dati ricevuti da Firebase:', data.length, 'righe');
       
       // Normalizza i dati per compatibilità con i filtri esistenti
       const normalizedData = data.map((row, index) => {
@@ -246,6 +248,8 @@ export const useFirebaseExcelData = () => {
         return normalized;
       });
       
+      console.log('✅ useFirebaseExcelData: Dati normalizzati:', normalizedData.length, 'righe');
+      console.log('📋 useFirebaseExcelData: Esempio dati normalizzati:', normalizedData.slice(0, 2));
       setExcelData(normalizedData);
     } catch (err) {
       console.error('❌ useFirebaseExcelData: Errore nel caricamento dati Excel:', err);

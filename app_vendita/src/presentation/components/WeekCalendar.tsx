@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, Platform, ScrollView } from 'react-native';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import CustomCalendarCell from './CustomCalendarCell';
@@ -22,7 +22,7 @@ export default function WeekCalendar({
   onDayPress,
   onTooltipPress,
 }: WeekCalendarProps) {
-  
+  const [currentPage, setCurrentPage] = useState(0);
 
   // Genera le date della settimana corrente
   const getWeekDates = (date: Date): Date[] => {
@@ -43,18 +43,37 @@ export default function WeekCalendar({
   const weekDates = getWeekDates(currentDate);
   const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 
+  // Per mobile: mostra solo 3 giorni alla volta
+  const isMobile = Platform.OS !== 'web';
+  const daysPerPage = isMobile ? 3 : 7;
+  const totalPages = isMobile ? Math.ceil(7 / daysPerPage) : 1;
 
+  // Calcola le date da mostrare per la pagina corrente
+  const visibleDates = useMemo(() => {
+    if (!isMobile) {
+      return weekDates;
+    }
+    
+    const startIndex = currentPage * daysPerPage;
+    return weekDates.slice(startIndex, startIndex + daysPerPage);
+  }, [weekDates, currentPage, isMobile]);
+
+  const visibleDayNames = useMemo(() => {
+    if (!isMobile) {
+      return dayNames;
+    }
+    
+    const startIndex = currentPage * daysPerPage;
+    return dayNames.slice(startIndex, startIndex + daysPerPage);
+  }, [dayNames, currentPage, isMobile]);
 
   const getEntryForDate = (date: Date): CalendarEntry | undefined => {
     const dateStr = date.toISOString().split('T')[0];
-
     
     const entry = entries.find(entry => {
       const entryDate = new Date(entry.date).toISOString().split('T')[0];
       return entryDate === dateStr;
     });
-
-
 
     return entry;
   };
@@ -69,14 +88,28 @@ export default function WeekCalendar({
     return dateStr === selectedDate;
   };
 
-  // Log rimosso per performance - non necessario in produzione
+  const handleNextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const resetToCurrentWeek = () => {
+    setCurrentPage(0);
+  };
 
   return (
     <View style={styles.container}>
       {/* Header giorni della settimana con indicatori */}
       <View style={styles.weekHeader}>
-        {dayNames.map((dayName, index) => {
-          const date = weekDates[index];
+        {visibleDayNames.map((dayName, index) => {
+          const date = visibleDates[index];
           const entry = date ? getEntryForDate(date) : undefined;
           const hasData = !!entry;
           
@@ -93,9 +126,36 @@ export default function WeekCalendar({
         })}
       </View>
 
+      {/* Controlli di navigazione per mobile */}
+      {isMobile && totalPages > 1 && (
+        <View style={styles.navigationContainer}>
+          <SafeTouchableOpacity
+            style={[styles.navButton, currentPage === 0 && styles.navButtonDisabled]}
+            onPress={handlePrevPage}
+            disabled={currentPage === 0}
+          >
+            <Text style={styles.navButtonText}>‹</Text>
+          </SafeTouchableOpacity>
+          
+          <View style={styles.pageIndicator}>
+            <Text style={styles.pageIndicatorText}>
+              {currentPage + 1} / {totalPages}
+            </Text>
+          </View>
+          
+          <SafeTouchableOpacity
+            style={[styles.navButton, currentPage === totalPages - 1 && styles.navButtonDisabled]}
+            onPress={handleNextPage}
+            disabled={currentPage === totalPages - 1}
+          >
+            <Text style={styles.navButtonText}>›</Text>
+          </SafeTouchableOpacity>
+        </View>
+      )}
+
       {/* Griglia settimanale orizzontale */}
-      <View style={styles.weekGrid}>
-        {weekDates.map((date) => {
+      <View style={[styles.weekGrid, isMobile && styles.mobileWeekGrid]}>
+        {visibleDates.map((date) => {
           const entry = getEntryForDate(date);
           const dateStr = date.toISOString().split('T')[0];
 
@@ -115,6 +175,18 @@ export default function WeekCalendar({
           );
         })}
       </View>
+
+      {/* Reset button per mobile */}
+      {isMobile && currentPage !== 0 && (
+        <View style={styles.resetContainer}>
+          <SafeTouchableOpacity
+            style={styles.resetButton}
+            onPress={resetToCurrentWeek}
+          >
+            <Text style={styles.resetButtonText}>🔙 Inizio Settimana</Text>
+          </SafeTouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -145,6 +217,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: Spacing.small,
     gap: Spacing.xs,
+  },
+  mobileWeekGrid: {
+    flexDirection: 'row', // Stack cells horizontally on mobile
+    gap: Spacing.small,
+    paddingHorizontal: Spacing.small,
   },
   dayCell: {
     flex: 1,
@@ -270,6 +347,56 @@ const styles = StyleSheet.create({
   dayHeaderIndicatorText: {
     fontSize: 10,
     color: Colors.warmBackground,
+    fontWeight: 'bold',
+  },
+  navigationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: Spacing.small,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  navButton: {
+    paddingHorizontal: Spacing.small,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.warmPrimary,
+    borderRadius: 5,
+  },
+  navButtonDisabled: {
+    backgroundColor: Colors.warmBorder,
+    opacity: 0.7,
+  },
+  navButtonText: {
+    color: Colors.warmBackground,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  pageIndicator: {
+    backgroundColor: Colors.warmSurface,
+    borderRadius: 5,
+    paddingHorizontal: Spacing.small,
+    paddingVertical: Spacing.xs,
+  },
+  pageIndicatorText: {
+    fontSize: 12,
+    color: Colors.textPrimary,
+    fontWeight: 'bold',
+  },
+  resetContainer: {
+    alignItems: 'center',
+    paddingVertical: Spacing.small,
+  },
+  resetButton: {
+    backgroundColor: Colors.warmPrimary,
+    borderRadius: 5,
+    paddingHorizontal: Spacing.large,
+    paddingVertical: Spacing.small,
+  },
+  resetButtonText: {
+    color: Colors.warmBackground,
+    fontSize: 14,
     fontWeight: 'bold',
   },
 });

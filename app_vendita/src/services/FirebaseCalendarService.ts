@@ -268,7 +268,11 @@ export class FirebaseCalendarService {
    */
   async checkConnection(): Promise<boolean> {
     try {
-      await this.repository.getEntries();
+      console.log('🔍 FirebaseCalendarService: Verifica connessione Firebase...');
+      
+      // Prova a recuperare le entries senza filtri per testare la connessione
+      const entries = await this.repository.getEntries();
+      console.log('✅ FirebaseCalendarService: Connessione Firebase OK, entries trovate:', entries.length);
       return true;
     } catch (error) {
       console.error('❌ FirebaseCalendarService: Errore connessione Firebase:', error);

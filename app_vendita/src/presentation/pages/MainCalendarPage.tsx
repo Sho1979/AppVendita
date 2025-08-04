@@ -13,6 +13,9 @@ import {
 } from 'react-native';
 import { useCalendar } from '../providers/CalendarContext';
 import { AsyncStorageCalendarRepository } from '../../data/repositories/CalendarRepository';
+import { FirebaseCalendarRepository } from '../../data/repositories/firebaseCalendarRepository';
+import { RepositoryAdapter } from '../../data/repositories/repositoryAdapter';
+import { FirebaseCalendarRepositoryAdapter } from '../../data/repositories/firebaseCalendarRepositoryAdapter';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { Agent } from '../../data/models/Agent';
 import WeekCalendar from '../components/WeekCalendar';
@@ -77,6 +80,13 @@ export default function MainCalendarPage({
 
   // Dati Excel da Firebase
   const { excelData: excelRows, isLoading: excelDataLoading, reloadData: reloadExcelData } = useFirebaseExcelData();
+  
+  // Debug: log dei dati caricati
+  useEffect(() => {
+    console.log('📊 MainCalendarPage: Excel data caricati:', excelRows.length);
+    console.log('📊 MainCalendarPage: Calendar entries:', state.entries.length);
+    console.log('📊 MainCalendarPage: Excel loading:', excelDataLoading);
+  }, [excelRows.length, state.entries.length, excelDataLoading]);
   const [showEntryModal, setShowEntryModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<CalendarEntry | undefined>();
   const [showTooltipModal, setShowTooltipModal] = useState(false);
@@ -85,7 +95,10 @@ export default function MainCalendarPage({
   const [tooltipEntry, setTooltipEntry] = useState<CalendarEntry | undefined>();
   const [dailySellIn, setDailySellIn] = useState<{ [date: string]: number }>({});
 
-  const repository = new AsyncStorageCalendarRepository();
+  const repository = new FirebaseCalendarRepositoryAdapter();
+  
+  // Debug: verifica il tipo di repository
+  console.log('🔍 MainCalendarPage: Repository type:', repository.constructor.name);
 
   // Funzione per filtrare le entries in base ai filtri attivi
   const getFilteredEntries = useCallback(() => {

@@ -34,6 +34,11 @@ export const useFirebaseCalendar = (): UseFirebaseCalendarReturn => {
   
   const store = useCalendarStore();
 
+  // Controlla la connessione all'inizializzazione
+  useEffect(() => {
+    checkConnection();
+  }, []);
+
   // ===== GESTIONE STATO =====
 
   const clearError = useCallback(() => {
@@ -45,8 +50,10 @@ export const useFirebaseCalendar = (): UseFirebaseCalendarReturn => {
 
   const checkConnection = useCallback(async (): Promise<boolean> => {
     try {
+      console.log('🔍 useFirebaseCalendar: Verifica connessione Firebase...');
       const connected = await firebaseCalendarService.checkConnection();
       setIsConnected(connected);
+      console.log('✅ useFirebaseCalendar: Connessione Firebase:', connected);
       return connected;
     } catch (error) {
       console.error('❌ useFirebaseCalendar: Errore controllo connessione:', error);
@@ -84,15 +91,17 @@ export const useFirebaseCalendar = (): UseFirebaseCalendarReturn => {
   // ===== OPERAZIONI CRUD =====
 
   const addEntry = useCallback(async (entry: Omit<CalendarEntry, 'id'>): Promise<string> => {
-    if (!isConnected) {
-      throw new Error('Nessuna connessione con Firebase');
-    }
-
     setIsLoading(true);
     setError(null);
 
     try {
       console.log('➕ useFirebaseCalendar: Aggiunta entry');
+      
+      // Verifica connessione prima di procedere
+      const connected = await checkConnection();
+      if (!connected) {
+        throw new Error('Nessuna connessione con Firebase. Verifica la connessione internet.');
+      }
       
       const entryId = await firebaseCalendarService.addEntry(entry);
       

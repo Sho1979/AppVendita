@@ -645,8 +645,15 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   weekCell: {
-    minHeight: 120, // Più spazio per la guida principale + tooltip
-    padding: 6,
+    minHeight: Platform.OS === 'web' ? 120 : 100, // Più compatto su mobile
+    padding: Platform.OS === 'web' ? 6 : 4,
+    ...Platform.select({
+      web: {},
+      default: {
+        flex: 1, // Ogni cella occupa 1/3 dello spazio disponibile
+        minWidth: 100, // Larghezza minima per leggibilità
+      },
+    }),
   },
   monthCell: {
     minHeight: 50, // Compatto per il riassunto
@@ -699,7 +706,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   dayNumber: {
-    fontSize: 16,
+    fontSize: Platform.OS === 'web' ? 16 : 14,
     fontWeight: 'bold',
     color: '#2d4150',
     textAlign: 'center',
@@ -717,15 +724,15 @@ const styles = StyleSheet.create({
   },
   problemIndicator: {
     backgroundColor: '#f44336',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
+    borderRadius: Platform.OS === 'web' ? 10 : 8,
+    width: Platform.OS === 'web' ? 20 : 16,
+    height: Platform.OS === 'web' ? 20 : 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   problemText: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: Platform.OS === 'web' ? 12 : 10,
     fontWeight: 'bold',
   },
   notesIndicator: {

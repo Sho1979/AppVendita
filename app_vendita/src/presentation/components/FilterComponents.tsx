@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, TextInput, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, TextInput, TouchableOpacity, FlatList, Modal } from 'react-native';
 import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import { User } from '../../data/models/User';
 import { SalesPoint } from '../../data/models/SalesPoint';
@@ -46,13 +46,10 @@ function FilterComponents({
 }: FilterComponentsProps) {
   const [activeTab, setActiveTab] = useState<'linea' | 'areaManager' | 'nam' | 'agente' | 'insegna' | 'codice' | 'cliente'>('linea');
   const [searchText, setSearchText] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [selectedItemTypes, setSelectedItemTypes] = useState<{[key: string]: string}>({}); // Tiene traccia del tipo di ogni selezione
-  const [selectAll, setSelectAll] = useState(false);
-  const [multiSelectEnabled, setMultiSelectEnabled] = useState(true);
-  const [showAllOptions, setShowAllOptions] = useState(false); // Nuovo stato per mostrare tutte le opzioni
-  const itemsPerPage = 20;
+  const [selectedItemTypes, setSelectedItemTypes] = useState<{[key: string]: string}>({});
+  const [showAllOptions, setShowAllOptions] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   // Usa i dati da Firebase Excel
   const { excelData, isLoading: excelDataLoading } = useFirebaseExcelData();
@@ -61,13 +58,10 @@ function FilterComponents({
   const filteredData = useMemo(() => {
     let data: string[] = [];
     
-    // Se showAllOptions è true, usa tutti i dati Excel senza filtrare per selezioni precedenti
     let filteredExcelData = excelData;
     
-    // Se ci sono selezioni precedenti E showAllOptions è false, filtra i dati Excel
     if (!showAllOptions && Object.keys(selectedItemTypes).length > 0) {
       filteredExcelData = excelData.filter(row => {
-        // Per ogni selezione precedente, verifica che la riga Excel contenga quel valore
         return Object.entries(selectedItemTypes).every(([item, type]) => {
           switch (type) {
             case 'linea':
@@ -91,7 +85,6 @@ function FilterComponents({
       });
     }
 
-    // Estrai i dati unici per il tab corrente
     switch (activeTab) {
       case 'linea':
         data = [...new Set(filteredExcelData.map(row => row.linea).filter((linea): linea is string => Boolean(linea)))];
@@ -116,7 +109,6 @@ function FilterComponents({
         break;
     }
 
-    // Applica filtro di ricerca
     if (searchText.trim()) {
       data = data.filter(item => 
         item.toLowerCase().includes(searchText.toLowerCase())
@@ -124,88 +116,42 @@ function FilterComponents({
     }
 
     return data.sort();
-  }, [activeTab, excelData, searchText, selectedItemTypes, showAllOptions]);
-
-  // Paginazione
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentData = filteredData.slice(startIndex, endIndex);
-
-  // Reset della paginazione quando cambiano i filtri
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab, searchText, showAllOptions]);
-
-  // Reset della selezione quando cambia il tab
-  useEffect(() => {
-    setSelectedItems([]);
-    setSelectAll(false);
-  }, [activeTab]);
+  }, [activeTab, excelData, searchText, showAllOptions, selectedItemTypes]);
 
   // Aggiorna la selezione globale quando cambiano gli elementi selezionati
   useEffect(() => {
     if (onMultipleSelectionChange) {
       onMultipleSelectionChange(selectedItems);
     }
-  }, [selectedItems, onMultipleSelectionChange]);
+  }, [selectedItems]);
 
   const handleTabChange = (tab: typeof activeTab) => {
     setActiveTab(tab);
     setSearchText('');
-    setCurrentPage(1);
   };
 
   const handleSearchChange = (text: string) => {
     setSearchText(text);
-    setCurrentPage(1);
   };
 
   const handleItemSelect = (item: string) => {
-    if (multiSelectEnabled) {
-      // Modalità selezione multipla
-      setSelectedItems(prev => {
-        const newSelection = prev.includes(item)
-          ? prev.filter(i => i !== item)
-          : [...prev, item];
-        
-        // Aggiorna il tipo di selezione
-        setSelectedItemTypes(prevTypes => {
-          const newTypes = { ...prevTypes };
-          if (newSelection.includes(item)) {
-            newTypes[item] = activeTab;
-          } else {
-            delete newTypes[item];
-          }
-          return newTypes;
-        });
-        
-        return newSelection;
+    setSelectedItems(prev => {
+      const newSelection = prev.includes(item)
+        ? prev.filter(i => i !== item)
+        : [...prev, item];
+      
+      setSelectedItemTypes(prevTypes => {
+        const newTypes = { ...prevTypes };
+        if (newSelection.includes(item)) {
+          newTypes[item] = activeTab;
+        } else {
+          delete newTypes[item];
+        }
+        return newTypes;
       });
-    } else {
-      // Modalità selezione singola
-      setSelectedItems([item]);
-      setSelectedItemTypes({ [item]: activeTab });
-    }
-  };
-
-  const handleSelectAll = () => {
-    if (selectAll) {
-      // Deseleziona tutto
-      setSelectedItems([]);
-      setSelectedItemTypes({});
-      setSelectAll(false);
-    } else {
-      // Seleziona tutto
-      const allItems = currentData;
-      setSelectedItems(allItems);
-      const newTypes: {[key: string]: string} = {};
-      allItems.forEach(item => {
-        newTypes[item] = activeTab;
-      });
-      setSelectedItemTypes(newTypes);
-      setSelectAll(true);
-    }
+      
+      return newSelection;
+    });
   };
 
   const isItemSelected = (item: string) => {
@@ -241,16 +187,25 @@ function FilterComponents({
   const handleReset = () => {
     setSelectedItems([]);
     setSelectedItemTypes({});
-    setSelectAll(false);
     setSearchText('');
-    setCurrentPage(1);
     setShowAllOptions(false);
     onReset();
   };
 
   const handleToggleShowAll = () => {
     setShowAllOptions(!showAllOptions);
-    setCurrentPage(1);
+  };
+
+  const handleClose = () => {
+    setIsModalVisible(false);
+    if (onClose) {
+      onClose();
+    }
+  };
+
+  // Funzione per aprire il modal (da chiamare dall'esterno)
+  const openFilters = () => {
+    setIsModalVisible(true);
   };
 
   if (excelDataLoading) {
@@ -261,6 +216,129 @@ function FilterComponents({
     );
   }
 
+  // Versione mobile semplificata
+  if (Platform.OS !== 'web') {
+    return (
+      <Modal
+        visible={true}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleClose}
+      >
+        <View style={styles.mobileContainer}>
+          {/* Header Mobile */}
+          <View style={styles.mobileHeader}>
+            <Text style={styles.mobileTitle}>🔍 Filtri</Text>
+            <View style={styles.mobileHeaderActions}>
+              <SafeTouchableOpacity
+                style={styles.mobileResetButton}
+                onPress={handleReset}
+              >
+                <Text style={styles.mobileResetButtonText}>🔄</Text>
+              </SafeTouchableOpacity>
+              
+              <SafeTouchableOpacity
+                style={styles.mobileCloseButton}
+                onPress={handleClose}
+              >
+                <Text style={styles.mobileCloseButtonText}>✕</Text>
+              </SafeTouchableOpacity>
+            </View>
+          </View>
+
+          {/* Tabs Mobile */}
+          <View style={styles.mobileTabsContainer}>
+            <View style={styles.mobileTabsGrid}>
+              {(['linea', 'areaManager', 'nam', 'agente', 'insegna', 'codice', 'cliente'] as const).map((tab) => (
+                <SafeTouchableOpacity
+                  key={tab}
+                  style={[
+                    styles.mobileTab,
+                    activeTab === tab && styles.mobileActiveTab
+                  ]}
+                  onPress={() => handleTabChange(tab)}
+                >
+                  <Text style={styles.mobileTabIcon}>{getTabIcon(tab)}</Text>
+                  <Text style={[
+                    styles.mobileTabText,
+                    activeTab === tab && styles.mobileActiveTabText
+                  ]}>
+                    {getTabTitle(tab)}
+                  </Text>
+                </SafeTouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Controlli Mobile */}
+          <View style={styles.mobileControls}>
+            <TextInput
+              style={styles.mobileSearchInput}
+              placeholder="Cerca..."
+              value={searchText}
+              onChangeText={handleSearchChange}
+              placeholderTextColor="#999999"
+            />
+            
+            <SafeTouchableOpacity
+              style={[
+                styles.mobileToggleButton,
+                showAllOptions && styles.mobileToggleButtonActive
+              ]}
+              onPress={handleToggleShowAll}
+            >
+              <Text style={styles.mobileToggleButtonText}>
+                {showAllOptions ? '🔒 Correlati' : '🔓 Tutti'}
+              </Text>
+            </SafeTouchableOpacity>
+          </View>
+
+          {/* Lista Mobile */}
+          <FlatList
+            data={filteredData}
+            keyExtractor={(item) => item}
+            numColumns={2}
+            renderItem={({ item }) => (
+              <SafeTouchableOpacity
+                style={[
+                  styles.mobileListItem,
+                  isItemSelected(item) && styles.mobileSelectedItem
+                ]}
+                onPress={() => handleItemSelect(item)}
+              >
+                <Text 
+                  style={[
+                    styles.mobileItemText,
+                    isItemSelected(item) && styles.mobileSelectedItemText
+                  ]}
+                  numberOfLines={2}
+                >
+                  {item}
+                </Text>
+                {isItemSelected(item) && (
+                  <Text style={styles.mobileCheckmark}>✓</Text>
+                )}
+              </SafeTouchableOpacity>
+            )}
+            showsVerticalScrollIndicator={false}
+            style={styles.mobileList}
+            columnWrapperStyle={styles.mobileListRow}
+          />
+
+          {/* Footer Mobile */}
+          {selectedItems.length > 0 && (
+            <View style={styles.mobileFooter}>
+              <Text style={styles.mobileSelectionInfo}>
+                {selectedItems.length} selezionato{selectedItems.length !== 1 ? 'i' : ''}
+              </Text>
+            </View>
+          )}
+        </View>
+      </Modal>
+    );
+  }
+
+  // Versione web (invariata)
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -342,18 +420,6 @@ function FilterComponents({
               {showAllOptions ? '🔒 Solo Correlati' : '🔓 Tutte le Opzioni'}
             </Text>
           </SafeTouchableOpacity>
-          
-          <SafeTouchableOpacity
-            style={[
-              styles.controlButton,
-              multiSelectEnabled && styles.controlButtonActive
-            ]}
-            onPress={() => setMultiSelectEnabled(!multiSelectEnabled)}
-          >
-            <Text style={styles.controlButtonText}>
-              {multiSelectEnabled ? '☑️ Multi' : '☑️ Singolo'}
-            </Text>
-          </SafeTouchableOpacity>
         </View>
       </View>
 
@@ -364,25 +430,11 @@ function FilterComponents({
           <Text style={styles.listTitle}>
             {getTabTitle(activeTab)} ({filteredData.length})
           </Text>
-          
-          {multiSelectEnabled && (
-            <SafeTouchableOpacity
-              style={[
-                styles.selectAllButton,
-                selectAll && styles.selectAllButtonActive
-              ]}
-              onPress={handleSelectAll}
-            >
-              <Text style={styles.selectAllButtonText}>
-                {selectAll ? '☑️ Deseleziona Tutto' : '☐ Seleziona Tutto'}
-              </Text>
-            </SafeTouchableOpacity>
-          )}
         </View>
 
         {/* Lista elementi */}
         <FlatList
-          data={currentData}
+          data={filteredData}
           keyExtractor={(item) => item}
           renderItem={({ item }) => (
             <SafeTouchableOpacity
@@ -406,37 +458,6 @@ function FilterComponents({
           showsVerticalScrollIndicator={false}
           style={styles.list}
         />
-
-        {/* Paginazione */}
-        {totalPages > 1 && (
-          <View style={styles.pagination}>
-            <SafeTouchableOpacity
-              style={[
-                styles.pageButton,
-                currentPage === 1 && styles.pageButtonDisabled
-              ]}
-              onPress={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-            >
-              <Text style={styles.pageButtonText}>‹</Text>
-            </SafeTouchableOpacity>
-            
-            <Text style={styles.pageInfo}>
-              Pagina {currentPage} di {totalPages}
-            </Text>
-            
-            <SafeTouchableOpacity
-              style={[
-                styles.pageButton,
-                currentPage === totalPages && styles.pageButtonDisabled
-              ]}
-              onPress={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
-            >
-              <Text style={styles.pageButtonText}>›</Text>
-            </SafeTouchableOpacity>
-          </View>
-        )}
       </View>
 
       {/* Footer con selezione */}
@@ -788,6 +809,231 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
+    color: '#666',
+  },
+  // New styles for mobile version
+  mobileContainer: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    paddingTop: Platform.OS === 'web' ? 16 : 0,
+    paddingHorizontal: Platform.OS === 'web' ? 16 : 12,
+    paddingBottom: Platform.OS === 'web' ? 16 : 12,
+  },
+  mobileHeader: {
+    backgroundColor: '#2196F3',
+    paddingVertical: Platform.OS === 'web' ? 12 : 16,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    alignItems: 'center',
+  },
+  mobileTitle: {
+    fontSize: Platform.OS === 'web' ? 16 : 18,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginBottom: Platform.OS === 'web' ? 2 : 4,
+  },
+  mobileHeaderActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+  mobileResetButton: {
+    backgroundColor: '#f5f5f5',
+    paddingVertical: Platform.OS === 'web' ? 10 : 12,
+    paddingHorizontal: Platform.OS === 'web' ? 16 : 12,
+    borderRadius: 6,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#e0e0e0',
+    ...Platform.select({
+      web: {
+        minWidth: 100,
+      },
+    }),
+  },
+  mobileResetButtonText: {
+    fontSize: Platform.OS === 'web' ? 12 : 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  mobileCloseButton: {
+    backgroundColor: '#f44336',
+    paddingVertical: Platform.OS === 'web' ? 10 : 12,
+    paddingHorizontal: Platform.OS === 'web' ? 16 : 12,
+    borderRadius: 6,
+    alignItems: 'center',
+    ...Platform.select({
+      web: {
+        minWidth: 100,
+      },
+    }),
+  },
+  mobileCloseButtonText: {
+    fontSize: Platform.OS === 'web' ? 12 : 16,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  mobileTabsContainer: {
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    paddingVertical: Platform.OS === 'web' ? 4 : 4,
+    ...Platform.select({
+      web: {
+        paddingHorizontal: 4,
+      },
+    }),
+  },
+  mobileTabsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  mobileTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Platform.OS === 'web' ? 8 : 6,
+    paddingVertical: Platform.OS === 'web' ? 6 : 4,
+    marginHorizontal: Platform.OS === 'web' ? 1 : 1,
+    marginVertical: Platform.OS === 'web' ? 0 : 2,
+    borderRadius: 6,
+    backgroundColor: 'transparent',
+    ...Platform.select({
+      web: {
+        minWidth: 70,
+      },
+      default: {
+        minWidth: 80,
+        maxWidth: 100,
+      },
+    }),
+  },
+  mobileActiveTab: {
+    backgroundColor: '#2196F3',
+  },
+  mobileTabIcon: {
+    fontSize: Platform.OS === 'web' ? 18 : 14,
+    marginRight: Platform.OS === 'web' ? 8 : 4,
+  },
+  mobileTabText: {
+    fontSize: Platform.OS === 'web' ? 14 : 12,
+    fontWeight: '500',
+    color: '#666',
+  },
+  mobileActiveTabText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  mobileControls: {
+    padding: Platform.OS === 'web' ? 12 : 16,
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  mobileSearchInput: {
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 6,
+    paddingHorizontal: Platform.OS === 'web' ? 12 : 10,
+    paddingVertical: Platform.OS === 'web' ? 8 : 6,
+    fontSize: Platform.OS === 'web' ? 14 : 13,
+    color: '#333',
+    ...Platform.select({
+      web: {
+        minHeight: 36,
+      },
+    }),
+  },
+  mobileToggleButton: {
+    backgroundColor: '#e0e0e0',
+    paddingVertical: Platform.OS === 'web' ? 8 : 10,
+    paddingHorizontal: Platform.OS === 'web' ? 12 : 14,
+    borderRadius: 6,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2196F3',
+    ...Platform.select({
+      web: {
+        minWidth: 100,
+      },
+    }),
+  },
+  mobileToggleButtonActive: {
+    backgroundColor: '#2196F3',
+    borderColor: '#2196F3',
+  },
+  mobileToggleButtonText: {
+    fontSize: Platform.OS === 'web' ? 12 : 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  mobileList: {
+    flex: 1,
+    ...Platform.select({
+      web: {
+        maxHeight: 250,
+        overflowY: 'auto',
+        flex: 1,
+      },
+    }),
+  },
+  mobileListRow: {
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  mobileListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Platform.OS === 'web' ? 8 : 6,
+    paddingHorizontal: Platform.OS === 'web' ? 10 : 8,
+    backgroundColor: '#ffffff',
+    borderRadius: 6,
+    marginBottom: Platform.OS === 'web' ? 4 : 4,
+    marginHorizontal: Platform.OS === 'web' ? 0 : 2,
+    minHeight: Platform.OS === 'web' ? 50 : 40,
+    ...Platform.select({
+      web: {
+        width: '32%', // Per 3 colonne con margini
+      },
+      default: {
+        flex: 1, // Per 2 colonne su mobile con spazio distribuito
+        marginHorizontal: 2,
+      },
+    }),
+  },
+  mobileSelectedItem: {
+    backgroundColor: '#e0f7fa', // Light blue background for selected items
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  mobileItemText: {
+    flex: 1,
+    fontSize: Platform.OS === 'web' ? 13 : 12,
+    color: '#333',
+  },
+  mobileSelectedItemText: {
+    fontWeight: 'bold',
+    color: '#2196F3',
+  },
+  mobileCheckmark: {
+    color: '#2196F3',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  mobileFooter: {
+    backgroundColor: '#f8f9fa',
+    padding: Platform.OS === 'web' ? 12 : 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    alignItems: 'center',
+  },
+  mobileSelectionInfo: {
+    fontSize: Platform.OS === 'web' ? 12 : 14,
     color: '#666',
   },
 });

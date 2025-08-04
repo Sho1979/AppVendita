@@ -17,6 +17,7 @@ import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { Colors } from '../../constants/Colors';
 import { Spacing } from '../../constants/Spacing';
 import { useFirebaseCalendar } from '../../hooks/useFirebaseCalendar';
+import { AsyncStorageCalendarRepository } from '../../data/repositories/CalendarRepository';
 
 interface EntryFormModalProps {
   visible: boolean;
@@ -37,7 +38,7 @@ export default function EntryFormModal({
   onDelete,
   onCopyTags,
 }: EntryFormModalProps) {
-  // Hook Firebase
+  // Usa Firebase sempre - è la nostra memoria permanente
   const {
     addEntry,
     updateEntry,
@@ -173,19 +174,37 @@ export default function EntryFormModal({
         enabled: formData.repeatSettings.enabled,
         weeksCount: formData.repeatSettings.weeksCount
       };
+    } else {
+      // Rimuovi repeatSettings se non è abilitato
+      delete entryToSave.repeatSettings;
     }
 
     try {
-      // Verifica se l'entry esiste effettivamente in Firebase
-      const entryExistsInFirebase = await entryExists(entryToSave.id);
+      // Usa Firebase sempre
+      console.log('💾 EntryFormModal: Salvando entry:', entryToSave);
+      
+      // Pulisci i dati rimuovendo i campi undefined
+      const cleanEntry = { ...entryToSave };
+      Object.keys(cleanEntry).forEach(key => {
+        if (cleanEntry[key as keyof typeof cleanEntry] === undefined) {
+          delete cleanEntry[key as keyof typeof cleanEntry];
+        }
+      });
+      
+      console.log('🧹 EntryFormModal: Entry pulita:', cleanEntry);
+      
+      const entryExistsInFirebase = await entryExists(cleanEntry.id);
       
       if (entry && entryExistsInFirebase) {
         // Modalità modifica - aggiorna entry esistente
-        await updateEntry(entryToSave);
+        console.log('✏️ EntryFormModal: Aggiornamento entry esistente');
+        await updateEntry(cleanEntry as CalendarEntry);
       } else {
         // Modalità nuovo - aggiungi nuova entry
-        const { id, ...entryWithoutId } = entryToSave;
-        await addEntry(entryWithoutId);
+        console.log('➕ EntryFormModal: Creazione nuova entry');
+        const { id, ...entryWithoutId } = cleanEntry;
+        const newEntryId = await addEntry(entryWithoutId as Omit<CalendarEntry, 'id'>);
+        console.log('✅ EntryFormModal: Entry salvata con ID:', newEntryId);
       }
 
       // Chiama la callback originale per aggiornare l'UI
