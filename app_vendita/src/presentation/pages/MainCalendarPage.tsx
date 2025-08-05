@@ -1168,7 +1168,7 @@ export default function MainCalendarPage({
           <View style={styles.footerStats}>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>📊 Entries</Text>
-              <Text style={styles.statValue}>{getFilteredEntries().length}</Text>
+              <Text style={styles.statValue}>{getCalendarEntries().length}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>💰 Sell-In</Text>
@@ -1191,7 +1191,7 @@ export default function MainCalendarPage({
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>⚡ Azioni</Text>
               <Text style={styles.statValue}>
-                {state.entries.reduce((sum, entry) => {
+                {getCalendarEntries().reduce((sum, entry) => {
                   const actionTags = entry.tags?.filter(tagId => {
                     const tag = getTagById(tagId);
                     return tag?.type === 'action';

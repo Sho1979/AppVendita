@@ -485,16 +485,22 @@ export class ProgressiveCalculationService {
       for (const calendarEntry of activeEntries) {
         const date = calendarEntry.date;
         const entry = this.state.entries.get(date);
-        if (entry && entry.progressiveTotals) {
-          totalSellIn += entry.progressiveTotals.sellIn;
+        if (entry) {
+          // Calcola il sell-in giornaliero per questa entry (come getMonthlySellIn)
+          const dailySellIn = entry.entries.reduce((total, product) => {
+            return total + (product.ordinati * product.prezzoNetto);
+          }, 0);
+          totalSellIn += dailySellIn;
         }
       }
     } else {
       // Fallback: usa tutte le entries del service (per compatibilità)
       for (const [date, entry] of this.state.entries) {
-        if (entry.progressiveTotals) {
-          totalSellIn += entry.progressiveTotals.sellIn;
-        }
+        // Calcola il sell-in giornaliero per questa entry
+        const dailySellIn = entry.entries.reduce((total, product) => {
+          return total + (product.ordinati * product.prezzoNetto);
+        }, 0);
+        totalSellIn += dailySellIn;
       }
     }
     
