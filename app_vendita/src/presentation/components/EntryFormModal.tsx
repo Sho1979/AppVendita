@@ -186,6 +186,10 @@ export default function EntryFormModal({
       };
     }
     // Se non è abilitato, NON aggiungere il campo repeatSettings (non deve esistere nell'oggetto)
+    // Assicurati che il campo non esista affatto nell'oggetto
+    if (!formData.repeatSettings.enabled && entryToSave.repeatSettings !== undefined) {
+      delete entryToSave.repeatSettings;
+    }
 
     try {
       // Usa Firebase sempre

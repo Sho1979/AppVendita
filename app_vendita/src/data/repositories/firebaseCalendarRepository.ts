@@ -126,8 +126,21 @@ export class FirebaseCalendarRepository {
 
   async addEntry(entry: Omit<CalendarEntry, 'id'>): Promise<string> {
     try {
+      // Pulisci l'entry rimuovendo campi undefined
+      const cleanEntry = { ...entry };
+      Object.keys(cleanEntry).forEach(key => {
+        if (cleanEntry[key as keyof typeof cleanEntry] === undefined) {
+          delete cleanEntry[key as keyof typeof cleanEntry];
+        }
+      });
+      
+      // Pulizia specifica per repeatSettings
+      if (cleanEntry.repeatSettings && !cleanEntry.repeatSettings.enabled) {
+        delete cleanEntry.repeatSettings;
+      }
+      
       const docRef = await addDoc(collection(db, this.COLLECTIONS.CALENDAR_ENTRIES), {
-        ...entry,
+        ...cleanEntry,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -141,9 +154,22 @@ export class FirebaseCalendarRepository {
 
   async updateEntry(entry: CalendarEntry): Promise<void> {
     try {
+      // Pulisci l'entry rimuovendo campi undefined
+      const cleanEntry = { ...entry };
+      Object.keys(cleanEntry).forEach(key => {
+        if (cleanEntry[key as keyof typeof cleanEntry] === undefined) {
+          delete cleanEntry[key as keyof typeof cleanEntry];
+        }
+      });
+      
+      // Pulizia specifica per repeatSettings
+      if (cleanEntry.repeatSettings && !cleanEntry.repeatSettings.enabled) {
+        delete cleanEntry.repeatSettings;
+      }
+      
       const docRef = doc(db, this.COLLECTIONS.CALENDAR_ENTRIES, entry.id);
       await updateDoc(docRef, {
-        ...entry,
+        ...cleanEntry,
         updatedAt: serverTimestamp()
       });
       console.log('✅ FirebaseCalendarRepository: Entry aggiornata:', entry.id);

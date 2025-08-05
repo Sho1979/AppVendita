@@ -398,9 +398,13 @@ export default function MainCalendarPage({
             actions: entry.actions,
             hasProblem: entry.hasProblem,
             tags: entry.tags,
-            repeatSettings: entry.repeatSettings,
             focusReferencesData: entry.focusReferencesData,
           };
+          
+          // Aggiungi repeatSettings solo se è abilitato
+          if (entry.repeatSettings && entry.repeatSettings.enabled) {
+            updateData.repeatSettings = entry.repeatSettings;
+          }
           if (entry.problemDescription) {
             updateData.problemDescription = entry.problemDescription;
           }
@@ -419,12 +423,18 @@ export default function MainCalendarPage({
             actions: entry.actions,
             hasProblem: entry.hasProblem,
             tags: entry.tags,
-            repeatSettings: entry.repeatSettings,
             focusReferencesData: entry.focusReferencesData,
           };
+          
+          // Aggiungi repeatSettings solo se è abilitato
+          if (entry.repeatSettings && entry.repeatSettings.enabled) {
+            createData.repeatSettings = entry.repeatSettings;
+          }
+          
           if (entry.problemDescription) {
             createData.problemDescription = entry.problemDescription;
           }
+          
           const newEntry = await repository.saveCalendarEntry(createData);
           dispatch({ type: 'ADD_ENTRY', payload: newEntry });
         }
@@ -638,6 +648,11 @@ export default function MainCalendarPage({
   const handleMultipleSelectionChange = (items: string[]) => {
     console.log('🔍 MainCalendarPage: Cambio selezione multipla:', items);
     setSelectedFilterItems(items);
+    
+    // Reset selectedSalesPointId quando cambiano i filtri
+    if (items.length === 0) {
+      setSelectedSalesPointId('');
+    }
   };
 
   // Funzione per ottenere i dati filtrati in base ai filtri progressivi
@@ -745,6 +760,14 @@ export default function MainCalendarPage({
 
   // Ottieni i dati filtrati
       const { filteredAgents, filteredSalesPoints, autoDetectedAgent, autoDetectedSalesPoint } = getFilteredData;
+
+    // Aggiorna selectedSalesPointId se viene rilevato automaticamente un punto vendita
+    useEffect(() => {
+      if (autoDetectedSalesPoint && !selectedSalesPointId) {
+        console.log('🔍 MainCalendarPage: Impostazione automatica selectedSalesPointId:', autoDetectedSalesPoint.id);
+        setSelectedSalesPointId(autoDetectedSalesPoint.id);
+      }
+    }, [autoDetectedSalesPoint, selectedSalesPointId]);
 
     // Gestione tooltip
     const handleTooltipPress = (type: 'stock' | 'notes' | 'info' | 'images', date: string, entry?: CalendarEntry) => {

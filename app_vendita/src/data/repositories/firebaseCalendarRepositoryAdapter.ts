@@ -87,12 +87,17 @@ export class FirebaseCalendarRepositoryAdapter implements CalendarRepository {
       
       const updatedEntry = { ...existingEntry, ...cleanUpdates };
       
-      // Pulisci anche l'entry finale
+      // Pulisci anche l'entry finale - rimuovi tutti i campi undefined
       Object.keys(updatedEntry).forEach(key => {
         if (updatedEntry[key] === undefined) {
           delete updatedEntry[key];
         }
       });
+      
+      // Pulizia specifica per repeatSettings
+      if (updatedEntry.repeatSettings && !updatedEntry.repeatSettings.enabled) {
+        delete updatedEntry.repeatSettings;
+      }
       
       console.log('🧹 FirebaseAdapter: Entry pulita per aggiornamento:', updatedEntry);
       await this.firebaseRepository.updateEntry(updatedEntry);
