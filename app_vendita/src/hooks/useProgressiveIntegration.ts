@@ -84,9 +84,9 @@ export const useProgressiveIntegration = (sharedService?: ProgressiveCalculation
       const dateString = DataAdapter.getDateString(entry);
       const productEntries = DataAdapter.calendarEntryToProductEntries(entry);
       
-      if (productEntries.length > 0) {
-        updateCell(dateString, productEntries);
-      }
+      // Salva sempre una entry nel sistema progressivo, anche se vuota
+      // Questo mantiene la continuità temporale nel calcolo progressivo
+      updateCell(dateString, productEntries);
     } catch (error) {
       // Silently handle error
     }

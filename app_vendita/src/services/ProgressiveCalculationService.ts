@@ -36,6 +36,13 @@ export class ProgressiveCalculationService {
   }
 
   /**
+   * Ottiene il timestamp dell'ultimo aggiornamento
+   */
+  public getLastUpdated(): string {
+    return this.state.lastUpdated;
+  }
+
+  /**
    * Calcola i totali giornalieri per un set di entries
    */
   private calculateDailyTotals(entries: ProductEntry[]): DailyTotals {
@@ -124,6 +131,9 @@ export class ProgressiveCalculationService {
       // Ricalcola TUTTO dal primo giorno
       this.recalculateFromDate(firstDateWithData);
     }
+
+    // Aggiorna il timestamp dell'ultimo aggiornamento
+    this.state.lastUpdated = new Date().toISOString();
 
     // Ottieni i risultati aggiornati
     const updatedEntry = this.state.entries.get(date);

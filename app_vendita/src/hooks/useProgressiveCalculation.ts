@@ -78,6 +78,13 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
   }, [calculationService]);
 
   /**
+   * Ottiene il timestamp dell'ultimo aggiornamento
+   */
+  const getLastUpdated = useCallback((): string => {
+    return calculationService.getLastUpdated();
+  }, [calculationService]);
+
+  /**
    * Calcola il sell-in progressivo per una data
    */
   const getProgressiveSellIn = useCallback((date: string): number => {
@@ -211,7 +218,8 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
     loadFocusReferencesData,
     getCellDisplayData,
     getTotalSellIn,
-    getMonthlySellIn
+    getMonthlySellIn,
+    getLastUpdated
   }), [
     updateCell,
     getProgressiveData,
@@ -229,7 +237,8 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
     loadFocusReferencesData,
     getCellDisplayData,
     getTotalSellIn,
-    getMonthlySellIn
+    getMonthlySellIn,
+    getLastUpdated
   ]);
 
   // Cleanup al dismount

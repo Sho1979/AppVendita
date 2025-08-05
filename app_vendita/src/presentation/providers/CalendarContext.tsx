@@ -51,6 +51,7 @@ interface CalendarContextType {
     getMonthlySellIn: (year: number, month: number) => number;
     resetSystem: () => void;
     resetInitialization: () => void;
+    getLastUpdated: () => string;
   };
   selectedSalesPointId: string;
 }
@@ -84,7 +85,7 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
   } = useProgressiveIntegration(sharedProgressiveService);
 
   // Ottieni il metodo resetSystem dal hook useProgressiveCalculation
-  const { resetSystem } = useProgressiveCalculation(sharedProgressiveService);
+  const { resetSystem, getLastUpdated } = useProgressiveCalculation(sharedProgressiveService);
 
   // Force re-render when isInitialized changes
   const [forceUpdate, setForceUpdate] = useState(0);
@@ -202,7 +203,8 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
         getTotalSellIn,
         getMonthlySellIn,
         resetSystem,
-        resetInitialization
+        resetInitialization,
+        getLastUpdated
       },
       selectedSalesPointId: state.activeFilters.salesPointId
     }}>

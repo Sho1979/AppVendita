@@ -34,13 +34,20 @@ export const CellTags: React.FC<CellTagsProps> = ({
   // Rimuoviamo questo log che causa re-render continui
   // console.log('🏷️ CellTags: Tag trovati:', allTags.map(t => ({ id: t.id, type: t.type, label: t.label })));
   
-  const personTags = allTags
-    .filter(tag => tag.type === 'person')
-    .slice(0, Math.ceil(maxVisible / 2));
+  // Se maxVisible è uguale al numero totale di tag, mostra tutti senza limiti per tipo
+  const shouldShowAll = maxVisible >= allTags.length;
+  
+  const personTags = shouldShowAll 
+    ? allTags.filter(tag => tag.type === 'person')
+    : allTags
+        .filter(tag => tag.type === 'person')
+        .slice(0, Math.ceil(maxVisible / 2));
 
-  const actionTags = allTags
-    .filter(tag => tag.type === 'action')
-    .slice(0, Math.ceil(maxVisible / 2));
+  const actionTags = shouldShowAll
+    ? allTags.filter(tag => tag.type === 'action')
+    : allTags
+        .filter(tag => tag.type === 'action')
+        .slice(0, Math.ceil(maxVisible / 2));
     
   // Rimuoviamo questo log che causa re-render continui
   // console.log('🏷️ CellTags: Person tags:', personTags.length, 'Action tags:', actionTags.length);

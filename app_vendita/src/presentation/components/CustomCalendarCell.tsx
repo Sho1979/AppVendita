@@ -46,7 +46,7 @@ function CustomCalendarCell({
   const { progressiveSystem, selectedSalesPointId } = useCalendar();
   
   const isInitialized = progressiveSystem.isInitialized;
-  const { getDisplayDataForDate, loadFocusReferencesData } = progressiveSystem;
+  const { getDisplayDataForDate, loadFocusReferencesData, getLastUpdated } = progressiveSystem;
   
   // Carica i dati focusReferencesData nel sistema progressivo quando l'entry ha questi dati
   useEffect(() => {
@@ -65,7 +65,7 @@ function CustomCalendarCell({
   // Stabilizza la chiamata a getDisplayDataForDate per evitare re-render continui
   const displayData = useMemo(() => {
     return getDisplayDataForDate(date, entry, isInitialized);
-  }, [date, entry, isInitialized, getDisplayDataForDate, selectedSalesPointId]);
+  }, [date, entry, isInitialized, getDisplayDataForDate, selectedSalesPointId, getLastUpdated()]);
   
   // Calcola il sell-in totale dalle referenze focus
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -140,7 +140,8 @@ function CustomCalendarCell({
       const allReferencesHaveZeroValues = entry.focusReferencesData.every(focusData => {
         const soldPieces = parseFloat(focusData.soldPieces) || 0;
         const stockPieces = parseFloat(focusData.stockPieces) || 0;
-        return soldPieces === 0 && stockPieces === 0;
+        const orderedPieces = parseFloat(focusData.orderedPieces) || 0;
+        return soldPieces === 0 && stockPieces === 0 && orderedPieces === 0;
       });
 
       // Se tutte le referenze hanno valori 0, non mostrare nulla
@@ -244,15 +245,23 @@ function CustomCalendarCell({
       return null;
     }
 
-    // Controlla se tutte le referenze progressive hanno valori uguali a 0
-    const allProgressiveReferencesHaveZeroValues = displayData.progressiveData.displayData.progressiveEntries.every((productEntry: any) => {
-      const soldPieces = productEntry.vendite || 0;
-      const stockPieces = productEntry.scorte || 0;
-      return soldPieces === 0 && stockPieces === 0;
-    });
+    // Controlla se l'entry originale aveva dati focus
+    // Se non aveva dati focus, non mostrare nulla anche se il sistema progressivo ha calcolato i dati
+    const originalEntryHasFocusData = entry?.focusReferencesData && entry.focusReferencesData.length > 0;
+    if (!originalEntryHasFocusData) {
+      return null;
+    }
 
-    // Se tutte le referenze progressive hanno valori 0, non mostrare nulla
-    if (allProgressiveReferencesHaveZeroValues) {
+    // Controlla se l'entry ha effettivamente dati focus con valori > 0
+    const hasActualFocusData = entry?.focusReferencesData?.some(focusData => {
+      const soldPieces = parseFloat(focusData.soldPieces) || 0;
+      const stockPieces = parseFloat(focusData.stockPieces) || 0;
+      const orderedPieces = parseFloat(focusData.orderedPieces) || 0;
+      return soldPieces > 0 || stockPieces > 0 || orderedPieces > 0;
+    }) || false;
+
+    // Se l'entry non ha dati focus con valori > 0, non mostrare nulla
+    if (!hasActualFocusData) {
       return null;
     }
 
