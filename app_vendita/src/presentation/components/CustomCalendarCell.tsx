@@ -50,10 +50,19 @@ function CustomCalendarCell({
   
   // Carica i dati focusReferencesData nel sistema progressivo quando l'entry ha questi dati
   useEffect(() => {
+    console.log('🔄 CustomCalendarCell: useEffect focusReferencesData', {
+      date,
+      entryId: entry?.id,
+      hasFocusData: !!entry?.focusReferencesData,
+      focusDataLength: entry?.focusReferencesData?.length || 0,
+      isInitialized
+    });
+    
     if (entry?.focusReferencesData && entry.focusReferencesData.length > 0) {
+      console.log('📥 CustomCalendarCell: Caricamento focusReferencesData nel sistema progressivo');
       loadFocusReferencesData(date, entry.focusReferencesData);
     }
-  }, [entry?.focusReferencesData, date, loadFocusReferencesData]);
+  }, [entry?.focusReferencesData, date, loadFocusReferencesData, isInitialized]);
   
   const dayNumber = new Date(date).getDate();
   const hasProblem = entry?.hasProblem || false;
@@ -74,7 +83,15 @@ function CustomCalendarCell({
   
   // Stabilizza la chiamata a getDisplayDataForDate per evitare re-render continui
   const displayData = useMemo(() => {
-    return getDisplayDataForDate(date, entry, isInitialized);
+    const result = getDisplayDataForDate(date, entry, isInitialized);
+    console.log('🔄 CustomCalendarCell: displayData calcolato', {
+      date,
+      entryId: entry?.id,
+      isInitialized,
+      useOriginalData: result.useOriginalData,
+      hasProgressiveData: !!result.progressiveData
+    });
+    return result;
   }, [date, entry, isInitialized, getDisplayDataForDate, selectedSalesPointId]);
   
   // Calcola il sell-in totale dalle referenze focus

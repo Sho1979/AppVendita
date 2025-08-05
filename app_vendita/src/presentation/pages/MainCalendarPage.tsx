@@ -668,21 +668,40 @@ export default function MainCalendarPage({
       progressiveSystem.resetSystem();
     }
     
-    // 4. Pulisci TUTTA la cache
+    // 3.5. Reset inizializzazione sistema progressivo
+    if (progressiveSystem && typeof progressiveSystem.resetInitialization === 'function') {
+      progressiveSystem.resetInitialization();
+    }
+    
+    // 4. Reset tooltip modal
+    setShowTooltipModal(false);
+    setTooltipType('stock');
+    setTooltipDate('');
+    setTooltipEntry(undefined);
+    
+    // 5. Pulisci TUTTA la cache
     if (typeof localStorage !== 'undefined') {
       localStorage.clear(); // Pulisci TUTTO
       console.log('🧹 MainCalendarPage: Cache completamente pulita');
     }
     
-    // 5. Aggiorna i filtri
+    // 6. Aggiorna i filtri
     setSelectedFilterItems(items);
     
-    // 6. Reset selectedSalesPointId
+    // 7. Reset selectedSalesPointId
     if (items.length === 0) {
       setSelectedSalesPointId('');
     }
     
-    // 7. Forza re-render
+    // 8. Ricarica i dati se c'è un punto vendita selezionato
+    if (selectedSalesPointId) {
+      setTimeout(() => {
+        console.log('🔄 MainCalendarPage: Ricaricamento dati dopo reset drammatico');
+        loadInitialData();
+      }, 200);
+    }
+    
+    // 9. Forza re-render
     setTimeout(() => {
       console.log('🔄 MainCalendarPage: Forzando re-render dopo reset');
       // Forza un re-render

@@ -50,6 +50,7 @@ interface CalendarContextType {
     getTotalSellIn: () => number;
     getMonthlySellIn: (year: number, month: number) => number;
     resetSystem: () => void;
+    resetInitialization: () => void;
   };
   selectedSalesPointId: string;
 }
@@ -80,7 +81,8 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
     getDisplayDataForDate,
     loadFocusReferencesData,
     getTotalSellIn,
-    getMonthlySellIn
+    getMonthlySellIn,
+    resetInitialization
   } = useProgressiveIntegration(sharedProgressiveService);
 
   // Ottieni il metodo resetSystem dal hook useProgressiveCalculation
@@ -237,7 +239,8 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
         loadFocusReferencesData,
         getTotalSellIn,
         getMonthlySellIn,
-        resetSystem
+        resetSystem,
+        resetInitialization
       },
       selectedSalesPointId: state.activeFilters.salesPointId
     }}>

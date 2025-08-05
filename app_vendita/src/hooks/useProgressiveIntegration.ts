@@ -120,6 +120,13 @@ export const useProgressiveIntegration = (sharedService?: ProgressiveCalculation
     setIsInitialized(true);
   }, [importState]);
 
+  /**
+   * Resetta lo stato di inizializzazione
+   */
+  const resetInitialization = useCallback(() => {
+    setIsInitialized(false);
+  }, []);
+
   return {
     // Stato
     isInitialized,
@@ -133,6 +140,7 @@ export const useProgressiveIntegration = (sharedService?: ProgressiveCalculation
     getMonthlySellIn,
     exportProgressiveState,
     importProgressiveState,
+    resetInitialization,
     
     // Utility
     hasFocusData: DataAdapter.hasFocusData
