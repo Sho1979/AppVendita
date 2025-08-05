@@ -31,20 +31,8 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
   onWeeksCountChange,
   onCopyTags,
 }) => {
-  console.log('🏷️ TagSelector: Componente inizializzato con:', {
-    selectedTags,
-    repeatEnabled,
-    weeksCount,
-    onCopyTags: !!onCopyTags
-  });
-
   const personTags = getTagsByType('person');
   const actionTags = getTagsByType('action');
-
-  console.log('🏷️ TagSelector: Tag caricati:', {
-    personTags: personTags.length,
-    actionTags: actionTags.length
-  });
 
   const handleTagPress = (tag: TagConfig) => {
     const isCurrentlySelected = selectedTags.includes(tag.id);
@@ -52,14 +40,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
       ? selectedTags.filter(id => id !== tag.id)
       : [...selectedTags, tag.id];
     
-    console.log('🏷️ TagSelector: Tag premuto:', {
-      tagId: tag.id,
-      tagLabel: tag.label,
-      isCurrentlySelected,
-      previousSelectedCount: selectedTags.length,
-      newSelectedCount: newSelectedTags.length,
-      newSelectedTags
-    });
+
     
     onTagsChange(newSelectedTags);
   };

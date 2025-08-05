@@ -96,13 +96,7 @@ export default function EntryFormModal({
     if (visible) {
       if (entry) {
         // Modalità modifica - carica dati esistenti
-        console.log('📋 EntryFormModal: Caricamento dati entry esistente:', {
-          entryId: entry.id,
-          focusReferencesData: entry.focusReferencesData,
-          focusReferencesCount: entry.focusReferencesData?.length || 0,
-          tags: entry.tags,
-          tagsCount: entry.tags?.length || 0
-        });
+
         // Gestisci repeatSettings: se esiste ma non è abilitato, non includerlo
         const repeatSettings = entry.repeatSettings && entry.repeatSettings.enabled 
           ? entry.repeatSettings 
@@ -118,7 +112,7 @@ export default function EntryFormModal({
         });
       } else {
         // Modalità nuovo - form vuoto
-        console.log('📋 EntryFormModal: Creazione nuovo entry - form vuoto');
+
         setFormData({
           notes: '',
           hasProblem: false,
@@ -172,7 +166,7 @@ export default function EntryFormModal({
       actions: [],
       hasProblem: formData.hasProblem,
       problemDescription: formData.problemDescription,
-      tags: formData.tags,
+      tags: Array.isArray(formData.tags) ? formData.tags : [], // <-- Forza sempre array
       focusReferencesData: formData.focusReferencesData,
       createdAt: entry?.createdAt || new Date(),
       updatedAt: new Date(),
@@ -304,11 +298,6 @@ export default function EntryFormModal({
   };
 
   const handleTagsChange = (tags: string[]) => {
-    console.log('🏷️ EntryFormModal: Cambio tag selezionati:', {
-      previousTags: formData.tags,
-      newTags: tags,
-      newTagsLength: tags.length
-    });
     setFormData(prev => ({ ...prev, tags }));
   };
 

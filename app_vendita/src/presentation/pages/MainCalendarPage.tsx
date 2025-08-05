@@ -108,7 +108,7 @@ export default function MainCalendarPage({
   const repository = new FirebaseCalendarRepositoryAdapter();
   
   // Debug: verifica il tipo di repository
-  console.log('🔍 MainCalendarPage: Repository type:', repository.constructor.name);
+
 
   // Funzione per filtrare le entries in base ai filtri attivi
   const getFilteredEntries = useCallback(() => {
@@ -1183,7 +1183,7 @@ export default function MainCalendarPage({
                   const year = currentDate.getFullYear();
                   const month = currentDate.getMonth() + 1;
                   const monthlySellIn = progressiveSystem.isInitialized ? progressiveSystem.getMonthlySellIn(year, month, state.entries) : 0;
-                  console.log('🔍 Debug Sell-In Mensile:', { year, month, monthlySellIn, isInitialized: progressiveSystem.isInitialized });
+
                   return monthlySellIn;
                 })()}
               </Text>
@@ -1217,7 +1217,6 @@ export default function MainCalendarPage({
           animationType="slide"
           transparent={true}
           onRequestClose={() => {
-            console.log('❌ MainCalendarPage: Chiusura modal filtri');
             setShowFilters(false);
           }}
         >
@@ -1244,7 +1243,6 @@ export default function MainCalendarPage({
                 onMultipleSelectionChange={handleMultipleSelectionChange}
                 onReset={handleResetFilters}
                 onClose={() => {
-                  console.log('❌ MainCalendarPage: Chiusura modal filtri');
                   setShowFilters(false);
                 }}
               />

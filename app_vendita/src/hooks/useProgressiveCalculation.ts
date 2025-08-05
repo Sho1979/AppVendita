@@ -33,13 +33,11 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
 
     try {
       const result = calculationService.updateCellAndRecalculate(date, entries);
-      setLastCalculation(new Date());
       
       return result;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Errore di calcolo';
       setError(errorMessage);
-      console.error(`❌ useProgressiveCalculation: Errore updateCell per ${date}:`, err);
       throw err;
     } finally {
       setIsLoading(false);
@@ -157,7 +155,6 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Errore caricamento focus references';
       setError(errorMessage);
-      console.error(`❌ useProgressiveCalculation: Errore loadFocusReferencesData per ${date}:`, err);
       throw err;
     }
   }, [calculationService]);
@@ -192,7 +189,6 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Errore reset sistema progressivo';
       setError(errorMessage);
-      console.error('❌ useProgressiveCalculation: Errore reset sistema:', err);
       throw err;
     }
   }, [calculationService]);

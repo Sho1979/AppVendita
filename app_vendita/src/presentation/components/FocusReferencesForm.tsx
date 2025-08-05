@@ -40,15 +40,11 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
   // Carica le referenze focus all'inizializzazione del componente
   useEffect(() => {
     const loadFocusReferences = async () => {
-      console.log('🔍 FocusReferencesForm: Caricamento referenze focus...');
-      
       // Carica il listino completo (statico)
       focusReferencesStore.loadAllReferences();
       
       // Carica le configurazioni focus da Firestore (globali)
       await focusReferencesStore.loadFocusReferencesFromFirestore();
-      
-      console.log('✅ FocusReferencesForm: Referenze focus caricate');
     };
     
     loadFocusReferences();
@@ -56,13 +52,6 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
 
   // Carica le referenze focus quando cambia la data
   useEffect(() => {
-    console.log('🔍 FocusReferencesForm: useEffect triggered:', {
-      focusReferencesLength: focusReferences.length,
-      existingData: existingData,
-      existingDataLength: existingData?.length || 0,
-      isInitialized: isInitialized.current
-    });
-    
     if (focusReferences.length > 0) {
       // Se abbiamo dati esistenti, li utilizziamo, altrimenti creiamo dati vuoti
       const initialData = existingData && existingData.length > 0 
@@ -75,12 +64,6 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
             soldVsStockPercentage: '',
             netPrice: getNetPrice(ref.id), // Prezzo netto fisso da Firebase
           }));
-      
-      console.log('📋 FocusReferencesForm: Dati iniziali impostati:', {
-        usingExistingData: existingData && existingData.length > 0,
-        initialDataLength: initialData.length,
-        firstItem: initialData[0]
-      });
       
       setFocusData(initialData);
       isInitialized.current = true;
@@ -105,7 +88,6 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
   };
 
   const handleSoldChange = (referenceId: string, value: string) => {
-    console.log('🔍 handleSoldChange called:', { referenceId, value, type: typeof value });
     setFocusData(prev => {
       const updatedData = prev.map(item => {
         if (item.referenceId === referenceId) {
@@ -129,7 +111,6 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
   };
 
   const handleOrderedChange = (referenceId: string, value: string) => {
-    console.log('🔍 handleOrderedChange called:', { referenceId, value, type: typeof value });
     setFocusData(prev => {
       const updatedData = prev.map(item => {
         if (item.referenceId === referenceId) {

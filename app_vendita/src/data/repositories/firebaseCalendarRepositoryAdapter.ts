@@ -36,11 +36,14 @@ export class FirebaseCalendarRepositoryAdapter implements CalendarRepository {
       
       const entries = await this.firebaseRepository.getEntries(filters);
       
-      // Filtra per date range
+      // Filtra per date range e normalizza il campo tags
       const filteredEntries = entries.filter(entry => {
         const entryDate = entry.date instanceof Date ? entry.date : new Date(entry.date);
         return entryDate >= startDate && entryDate <= endDate;
-      });
+      }).map(entry => ({
+        ...entry,
+        tags: Array.isArray(entry.tags) ? entry.tags : [], // <-- Normalizza sempre tags come array
+      }));
 
       console.log('✅ FirebaseAdapter: Entries filtrate:', filteredEntries.length);
       return filteredEntries;
@@ -52,7 +55,14 @@ export class FirebaseCalendarRepositoryAdapter implements CalendarRepository {
 
   async getCalendarEntry(id: string): Promise<CalendarEntry | null> {
     try {
-      return await this.firebaseRepository.getEntryById(id);
+      const entry = await this.firebaseRepository.getEntryById(id);
+      if (!entry) return null;
+      
+      // Normalizza il campo tags
+      return {
+        ...entry,
+        tags: Array.isArray(entry.tags) ? entry.tags : [], // <-- Normalizza sempre tags come array
+      };
     } catch (error) {
       console.error('❌ FirebaseAdapter: Errore getCalendarEntry:', error);
       return null;

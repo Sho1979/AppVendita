@@ -71,8 +71,6 @@ export const useFocusReferencesStore = create<FocusReferencesState>((set, get) =
     set({ isLoading: true, error: null });
 
     try {
-      console.log('📊 FocusReferencesStore: Caricamento dati listino...');
-
       // I dati sono già importati dal file JSON
       const data = listinoData as ListinoItem[];
       
@@ -80,8 +78,6 @@ export const useFocusReferencesStore = create<FocusReferencesState>((set, get) =
       if (!data || !Array.isArray(data)) {
         throw new Error('Dati del listino non validi o non caricati');
       }
-      
-      console.log('📊 FocusReferencesStore: Dati JSON caricati:', data.length, 'elementi');
 
       // Converti i dati nel formato FocusReference con controlli di sicurezza
       const references: FocusReference[] = data
@@ -103,10 +99,8 @@ export const useFocusReferencesStore = create<FocusReferencesState>((set, get) =
         allReferences: references,
         isLoading: false
       });
-
-      console.log(`✅ FocusReferencesStore: Caricate ${references.length} referenze`);
     } catch (error) {
-      console.error('❌ FocusReferencesStore: Errore caricamento listino:', error);
+
       set({
         error: 'Errore nel caricamento dei dati del listino',
         isLoading: false
@@ -132,13 +126,11 @@ export const useFocusReferencesStore = create<FocusReferencesState>((set, get) =
   // Imposta le referenze focus
   setFocusReferences: (references: string[]) => {
     set({ focusReferences: references });
-    console.log('💾 FocusReferencesStore: Referenze focus aggiornate:', references.length);
   },
 
   // Imposta i prezzi netti
   setNetPrices: (prices: { [key: string]: string }) => {
     set({ netPrices: prices });
-    console.log('💾 FocusReferencesStore: Prezzi netti aggiornati:', Object.keys(prices).length);
   },
 
   // Toggle di una referenza focus
@@ -148,7 +140,6 @@ export const useFocusReferencesStore = create<FocusReferencesState>((set, get) =
         ? state.focusReferences.filter(id => id !== referenceId)
         : [...state.focusReferences, referenceId];
       
-      console.log('🔄 FocusReferencesStore: Toggle referenza:', referenceId, 'Nuova selezione:', newSelection.length);
       return { focusReferences: newSelection };
     });
   },
@@ -161,13 +152,12 @@ export const useFocusReferencesStore = create<FocusReferencesState>((set, get) =
         [referenceId]: price
       }
     }));
-    console.log('💰 FocusReferencesStore: Prezzo aggiornato per', referenceId, ':', price);
+
   },
 
   // Pulisce tutte le referenze focus
   clearFocusReferences: () => {
     set({ focusReferences: [], netPrices: {} });
-    console.log('🗑️ FocusReferencesStore: Referenze focus pulite');
   },
 
   // Pulisce gli errori

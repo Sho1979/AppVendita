@@ -65,8 +65,6 @@ interface CalendarProviderProps {
 }
 
 export function CalendarProvider({ children }: CalendarProviderProps) {
-  logger.init('CalendarProvider: Provider inizializzato');
-
   // Usa il calendar store di Zustand
   const calendarStore = useCalendarStore();
   
@@ -91,47 +89,19 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
   // Force re-render when isInitialized changes
   const [forceUpdate, setForceUpdate] = useState(0);
 
-  logger.init('CalendarProvider: Stato iniziale del provider', {
-    entriesCount: calendarStore.entries.length,
-    usersCount: calendarStore.users.length,
-    salesPointsCount: calendarStore.salesPoints.length,
-    isLoading: calendarStore.isLoading,
-    error: calendarStore.error,
-    isInitialized,
-    forceUpdate,
-  });
-
   // Inizializza il sistema progressivo quando i dati cambiano
   useEffect(() => {
-    logger.sync('CalendarProvider: useEffect triggered', {
-      entriesCount: calendarStore.entries.length,
-      isInitialized,
-      hasEntries: calendarStore.entries.length > 0,
-      shouldInitialize: calendarStore.entries.length > 0 && !isInitialized
-    });
     
     // Carica i dati nel sistema progressivo solo se non è già inizializzato
     if (calendarStore.entries.length > 0 && !isInitialized) {
-      logger.init('CalendarProvider: Caricamento dati nel sistema progressivo...');
-      logger.data('CalendarProvider: Entries da processare', calendarStore.entries.map(entry => ({
-        id: entry.id,
-        date: entry.date,
-        focusReferencesCount: entry.focusReferencesData?.length || 0
-      })));
-      
       try {
         // Carica tutti i dati esistenti nel sistema progressivo
         initializeWithExistingData(calendarStore.entries);
-        logger.init('CalendarProvider: Dati caricati nel sistema progressivo');
         // Force re-render after initialization
         setForceUpdate(prev => prev + 1);
       } catch (error) {
-        logger.error('init', 'CalendarProvider: Errore caricamento dati progressivo', error);
+        // Silently handle error
       }
-    } else if (calendarStore.entries.length === 0) {
-      logger.warn('init', 'CalendarProvider: Nessuna entry disponibile per il caricamento');
-    } else if (isInitialized) {
-      logger.init('CalendarProvider: Sistema progressivo già inizializzato, mantenendo i dati');
     }
   }, [calendarStore.entries, isInitialized, initializeWithExistingData]);
 
@@ -146,8 +116,6 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
   // Sincronizza le nuove entries con il sistema progressivo
   useEffect(() => {
     if (isInitialized && calendarStore.entries.length > 0) {
-      logger.sync('CalendarProvider: Sincronizzazione entries con sistema progressivo...');
-      
       // Trova le entries che sono state modificate dopo l'ultima sincronizzazione
       const currentTimestamp = Date.now();
       const entriesToSync = calendarStore.entries.filter(entry => {
@@ -155,21 +123,17 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
         const entryTimestamp = new Date(entry.updatedAt || entry.createdAt).getTime();
         return entryTimestamp > calendarStore.lastSyncTimestamp;
       });
-
-      logger.sync(`CalendarProvider: Entries da sincronizzare: ${entriesToSync.length}`);
       
       if (entriesToSync.length > 0) {
         entriesToSync.forEach(entry => {
           try {
             updateEntryWithProgressiveSync(entry);
-            logger.sync(`CalendarProvider: Entry ${entry.id} sincronizzata`);
           } catch (error) {
-            logger.error('sync', `CalendarProvider: Errore sincronizzazione entry ${entry.id}`, error);
+            // Silently handle error
           }
         });
         
-        // Aggiorna il timestamp di sincronizzazione
-        calendarStore.setLastSyncTimestamp(currentTimestamp);
+
       }
     }
   }, [calendarStore.entries, calendarStore.lastSyncTimestamp, isInitialized, updateEntryWithProgressiveSync]);
@@ -187,7 +151,6 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
 
   // Adapter per dispatch che mappa le azioni al calendar store
   const dispatch = (action: CalendarAction) => {
-    console.log('🔄 CalendarProvider: Dispatch action:', action.type, action.payload);
     
     switch (action.type) {
       case 'SET_LOADING':
@@ -222,7 +185,6 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
         break;
       default: {
         const neverAction = action as never;
-        console.warn('⚠️ CalendarProvider: Azione sconosciuta:', neverAction);
       }
     }
   };

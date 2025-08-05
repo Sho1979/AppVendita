@@ -86,32 +86,22 @@ export const useCalendarStore = create<CalendarState>()(
       
       // Azioni per le entries
       setEntries: (entries) => {
-        devLog('📅 CalendarStore: Impostando entries:', entries.length);
         set({ entries });
       },
       
       addEntry: (entry) => {
-        devLog('➕ CalendarStore: Aggiungendo entry:', entry.id);
         set((state) => ({
           entries: [...state.entries, entry]
         }));
       },
       
       updateEntry: (entry) => {
-        devLog('✏️ CalendarStore: Aggiornando entry:', entry.id);
-        devLog('📋 CalendarStore: Dettagli entry aggiornata:', {
-          id: entry.id,
-          tags: entry.tags,
-          tagsLength: entry.tags?.length || 0,
-          hasTags: !!entry.tags && entry.tags.length > 0
-        });
         set((state) => ({
           entries: state.entries.map(e => e.id === entry.id ? entry : e)
         }));
       },
       
       deleteEntry: (entryId) => {
-        devLog('🗑️ CalendarStore: Eliminando entry:', entryId);
         set((state) => ({
           entries: state.entries.filter(e => e.id !== entryId)
         }));
@@ -119,41 +109,34 @@ export const useCalendarStore = create<CalendarState>()(
       
       // Azioni per utenti e punti vendita
       setUsers: (users) => {
-        devLog('👥 CalendarStore: Impostando utenti:', users.length);
         set({ users });
       },
       
       setSalesPoints: (salesPoints) => {
-        devLog('🏪 CalendarStore: Impostando punti vendita:', salesPoints.length);
         set({ salesPoints });
       },
       
       // Azioni per lo stato
       setLoading: (isLoading) => {
-        devLog('⏳ CalendarStore: Loading impostato a:', isLoading);
         set({ isLoading });
       },
       
       setError: (error) => {
-        devLog('❌ CalendarStore: Errore impostato:', error);
         set({ error });
       },
       
       setLastSyncTimestamp: (lastSyncTimestamp) => {
-        devLog('🔄 CalendarStore: Timestamp sincronizzazione aggiornato:', lastSyncTimestamp);
         set({ lastSyncTimestamp });
       },
       
       // Azioni per i filtri
       updateFilters: (filters) => {
-        devLog('🔍 CalendarStore: Aggiornando filtri:', filters);
         set((state) => ({
           activeFilters: { ...state.activeFilters, ...filters }
         }));
       },
       
       resetFilters: () => {
-        devLog('🔄 CalendarStore: Reset filtri');
         set({
           activeFilters: {
             userId: '',
@@ -165,7 +148,6 @@ export const useCalendarStore = create<CalendarState>()(
       
       // Azioni di utilità
       clearAll: () => {
-        devLog('🧹 CalendarStore: Pulizia completa');
         set(initialState);
       },
       

@@ -50,48 +50,21 @@ function CustomCalendarCell({
   
   // Carica i dati focusReferencesData nel sistema progressivo quando l'entry ha questi dati
   useEffect(() => {
-    console.log('🔄 CustomCalendarCell: useEffect focusReferencesData', {
-      date,
-      entryId: entry?.id,
-      hasFocusData: !!entry?.focusReferencesData,
-      focusDataLength: entry?.focusReferencesData?.length || 0,
-      isInitialized
-    });
-    
     if (entry?.focusReferencesData && entry.focusReferencesData.length > 0) {
-      console.log('📥 CustomCalendarCell: Caricamento focusReferencesData nel sistema progressivo');
       loadFocusReferencesData(date, entry.focusReferencesData);
     }
-  }, [entry?.focusReferencesData, date, loadFocusReferencesData, isInitialized]);
+  }, [entry?.focusReferencesData, date, loadFocusReferencesData]);
   
   const dayNumber = new Date(date).getDate();
   const hasProblem = entry?.hasProblem || false;
   const totalSales = entry?.sales.reduce((sum, sale) => sum + sale.value, 0) || 0;
   const totalActions = entry?.actions.reduce((sum, action) => sum + action.count, 0) || 0;
   
-  // Log per debug dei tag
-  useEffect(() => {
-    if (entry) {
-      console.log('🏷️ CustomCalendarCell: Entry ricevuto per data', date, {
-        entryId: entry.id,
-        tags: entry.tags,
-        tagsLength: entry.tags?.length || 0,
-        hasTags: !!entry.tags && entry.tags.length > 0
-      });
-    }
-  }, [entry, date]);
+
   
   // Stabilizza la chiamata a getDisplayDataForDate per evitare re-render continui
   const displayData = useMemo(() => {
-    const result = getDisplayDataForDate(date, entry, isInitialized);
-    console.log('🔄 CustomCalendarCell: displayData calcolato', {
-      date,
-      entryId: entry?.id,
-      isInitialized,
-      useOriginalData: result.useOriginalData,
-      hasProgressiveData: !!result.progressiveData
-    });
-    return result;
+    return getDisplayDataForDate(date, entry, isInitialized);
   }, [date, entry, isInitialized, getDisplayDataForDate, selectedSalesPointId]);
   
   // Calcola il sell-in totale dalle referenze focus
@@ -160,6 +133,18 @@ function CustomCalendarCell({
     // Se il sistema progressivo non è inizializzato, usa i dati originali
     if (displayData.useOriginalData) {
       if (!entry?.focusReferencesData || entry.focusReferencesData.length === 0) {
+        return null;
+      }
+
+      // Controlla se tutte le referenze hanno valori uguali a 0
+      const allReferencesHaveZeroValues = entry.focusReferencesData.every(focusData => {
+        const soldPieces = parseFloat(focusData.soldPieces) || 0;
+        const stockPieces = parseFloat(focusData.stockPieces) || 0;
+        return soldPieces === 0 && stockPieces === 0;
+      });
+
+      // Se tutte le referenze hanno valori 0, non mostrare nulla
+      if (allReferencesHaveZeroValues) {
         return null;
       }
 
@@ -256,6 +241,18 @@ function CustomCalendarCell({
     // Altrimenti usa i dati progressivi
     if (!displayData.progressiveData?.displayData.progressiveEntries || 
         displayData.progressiveData.displayData.progressiveEntries.length === 0) {
+      return null;
+    }
+
+    // Controlla se tutte le referenze progressive hanno valori uguali a 0
+    const allProgressiveReferencesHaveZeroValues = displayData.progressiveData.displayData.progressiveEntries.every((productEntry: any) => {
+      const soldPieces = productEntry.vendite || 0;
+      const stockPieces = productEntry.scorte || 0;
+      return soldPieces === 0 && stockPieces === 0;
+    });
+
+    // Se tutte le referenze progressive hanno valori 0, non mostrare nulla
+    if (allProgressiveReferencesHaveZeroValues) {
       return null;
     }
 
@@ -430,19 +427,19 @@ function CustomCalendarCell({
             
             // Se non ci sono tag espliciti ma c'è contenuto, genera tag di default
             let tagIds = entry?.tags || [];
-            if (!hasTags && hasContent) {
-              // Genera tag di default basati sul contenuto
+            
+            // Se l'entry ha tag espliciti (anche vuoti), rispetta la scelta dell'utente
+            // Non aggiungere tag automatici se l'utente ha rimosso tutti i tag
+            if (entry && 'tags' in entry) {
+              // Se l'entry ha un campo tags definito (anche vuoto), rispetta la scelta dell'utente
+              tagIds = entry.tags || [];
+            } else if (!hasTags && hasContent) {
+              // Genera tag di default basati sul contenuto solo se il campo tags è completamente mancante
               const defaultTags = [];
               if (hasFocusData) defaultTags.push('merchandiser'); // M per focus references
               if (hasSales) defaultTags.push('sell_in'); // SI per vendite
               if (hasActions) defaultTags.push('check'); // ✓ per azioni
               tagIds = defaultTags;
-            }
-            
-            // Se l'entry ha tag espliciti (anche vuoti), rispetta la scelta dell'utente
-            // Non aggiungere tag automatici se l'utente ha rimosso tutti i tag
-            if (entry?.tags !== undefined && entry.tags.length === 0) {
-              tagIds = []; // Forza array vuoto se l'utente ha rimosso tutti i tag
             }
             
 
@@ -645,19 +642,19 @@ function CustomCalendarCell({
             
             // Se non ci sono tag espliciti ma c'è contenuto, genera tag di default
             let tagIds = entry?.tags || [];
-            if (!hasTags && hasContent) {
-              // Genera tag di default basati sul contenuto
+            
+            // Se l'entry ha tag espliciti (anche vuoti), rispetta la scelta dell'utente
+            // Non aggiungere tag automatici se l'utente ha rimosso tutti i tag
+            if (entry && 'tags' in entry) {
+              // Se l'entry ha un campo tags definito (anche vuoto), rispetta la scelta dell'utente
+              tagIds = entry.tags || [];
+            } else if (!hasTags && hasContent) {
+              // Genera tag di default basati sul contenuto solo se non ci sono tag espliciti
               const defaultTags = [];
               if (hasFocusData) defaultTags.push('merchandiser'); // M per focus references
               if (hasSales) defaultTags.push('sell_in'); // SI per vendite
               if (hasActions) defaultTags.push('check'); // ✓ per azioni
               tagIds = defaultTags;
-            }
-            
-            // Se l'entry ha tag espliciti (anche vuoti), rispetta la scelta dell'utente
-            // Non aggiungere tag automatici se l'utente ha rimosso tutti i tag
-            if (entry?.tags !== undefined && entry.tags.length === 0) {
-              tagIds = []; // Forza array vuoto se l'utente ha rimosso tutti i tag
             }
             
             return hasContent ? (

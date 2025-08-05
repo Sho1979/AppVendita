@@ -23,33 +23,22 @@ export const useProgressiveIntegration = (sharedService?: ProgressiveCalculation
    * ATTENZIONE: Questo è un passaggio critico!
    */
   const initializeWithExistingData = useCallback((entries: CalendarEntry[]) => {
-
-    
     try {
       // Filtra solo gli entry con dati focus references
       const entriesWithData = entries.filter(DataAdapter.hasFocusData);
       
-
-      
       // Importa ogni entry nel sistema progressivo
       for (const entry of entriesWithData) {
-
-        
         const dateString = DataAdapter.getDateString(entry);
         const productEntries = DataAdapter.calendarEntryToProductEntries(entry);
         
-
-        
         if (productEntries.length > 0) {
-          const result = updateCell(dateString, productEntries);
+          updateCell(dateString, productEntries);
         }
       }
       
       setIsInitialized(true);
-
-      
     } catch (error) {
-      console.error('❌ Errore durante l\'inizializzazione del sistema progressivo:', error);
       throw error;
     }
   }, [updateCell]);
@@ -88,7 +77,6 @@ export const useProgressiveIntegration = (sharedService?: ProgressiveCalculation
     entry: CalendarEntry
   ) => {
     if (!isInitialized) {
-      console.log('⚠️ Sistema progressivo non inizializzato, salto sincronizzazione');
       return;
     }
 
@@ -97,11 +85,10 @@ export const useProgressiveIntegration = (sharedService?: ProgressiveCalculation
       const productEntries = DataAdapter.calendarEntryToProductEntries(entry);
       
       if (productEntries.length > 0) {
-        console.log(`🔄 Sincronizzazione entry per ${dateString}`);
         updateCell(dateString, productEntries);
       }
     } catch (error) {
-      console.error('❌ Errore durante la sincronizzazione:', error);
+      // Silently handle error
     }
   }, [isInitialized, updateCell]);
 
