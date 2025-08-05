@@ -3,6 +3,7 @@ import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { User } from '../../data/models/User';
 import { SalesPoint } from '../../data/models/SalesPoint';
 import { useProgressiveIntegration } from '../../hooks/useProgressiveIntegration';
+import { useProgressiveCalculation } from '../../hooks/useProgressiveCalculation';
 import { ProgressiveCalculationService } from '../../services/ProgressiveCalculationService';
 import { useCalendarStore } from '../../stores/calendarStore';
 import { logger } from '../../utils/logger';
@@ -48,7 +49,9 @@ interface CalendarContextType {
     loadFocusReferencesData: (date: string, focusReferencesData: any[]) => void;
     getTotalSellIn: () => number;
     getMonthlySellIn: (year: number, month: number) => number;
+    resetSystem: () => void;
   };
+  selectedSalesPointId: string;
 }
 
 const CalendarContext = createContext<CalendarContextType | undefined>(
@@ -79,6 +82,9 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
     getTotalSellIn,
     getMonthlySellIn
   } = useProgressiveIntegration(sharedProgressiveService);
+
+  // Ottieni il metodo resetSystem dal hook useProgressiveCalculation
+  const { resetSystem } = useProgressiveCalculation(sharedProgressiveService);
 
   // Force re-render when isInitialized changes
   const [forceUpdate, setForceUpdate] = useState(0);
@@ -230,8 +236,10 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
         getDisplayDataForDate,
         loadFocusReferencesData,
         getTotalSellIn,
-        getMonthlySellIn
-      }
+        getMonthlySellIn,
+        resetSystem
+      },
+      selectedSalesPointId: state.activeFilters.salesPointId
     }}>
       {children}
     </CalendarContext.Provider>

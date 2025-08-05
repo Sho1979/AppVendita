@@ -278,9 +278,15 @@ export default function MainCalendarPage({
           '📅 MainCalendarPage: Caricamento entries dal',
           startDate.toISOString(),
           'al',
-          endDate.toISOString()
+          endDate.toISOString(),
+          'per punto vendita:',
+          selectedSalesPointId || 'tutti'
         );
-        const entries = await repository.getCalendarEntries(startDate, endDate);
+        
+        // Carica solo le entries del punto vendita selezionato
+        const entries = selectedSalesPointId 
+          ? await repository.getCalendarEntries(startDate, endDate, undefined, selectedSalesPointId)
+          : await repository.getCalendarEntries(startDate, endDate);
         console.log('✅ MainCalendarPage: Entries caricati:', entries.length);
         console.log('✅ MainCalendarPage: Dettagli entries:', entries.map(entry => ({
           id: entry.id,
@@ -647,12 +653,41 @@ export default function MainCalendarPage({
   // Gestione filtri progressivi
   const handleMultipleSelectionChange = (items: string[]) => {
     console.log('🔍 MainCalendarPage: Cambio selezione multipla:', items);
+    
+    // RESET IMMEDIATO E DRAMMATICO
+    console.log('💥 MainCalendarPage: RESET DRAMMATICO - Cambio filtro rilevato');
+    
+    // 1. Reset immediato dello stato
+    dispatch({ type: 'SET_ENTRIES', payload: [] });
+    
+    // 2. Reset focusReferencesStore
+    focusReferencesStore.clearFocusReferences();
+    
+    // 3. Reset sistema progressivo
+    if (progressiveSystem && typeof progressiveSystem.resetSystem === 'function') {
+      progressiveSystem.resetSystem();
+    }
+    
+    // 4. Pulisci TUTTA la cache
+    if (typeof localStorage !== 'undefined') {
+      localStorage.clear(); // Pulisci TUTTO
+      console.log('🧹 MainCalendarPage: Cache completamente pulita');
+    }
+    
+    // 5. Aggiorna i filtri
     setSelectedFilterItems(items);
     
-    // Reset selectedSalesPointId quando cambiano i filtri
+    // 6. Reset selectedSalesPointId
     if (items.length === 0) {
       setSelectedSalesPointId('');
     }
+    
+    // 7. Forza re-render
+    setTimeout(() => {
+      console.log('🔄 MainCalendarPage: Forzando re-render dopo reset');
+      // Forza un re-render
+      setCurrentDate(new Date(currentDate));
+    }, 100);
   };
 
   // Funzione per ottenere i dati filtrati in base ai filtri progressivi
@@ -761,13 +796,49 @@ export default function MainCalendarPage({
   // Ottieni i dati filtrati
       const { filteredAgents, filteredSalesPoints, autoDetectedAgent, autoDetectedSalesPoint } = getFilteredData;
 
-    // Aggiorna selectedSalesPointId se viene rilevato automaticamente un punto vendita
-    useEffect(() => {
-      if (autoDetectedSalesPoint && !selectedSalesPointId) {
-        console.log('🔍 MainCalendarPage: Impostazione automatica selectedSalesPointId:', autoDetectedSalesPoint.id);
-        setSelectedSalesPointId(autoDetectedSalesPoint.id);
+      // Aggiorna selectedSalesPointId se viene rilevato automaticamente un punto vendita
+  useEffect(() => {
+    if (autoDetectedSalesPoint) {
+      console.log('🔍 MainCalendarPage: Impostazione automatica selectedSalesPointId:', autoDetectedSalesPoint.id);
+      setSelectedSalesPointId(autoDetectedSalesPoint.id);
+    }
+  }, [autoDetectedSalesPoint]);
+
+  // Ricarica i dati quando cambia il punto vendita selezionato
+  useEffect(() => {
+    console.log('🔄 MainCalendarPage: Cambio punto vendita, selectedSalesPointId:', selectedSalesPointId);
+    
+    // Reset immediato dello stato locale
+    dispatch({ type: 'SET_ENTRIES', payload: [] });
+    
+    // Reset del focusReferencesStore
+    focusReferencesStore.clearFocusReferences();
+    
+    // Reset del sistema progressivo
+    if (progressiveSystem.resetSystem) {
+      progressiveSystem.resetSystem();
+    }
+    
+    // Pulisci la cache locale prima di ricaricare
+    const clearLocalCache = async () => {
+      try {
+        // Pulisci solo le entries dal localStorage
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem('calendar_entries');
+          console.log('🧹 MainCalendarPage: Cache locale pulita');
+        }
+      } catch (error) {
+        console.warn('⚠️ MainCalendarPage: Errore pulizia cache:', error);
       }
-    }, [autoDetectedSalesPoint, selectedSalesPointId]);
+    };
+    
+    clearLocalCache().then(() => {
+      // Ricarica i dati solo se c'è un punto vendita selezionato
+      if (selectedSalesPointId) {
+        loadInitialData();
+      }
+    });
+  }, [selectedSalesPointId]);
 
     // Gestione tooltip
     const handleTooltipPress = (type: 'stock' | 'notes' | 'info' | 'images', date: string, entry?: CalendarEntry) => {
@@ -995,24 +1066,31 @@ export default function MainCalendarPage({
                 </Text>
               </View>
               <View style={styles.selectedFiltersList}>
-                {/* Mostra solo agente e punto vendita se rilevati automaticamente */}
-                {autoDetectedAgent && autoDetectedSalesPoint ? (
-                  <>
-                    <View style={styles.selectedFilterItem}>
-                      <Text style={styles.selectedFilterText}>👤 {autoDetectedAgent.name}</Text>
-                    </View>
-                    <View style={styles.selectedFilterItem}>
-                      <Text style={styles.selectedFilterText}>🏪 {autoDetectedSalesPoint.name}</Text>
-                    </View>
-                  </>
-                ) : (
-                  /* Altrimenti mostra tutti i filtri selezionati */
-                  selectedFilterItems.map((item, index) => (
+                {/* Mostra i nomi specifici quando disponibili */}
+                {autoDetectedAgent && (
+                  <View style={styles.selectedFilterItem}>
+                    <Text style={styles.selectedFilterText}>👤 {autoDetectedAgent.name}</Text>
+                  </View>
+                )}
+                {autoDetectedSalesPoint && (
+                  <View style={styles.selectedFilterItem}>
+                    <Text style={styles.selectedFilterText}>🏪 {autoDetectedSalesPoint.name}</Text>
+                  </View>
+                )}
+                {/* Mostra filtri generici per quelli non rilevati automaticamente */}
+                {selectedFilterItems
+                  .filter(item => {
+                    // Filtra via gli elementi che abbiamo già mostrato con nomi specifici
+                    const hasAgent = autoDetectedAgent && item.includes('Agenti');
+                    const hasSalesPoint = autoDetectedSalesPoint && item.includes('Punti Vendita');
+                    return !hasAgent && !hasSalesPoint;
+                  })
+                  .map((item, index) => (
                     <View key={index} style={styles.selectedFilterItem}>
                       <Text style={styles.selectedFilterText}>{item}</Text>
                     </View>
                   ))
-                )}
+                }
               </View>
             </View>
           </View>

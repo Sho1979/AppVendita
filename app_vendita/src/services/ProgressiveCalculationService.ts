@@ -290,6 +290,21 @@ export class ProgressiveCalculationService {
   }
 
   /**
+   * Resetta completamente il sistema progressivo
+   */
+  public resetSystem(): void {
+    this.state = {
+      entries: new Map(),
+      progressiveTotals: new Map(),
+      calculationConfig: { ...this.state.calculationConfig },
+      lastUpdated: new Date(),
+      firstDateWithData: undefined
+    };
+    this.resetPerformanceMetrics();
+    console.log('🔄 ProgressiveCalculationService: Sistema completamente resettato');
+  }
+
+  /**
    * Esporta lo stato corrente
    */
   public exportState(): ProgressiveState {

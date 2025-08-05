@@ -183,6 +183,20 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
     return calculationService.getMonthlySellIn(year, month);
   }, [calculationService]);
 
+  /**
+   * Resetta completamente il sistema progressivo
+   */
+  const resetSystem = useCallback(() => {
+    try {
+      calculationService.resetSystem();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Errore reset sistema progressivo';
+      setError(errorMessage);
+      console.error('❌ useProgressiveCalculation: Errore reset sistema:', err);
+      throw err;
+    }
+  }, [calculationService]);
+
   // Memoizza i metodi per evitare re-render non necessari
   const methods = useMemo(() => ({
     updateCell,
@@ -193,6 +207,7 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
     getProgressiveSellIn,
     getPerformanceMetrics,
     resetPerformanceMetrics,
+    resetSystem,
     exportState,
     importState,
     validateEntries,
@@ -210,6 +225,7 @@ export const useProgressiveCalculation = (sharedService?: ProgressiveCalculation
     getProgressiveSellIn,
     getPerformanceMetrics,
     resetPerformanceMetrics,
+    resetSystem,
     exportState,
     importState,
     validateEntries,

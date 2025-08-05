@@ -43,7 +43,7 @@ function CustomCalendarCell({
     const netPrice = netPrices[referenceId];
     return netPrice || '0';
   };
-  const { progressiveSystem } = useCalendar();
+  const { progressiveSystem, selectedSalesPointId } = useCalendar();
   
   const isInitialized = progressiveSystem.isInitialized;
   const { getDisplayDataForDate, loadFocusReferencesData } = progressiveSystem;
@@ -75,7 +75,7 @@ function CustomCalendarCell({
   // Stabilizza la chiamata a getDisplayDataForDate per evitare re-render continui
   const displayData = useMemo(() => {
     return getDisplayDataForDate(date, entry, isInitialized);
-  }, [date, entry, isInitialized, getDisplayDataForDate]);
+  }, [date, entry, isInitialized, getDisplayDataForDate, selectedSalesPointId]);
   
   // Calcola il sell-in totale dalle referenze focus
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
