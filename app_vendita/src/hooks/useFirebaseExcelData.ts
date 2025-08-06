@@ -49,14 +49,18 @@ export const useFirebaseExcelData = () => {
           linea: row.Linea || '',
           // Area Manager - usa direttamente il campo dal JSON
           codiceAreaManager: row["Codice Area Manager"] || '',
+          amCode: row["Codice Area Manager"] || '', // ALIAS per compatibilità con filtri
           // NAM Code - usa direttamente il campo dal JSON
           codiceNam: row["Codice Nam"] || '',
+          namCode: row["Codice Nam"] || '', // ALIAS per compatibilità con filtri
           // Agente - usa direttamente il campo dal JSON
           codiceAgente: row["Codige Agente"] || '',
+          agenteCode: row["Codige Agente"] || '', // ALIAS per compatibilità con filtri
           // Nome Agente - usa direttamente il campo dal JSON
           nomeAgente: row["Nome Agente"] || '',
           // Insegna - usa direttamente il campo dal JSON
           insegna: row.Insegna || '',
+          insegnaCliente: row.Insegna || '', // ALIAS per compatibilità con filtri
           // Codice Cliente - usa direttamente il campo dal JSON
           codiceCliente: String(row["Codice Cliente"]) || '',
           // Cliente - usa direttamente il campo dal JSON

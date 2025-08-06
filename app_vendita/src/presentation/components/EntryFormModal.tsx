@@ -23,6 +23,8 @@ interface EntryFormModalProps {
   visible: boolean;
   entry?: CalendarEntry | undefined;
   selectedDate: string;
+  userId?: string;
+  salesPointId?: string;
   onSave: (entry: CalendarEntry) => void;
   onCancel: () => void;
   onDelete?: (entryId: string) => void;
@@ -33,6 +35,8 @@ export default function EntryFormModal({
   visible,
   entry,
   selectedDate,
+  userId = 'default_user',
+  salesPointId = 'default_salespoint',
   onSave,
   onCancel,
   onDelete,
@@ -158,9 +162,9 @@ export default function EntryFormModal({
     const entryToSave: any = {
       id: entry?.id || `entry_${Date.now()}`,
       date: new Date(selectedDate),
-      userId: 'default_user', // TODO: Usare utente selezionato
-      salesPointId: 'default_salespoint', // TODO: Usare punto vendita selezionato
-      notes: '', // Reset del campo note dopo il salvataggio
+      userId: userId,
+      salesPointId: salesPointId,
+      notes: formData.notes, // Usa le note dal form
       chatNotes: chatNotes, // Mantiene i chatNotes esistenti + il nuovo messaggio
       sales: [],
       actions: [],
@@ -244,9 +248,6 @@ export default function EntryFormModal({
 
       // Chiama la callback originale per aggiornare l'UI
       onSave(cleanEntry as CalendarEntry);
-      
-      // Reset del campo note dopo il salvataggio
-      setFormData(prev => ({ ...prev, notes: '' }));
       
       // Pulisci eventuali errori
       clearError();

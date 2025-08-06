@@ -3,6 +3,7 @@ import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
 import { getAnalytics } from 'firebase/analytics';
+import { debugLog } from '../../utils/debugLogger';
 
 // Configurazione Firebase
 const firebaseConfig = {
@@ -31,12 +32,12 @@ if (__DEV__ && false) { // Disabilitato temporaneamente per usare Firebase Produ
     connectFirestoreEmulator(db, 'localhost', 8081);
     connectAuthEmulator(auth, 'http://localhost:9099');
     connectStorageEmulator(storage, 'localhost', 9199);
-    console.log('🔥 Firebase: Connesso agli emulatori locali');
+    debugLog.log('🔥 Firebase: Connesso agli emulatori locali');
   } catch {
-    console.log('🔥 Firebase: Emulatori già connessi o non disponibili');
+    debugLog.log('🔥 Firebase: Emulatori già connessi o non disponibili');
   }
 } else {
-  console.log('🔥 Firebase: Connesso a Firebase Production');
+  debugLog.log('🔥 Firebase: Connesso a Firebase Production');
 }
 
 export default app; 

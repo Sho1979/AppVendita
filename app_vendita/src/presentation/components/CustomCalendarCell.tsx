@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
-import SafeTouchableOpacity from './common/SafeTouchableOpacity';
-import { CellTags } from './common/CellTags';
+import { FocusReferencesDisplay } from './FocusReferencesDisplay';
+import { WeekTooltipButtons } from './WeekTooltipButtons';
+import { MonthTooltipButtons } from './MonthTooltipButtons';
+import { CalendarCellTags } from './CalendarCellTags';
+import { SalesAndActionsDisplay } from './SalesAndActionsDisplay';
 import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
 import { useCalendar } from '../../presentation/providers/CalendarContext';
 import { usePhotoManager } from '../../hooks/usePhotoManager';
@@ -15,11 +18,11 @@ interface CustomCalendarCellProps {
   entry?: CalendarEntry | undefined;
   isSelected: boolean;
   isToday: boolean;
+  selectedSalesPointId?: string;
   onPress: () => void;
   isWeekView: boolean;
   onTooltipPress?: ((type: 'stock' | 'notes' | 'info' | 'images', date: string, entry?: CalendarEntry) => void) | undefined;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onSellInChange?: ((date: string, sellIn: number) => void) | undefined;
+
 }
 
 function CustomCalendarCell({
@@ -27,10 +30,10 @@ function CustomCalendarCell({
   entry,
   isSelected,
   isToday,
+  selectedSalesPointId,
   onPress,
   isWeekView,
   onTooltipPress,
-  onSellInChange,
 }: CustomCalendarCellProps) {
   
   const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
@@ -45,7 +48,7 @@ function CustomCalendarCell({
     const netPrice = netPrices[referenceId];
     return netPrice || '0';
   };
-  const { progressiveSystem, selectedSalesPointId } = useCalendar();
+  const { progressiveSystem } = useCalendar();
   
   const isInitialized = progressiveSystem.isInitialized;
   const { getDisplayDataForDate, loadFocusReferencesData, getLastUpdated } = progressiveSystem;
@@ -58,9 +61,13 @@ function CustomCalendarCell({
   // Se NON c'è punto vendita, usa la logica entry-based
   const shouldShowPhotos = selectedSalesPointId ? true : (entry !== undefined);
   
+  // Ottimizzazione: usa photoManager solo se necessario
+  // Nella vista mensile questo evita 42 chiamate simultanee
+  const shouldLoadPhotos = shouldShowPhotos && selectedSalesPointId && selectedSalesPointId !== 'default';
+  
   const photoManager = usePhotoManager({
     calendarDate: date,
-    salesPointId: selectedSalesPointId || 'default',
+    salesPointId: shouldLoadPhotos ? selectedSalesPointId : 'default',
     salesPointName: 'Punto Vendita',
     userId: selectedUserId || 'default_user', // userId non viene usato per caricare foto (solo per salvare)
   });
@@ -76,8 +83,7 @@ function CustomCalendarCell({
   
   const dayNumber = new Date(date).getDate();
   const hasProblem = entry?.hasProblem || false;
-  const totalSales = entry?.sales.reduce((sum, sale) => sum + sale.value, 0) || 0;
-  const totalActions = entry?.actions.reduce((sum, action) => sum + action.count, 0) || 0;
+
   
 
   
@@ -86,53 +92,17 @@ function CustomCalendarCell({
     return getDisplayDataForDate(date, entry, isInitialized);
   }, [date, entry, isInitialized, getDisplayDataForDate, selectedSalesPointId, getLastUpdated()]);
   
-  // Calcola il sell-in totale dalle referenze focus
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const totalSellIn = useMemo(() => {
-    // Se il sistema progressivo non è inizializzato, usa i dati originali
-    if (displayData.useOriginalData) {
-      if (!entry?.focusReferencesData || entry.focusReferencesData.length === 0) {
-        return 0;
-      }
-      
-      return entry.focusReferencesData.reduce((total, focusData) => {
-        const reference = getFocusReferenceById(focusData.referenceId);
-        if (!reference) {
-          return total;
-        }
 
-        const orderedPieces = parseFloat(focusData.orderedPieces) || 0;
-        
-        // Usa il prezzo netto salvato invece del prezzo originale
-        const savedNetPrice = getNetPrice(focusData.referenceId);
-        
-        // Correggi il parsing del netPrice per gestire formato "02,40" → 2.40
-        let netPrice = 0;
-        if (savedNetPrice) {
-          const priceStr = savedNetPrice.toString();
-          // Rimuovi zero iniziale e sostituisci virgola con punto
-          const cleanPrice = priceStr.replace(/^0+/, '').replace(',', '.');
-          netPrice = parseFloat(cleanPrice) || 0;
-        }
-        
-        const sellIn = orderedPieces * netPrice;
-        return total + sellIn;
-      }, 0);
-    }
-
-    // Altrimenti usa il sell-in progressivo
-    return displayData.progressiveData?.sellInProgressivo || 0;
-  }, [displayData, entry?.focusReferencesData, getFocusReferenceById, getNetPrice]);
-
-  // Rimuovo il useEffect problematico che causa loop infinito
-  // useEffect(() => {
-  //   if (onSellInChange) {
-  //     onSellInChange(date, totalSellIn);
-  //   }
-  // }, [date, totalSellIn, onSellInChange]);
 
   // Funzioni per determinare se i tooltip hanno contenuto
   const hasStockContent = () => {
+
+    
+    // Non mostrare l'icona stock se non c'è un punto vendita selezionato valido
+    if (!selectedSalesPointId || selectedSalesPointId === 'default' || selectedSalesPointId === '') {
+      return false;
+    }
+    
     if (displayData.useOriginalData) {
       return entry?.focusReferencesData && entry.focusReferencesData.length > 0;
     }
@@ -147,224 +117,14 @@ function CustomCalendarCell({
     return false;
   };
 
-  // Componente per visualizzare le referenze focus
-  const FocusReferencesDisplay = () => {
-    // Se il sistema progressivo non è inizializzato, usa i dati originali
-    if (displayData.useOriginalData) {
-      if (!entry?.focusReferencesData || entry.focusReferencesData.length === 0) {
-        return null;
-      }
 
-      // Controlla se tutte le referenze hanno valori uguali a 0
-      const allReferencesHaveZeroValues = entry.focusReferencesData.every(focusData => {
-        const soldPieces = parseFloat(focusData.soldPieces) || 0;
-        const stockPieces = parseFloat(focusData.stockPieces) || 0;
-        const orderedPieces = parseFloat(focusData.orderedPieces) || 0;
-        return soldPieces === 0 && stockPieces === 0 && orderedPieces === 0;
-      });
-
-      // Se tutte le referenze hanno valori 0, non mostrare nulla
-      if (allReferencesHaveZeroValues) {
-        return null;
-      }
-
-      return (
-        <View style={styles.focusReferencesContainer}>
-          {entry.focusReferencesData.map((focusData) => {
-            const reference = getFocusReferenceById(focusData.referenceId);
-            if (!reference) return null;
-
-            const soldPieces = parseFloat(focusData.soldPieces) || 0;
-            const stockPieces = parseFloat(focusData.stockPieces) || 0;
-            
-            // Determina il colore del bordo in base alla situazione stock
-            const getBorderColor = () => {
-              if (stockPieces <= 0) return '#FF3B30'; // Rosso - stock esaurito
-              if (soldPieces >= stockPieces * 0.8) return '#FF9500'; // Giallo - stock basso (80%+ venduti)
-              if (soldPieces >= stockPieces * 0.5) return '#FFCC00'; // Giallo chiaro - stock medio (50%+ venduti)
-              return '#34C759'; // Verde - stock alto
-            };
-
-            // Crea acronimo dalla descrizione (4 caratteri per maggiore chiarezza)
-            const createAcronym = (description: string): string => {
-              // Rimuovi caratteri speciali e dividi in parole
-              const words = description
-                .replace(/[^\w\s]/g, ' ')
-                .split(' ')
-                .filter(word => word.length > 0);
-              
-              if (words.length === 0) {
-                // Fallback al codice se la descrizione è vuota
-                return reference.code.substring(0, 4).toUpperCase();
-              }
-              
-              if (words.length === 1) {
-                // Se c'è solo una parola, prendi i primi 4 caratteri
-                return words[0]?.substring(0, 4).toUpperCase() || reference.code.substring(0, 4).toUpperCase();
-              }
-              
-              if (words.length === 2) {
-                // Se ci sono 2 parole, prendi 2 caratteri da ogni parola
-                const first = words[0]?.substring(0, 2) || '';
-                const second = words[1]?.substring(0, 2) || '';
-                const acronym = (first + second).toUpperCase();
-                return acronym.length > 0 ? acronym : reference.code.substring(0, 4).toUpperCase();
-              }
-              
-              // Se ci sono 3+ parole, prendi le prime lettere di ogni parola
-              const acronym = words
-                .slice(0, 4) // Massimo 4 parole
-                .map(word => word.charAt(0))
-                .join('')
-                .toUpperCase();
-              
-              return acronym.length > 0 ? acronym : reference.code.substring(0, 4).toUpperCase();
-            };
-            
-            const acronym = createAcronym(reference.description || '');
-
-            return (
-              <View key={focusData.referenceId} style={[
-                styles.focusReferenceItem,
-                isWeekView && styles.focusReferenceItemWeek,
-                { borderColor: getBorderColor() }
-              ]}>
-                <View style={styles.focusReferenceHeader}>
-                  <Text style={[
-                    styles.focusReferenceAcronym,
-                    isWeekView && styles.focusReferenceAcronymWeek
-                  ]}>{acronym}</Text>
-                </View>
-                <View style={styles.focusReferenceNumbers}>
-                  <Text style={[
-                    styles.focusReferenceSold, 
-                    soldPieces > 0 && styles.focusReferenceSoldActive,
-                    isWeekView && styles.focusReferenceTextWeek
-                  ]}>
-                    V: {soldPieces}
-                  </Text>
-                  <Text style={[
-                    styles.focusReferenceStock, 
-                    stockPieces > 0 && styles.focusReferenceStockActive,
-                    isWeekView && styles.focusReferenceTextWeek
-                  ]}>
-                    S: {stockPieces}
-                  </Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      );
-    }
-
-    // Altrimenti usa i dati progressivi
-    if (!displayData.progressiveData?.displayData.progressiveEntries || 
-        displayData.progressiveData.displayData.progressiveEntries.length === 0) {
-      return null;
-    }
-
-    // Controlla se l'entry originale aveva dati focus
-    // Se non aveva dati focus, non mostrare nulla anche se il sistema progressivo ha calcolato i dati
-    const originalEntryHasFocusData = entry?.focusReferencesData && entry.focusReferencesData.length > 0;
-    if (!originalEntryHasFocusData) {
-      return null;
-    }
-
-    // Controlla se l'entry ha effettivamente dati focus con valori > 0
-    const hasActualFocusData = entry?.focusReferencesData?.some(focusData => {
-      const soldPieces = parseFloat(focusData.soldPieces) || 0;
-      const stockPieces = parseFloat(focusData.stockPieces) || 0;
-      const orderedPieces = parseFloat(focusData.orderedPieces) || 0;
-      return soldPieces > 0 || stockPieces > 0 || orderedPieces > 0;
-    }) || false;
-
-    // Se l'entry non ha dati focus con valori > 0, non mostrare nulla
-    if (!hasActualFocusData) {
-      return null;
-    }
-
-    return (
-      <View style={styles.focusReferencesContainer}>
-        {displayData.progressiveData.displayData.progressiveEntries.map((productEntry: any) => {
-          const reference = getFocusReferenceById(productEntry.productId);
-          if (!reference) return null;
-
-          const soldPieces = productEntry.vendite;
-          const stockPieces = productEntry.scorte;
-          
-          // Determina il colore del bordo in base alla situazione stock
-          const getBorderColor = () => {
-            if (stockPieces <= 0) return '#FF3B30'; // Rosso - stock esaurito
-            if (soldPieces >= stockPieces * 0.8) return '#FF9500'; // Giallo - stock basso (80%+ venduti)
-            if (soldPieces >= stockPieces * 0.5) return '#FFCC00'; // Giallo chiaro - stock medio (50%+ venduti)
-            return '#34C759'; // Verde - stock alto
-          };
-
-          // Crea acronimo dalla descrizione (4 caratteri per maggiore chiarezza)
-          const createAcronym = (description: string): string => {
-            // Rimuovi caratteri speciali e dividi in parole
-            const words = description
-              .replace(/[^\w\s]/g, ' ')
-              .split(' ')
-              .filter(word => word.length > 0);
-            
-            if (words.length === 0) {
-              // Fallback al codice se la descrizione è vuota
-              return reference.code.substring(0, 4).toUpperCase();
-            }
-            
-            if (words.length === 1) {
-              // Se c'è solo una parola, prendi i primi 4 caratteri
-              return words[0]?.substring(0, 4).toUpperCase() || reference.code.substring(0, 4).toUpperCase();
-            }
-            
-            if (words.length === 2) {
-              // Se ci sono 2 parole, prendi 2 caratteri da ogni parola
-              const first = words[0]?.substring(0, 2) || '';
-              const second = words[1]?.substring(0, 2) || '';
-              const acronym = (first + second).toUpperCase();
-              return acronym.length > 0 ? acronym : reference.code.substring(0, 4).toUpperCase();
-            }
-            
-            // Se ci sono 3+ parole, prendi le prime lettere di ogni parola
-            const acronym = words
-              .slice(0, 4) // Massimo 4 parole
-              .map(word => word.charAt(0))
-              .join('')
-              .toUpperCase();
-            
-            return acronym.length > 0 ? acronym : reference.code.substring(0, 4).toUpperCase();
-          };
-          
-          const acronym = createAcronym(reference.description || '');
-
-          return (
-            <View key={productEntry.productId} style={[
-              styles.focusReferenceItem,
-              { borderColor: getBorderColor() }
-            ]}>
-              <View style={styles.focusReferenceHeader}>
-                <Text style={styles.focusReferenceAcronym}>{acronym}</Text>
-              </View>
-              <View style={styles.focusReferenceNumbers}>
-                <Text style={[styles.focusReferenceSold, soldPieces > 0 && styles.focusReferenceSoldActive]}>
-                  V: {soldPieces}
-                </Text>
-                <Text style={[styles.focusReferenceStock, stockPieces > 0 && styles.focusReferenceStockActive]}>
-                  S: {stockPieces}
-                </Text>
-              </View>
-            </View>
-          );
-        })}
-      </View>
-    );
-  };
 
   // Tooltip content per settimana (guida principale)
   const getWeekTooltip = () => {
     if (!entry) return 'Clicca per aggiungere dati per questo giorno';
+    
+    const totalSales = entry.sales?.reduce((sum, sale) => sum + sale.value, 0) || 0;
+    const totalActions = entry.actions?.reduce((sum, action) => sum + action.count, 0) || 0;
     
     const salesInfo = entry.sales.length > 0 
       ? `💰 Vendite: ${entry.sales.length} articoli (€${totalSales})` 
@@ -383,6 +143,9 @@ function CustomCalendarCell({
   // Contenuto compatto per mese (riassunto)
   const getMonthTooltip = () => {
     if (!entry) return 'Nessun dato per questo giorno';
+    
+    const totalSales = entry.sales?.reduce((sum, sale) => sum + sale.value, 0) || 0;
+    const totalActions = entry.actions?.reduce((sum, action) => sum + action.count, 0) || 0;
     
     const salesInfo = totalSales > 0 ? `💰 €${totalSales}` : '';
     const actionsInfo = totalActions > 0 ? `⚡ ${totalActions}` : '';
@@ -443,182 +206,41 @@ function CustomCalendarCell({
           </View>
 
           {/* PARTE 2: Tag su 2 righe */}
-          {/* Mostra i tag se ci sono tag espliciti O se la cella ha altri contenuti */}
-          {(() => {
-            const hasTags = entry?.tags && entry.tags.length > 0;
-            const hasFocusData = entry?.focusReferencesData && entry.focusReferencesData.length > 0;
-            const hasSales = entry?.sales && entry.sales.length > 0;
-            const hasActions = entry?.actions && entry.actions.length > 0;
-            const hasContent = hasTags || hasFocusData || hasSales || hasActions;
-            
-            
-            
-            // Se non ci sono tag espliciti ma c'è contenuto, genera tag di default
-            let tagIds = entry?.tags || [];
-            
-            // Se l'entry ha tag espliciti (anche vuoti), rispetta la scelta dell'utente
-            // Non aggiungere tag automatici se l'utente ha rimosso tutti i tag
-            if (entry && 'tags' in entry) {
-              // Se l'entry ha un campo tags definito (anche vuoto), rispetta la scelta dell'utente
-              tagIds = entry.tags || [];
-            } else if (!hasTags && hasContent) {
-              // Genera tag di default basati sul contenuto solo se il campo tags è completamente mancante
-              const defaultTags = [];
-              if (hasFocusData) defaultTags.push('merchandiser'); // M per focus references
-              if (hasSales) defaultTags.push('sell_in'); // SI per vendite
-              if (hasActions) defaultTags.push('check'); // ✓ per azioni
-              tagIds = defaultTags;
-            }
-            
-
-            
-            // Forza la visualizzazione se c'è contenuto, indipendentemente dai tag
-            const shouldShowTags = hasContent && tagIds.length > 0;
-            
-
-            
-            return shouldShowTags ? (
-              <View style={styles.tagsSection}>
-                <CellTags 
-                  tagIds={tagIds} 
-                  size="tiny" 
-                  maxVisible={tagIds.length}
-                />
-              </View>
-            ) : null;
-          })()}
+          <CalendarCellTags entry={entry} isWeekView={true} />
 
           {/* PARTE 3: Sezione numeri (vendite e azioni) */}
-          <View style={styles.numbersSection}>
-            {totalSales > 0 && (
-              <View style={styles.salesSection}>
-                <View style={styles.salesTag}>
-                  <Text style={styles.salesTagText}>€{totalSales}</Text>
-                </View>
-                <Text style={styles.salesCount}>{entry?.sales.length || 0} vendite</Text>
-              </View>
-            )}
-
-            {totalActions > 0 && (
-              <View style={styles.actionsSection}>
-                <View style={styles.actionsTag}>
-                  <Text style={styles.actionsTagText}>{totalActions}</Text>
-                </View>
-                <Text style={styles.actionsCount}>{entry?.actions.length || 0} tipi</Text>
-              </View>
-            )}
+          <SalesAndActionsDisplay entry={entry} isWeekView={true} />
 
             {/* Referenze Focus */}
-            <FocusReferencesDisplay />
+            <FocusReferencesDisplay 
+              displayData={displayData}
+              entry={entry}
+              isWeekView={isWeekView}
+              getFocusReferenceById={getFocusReferenceById}
+              getNetPrice={getNetPrice}
+            />
 
             {/* Indicatore quando non ci sono dati */}
-            {totalSales === 0 && totalActions === 0 && !entry?.focusReferencesData?.length && entry && (
+            {(!entry?.sales?.length || entry.sales.reduce((sum, sale) => sum + sale.value, 0) === 0) && 
+             (!entry?.actions?.length || entry.actions.reduce((sum, action) => sum + action.count, 0) === 0) && 
+             !entry?.focusReferencesData?.length && entry && (
               <View style={styles.noDataSection}>
                 <Text style={styles.noDataText}>Nessun dato</Text>
               </View>
             )}
-          </View>
 
           {/* PARTE 4: Tooltip in basso */}
-          <View style={styles.tooltipSection}>
-            <View style={styles.tooltipContainer}>
-              <SafeTouchableOpacity
-                style={[
-                  styles.tooltipButton,
-                  styles.tooltipStock,
-                  hoveredTooltip === 'stock' && styles.tooltipButtonHovered,
-                ]}
-                onPress={() => handleTooltipPress('stock')}
-                onPressIn={() => Platform.OS === 'web' && setHoveredTooltip('stock')}
-                onPressOut={() => Platform.OS === 'web' && setHoveredTooltip(null)}
-                activeOpacity={0.8}
-                accessibilityLabel="Gestione Stock"
-                accessibilityHint="Apri la gestione dello stock per questo giorno"
-              >
-                <View style={styles.tooltipButtonContent}>
-                  <Text style={styles.tooltipText}>📦</Text>
-                  {hasStockContent() && (
-                    <View style={styles.contentIndicatorBadge}>
-                      <Text style={styles.contentIndicatorText}>•</Text>
-                    </View>
-                  )}
-                </View>
-              </SafeTouchableOpacity>
-              
-              <SafeTouchableOpacity
-                style={[
-                  styles.tooltipButton,
-                  styles.tooltipNotes,
-                  hoveredTooltip === 'notes' && styles.tooltipButtonHovered,
-                ]}
-                onPress={() => handleTooltipPress('notes')}
-                onPressIn={() => Platform.OS === 'web' && setHoveredTooltip('notes')}
-                onPressOut={() => Platform.OS === 'web' && setHoveredTooltip(null)}
-                activeOpacity={0.8}
-                accessibilityLabel="Note"
-                accessibilityHint="Aggiungi o visualizza note per questo giorno"
-              >
-                <View style={styles.tooltipButtonContent}>
-                  <Text style={styles.tooltipText}>📝</Text>
-                  {entry?.chatNotes && entry.chatNotes.length > 0 && (
-                    <View style={styles.messageCountBadge}>
-                      <Text style={styles.messageCountText}>
-                        {entry.chatNotes.length > 99 ? '99+' : entry.chatNotes.length}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </SafeTouchableOpacity>
-              
-              <SafeTouchableOpacity
-                style={[
-                  styles.tooltipButton,
-                  styles.tooltipInfo,
-                  hoveredTooltip === 'info' && styles.tooltipButtonHovered,
-                ]}
-                onPress={() => handleTooltipPress('info')}
-                onPressIn={() => Platform.OS === 'web' && setHoveredTooltip('info')}
-                onPressOut={() => Platform.OS === 'web' && setHoveredTooltip(null)}
-                activeOpacity={0.8}
-                accessibilityLabel="Informazioni"
-                accessibilityHint="Visualizza informazioni dettagliate per questo giorno"
-              >
-                <View style={styles.tooltipButtonContent}>
-                  <Text style={styles.tooltipText}>👤</Text>
-                  {hasInfoContent() && (
-                    <View style={styles.contentIndicatorBadge}>
-                      <Text style={styles.contentIndicatorText}>•</Text>
-                    </View>
-                  )}
-                </View>
-              </SafeTouchableOpacity>
-              
-              <SafeTouchableOpacity
-                style={[
-                  styles.tooltipButton,
-                  styles.tooltipImages,
-                  hoveredTooltip === 'images' && styles.tooltipButtonHovered,
-                ]}
-                onPress={() => handleTooltipPress('images')}
-                onPressIn={() => Platform.OS === 'web' && setHoveredTooltip('images')}
-                onPressOut={() => Platform.OS === 'web' && setHoveredTooltip(null)}
-                activeOpacity={0.8}
-                accessibilityLabel="Immagini"
-                accessibilityHint="Carica o visualizza immagini per questo giorno"
-              >
-                <View style={styles.tooltipButtonContent}>
-                  <Text style={styles.tooltipText}>📷</Text>
-                  {shouldShowPhotos && photoManager.photos && photoManager.photos.length > 0 && (
-                    <View style={styles.messageCountBadge}>
-                      <Text style={styles.messageCountText}>
-                        {photoManager.photos.length > 99 ? '99+' : photoManager.photos.length}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </SafeTouchableOpacity>
-            </View>
-          </View>
+          <WeekTooltipButtons
+            hoveredTooltip={hoveredTooltip}
+            setHoveredTooltip={setHoveredTooltip}
+            handleTooltipPress={handleTooltipPress}
+            hasStockContent={hasStockContent}
+            hasInfoContent={hasInfoContent}
+            entry={entry}
+            shouldShowPhotos={shouldShowPhotos}
+            photoManager={photoManager}
+            selectedSalesPointId={selectedSalesPointId}
+          />
         </View>
       ) : (
         /* Vista Mensile - Struttura originale */
@@ -636,100 +258,21 @@ function CustomCalendarCell({
             </Text>
             
             {/* Tooltip in alto a destra per vista mensile */}
-            <View style={styles.monthTooltipContainer}>
-              <SafeTouchableOpacity
-                style={styles.monthTooltipButton}
-                onPress={() => handleTooltipPress('notes')}
-                activeOpacity={0.8}
-                accessibilityLabel="Note"
-                accessibilityHint="Aggiungi o visualizza note per questo giorno"
-              >
-                <View style={styles.monthTooltipButtonContent}>
-                  <Text style={styles.monthTooltipText}>📝</Text>
-                  {entry?.chatNotes && entry.chatNotes.length > 0 && (
-                    <View style={styles.monthMessageCountBadge}>
-                      <Text style={styles.monthMessageCountText}>
-                        {entry.chatNotes.length > 9 ? '9+' : entry.chatNotes.length}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </SafeTouchableOpacity>
-              
-              <SafeTouchableOpacity
-                style={styles.monthTooltipButton}
-                onPress={() => handleTooltipPress('images')}
-                activeOpacity={0.8}
-                accessibilityLabel="Immagini"
-                accessibilityHint="Carica o visualizza immagini per questo giorno"
-              >
-                <View style={styles.monthTooltipButtonContent}>
-                  <Text style={styles.monthTooltipText}>📷</Text>
-                  {shouldShowPhotos && photoManager.photos && photoManager.photos.length > 0 && (
-                    <View style={styles.monthMessageCountBadge}>
-                      <Text style={styles.monthMessageCountText}>
-                        {photoManager.photos.length > 9 ? '9+' : photoManager.photos.length}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </SafeTouchableOpacity>
-            </View>
+            <MonthTooltipButtons
+              handleTooltipPress={handleTooltipPress}
+              entry={entry}
+              shouldShowPhotos={shouldShowPhotos}
+              photoManager={photoManager}
+              selectedSalesPointId={selectedSalesPointId}
+            />
           </View>
 
           {/* Tag direttamente sotto il numero del giorno */}
-          {/* Mostra i tag se ci sono tag espliciti O se la cella ha altri contenuti */}
-          {(() => {
-            const hasTags = entry?.tags && entry.tags.length > 0;
-            const hasFocusData = entry?.focusReferencesData && entry.focusReferencesData.length > 0;
-            const hasSales = entry?.sales && entry.sales.length > 0;
-            const hasActions = entry?.actions && entry.actions.length > 0;
-            const hasContent = hasTags || hasFocusData || hasSales || hasActions;
-            
-            // Se non ci sono tag espliciti ma c'è contenuto, genera tag di default
-            let tagIds = entry?.tags || [];
-            
-            // Se l'entry ha tag espliciti (anche vuoti), rispetta la scelta dell'utente
-            // Non aggiungere tag automatici se l'utente ha rimosso tutti i tag
-            if (entry && 'tags' in entry) {
-              // Se l'entry ha un campo tags definito (anche vuoto), rispetta la scelta dell'utente
-              tagIds = entry.tags || [];
-            } else if (!hasTags && hasContent) {
-              // Genera tag di default basati sul contenuto solo se non ci sono tag espliciti
-              const defaultTags = [];
-              if (hasFocusData) defaultTags.push('merchandiser'); // M per focus references
-              if (hasSales) defaultTags.push('sell_in'); // SI per vendite
-              if (hasActions) defaultTags.push('check'); // ✓ per azioni
-              tagIds = defaultTags;
-            }
-            
-            return hasContent ? (
-              <View style={[styles.tagsContainer, !isWeekView && styles.monthTagsContainer]}>
-                <CellTags 
-                  tagIds={tagIds} 
-                  size="tiny" 
-                  maxVisible={isWeekView ? tagIds.length : Math.min(tagIds.length, 5)}
-                  layout={isWeekView ? 'vertical' : 'horizontal'}
-                />
-              </View>
-            ) : null;
-          })()}
+          <CalendarCellTags entry={entry} isWeekView={false} />
 
           {/* Contenuto per vista mensile (riassunto) */}
           <View style={styles.monthContent}>
-            {/* Indicatore compatto - solo azioni e vendite */}
-            <View style={styles.monthIndicator}>
-              {totalSales > 0 && (
-                <View style={styles.monthSalesDot}>
-                  <Text style={styles.monthSalesText}>€</Text>
-                </View>
-              )}
-              {totalActions > 0 && (
-                <View style={styles.monthActionsDot}>
-                  <Text style={styles.monthActionsText}>⚡</Text>
-                </View>
-              )}
-            </View>
+            <SalesAndActionsDisplay entry={entry} isWeekView={false} />
           </View>
         </>
       )}
@@ -786,23 +329,9 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     position: 'relative',
   },
-  tagsSection: {
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  numbersSection: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 6,
-    paddingHorizontal: 4,
-  },
-  tooltipSection: {
-    alignItems: 'center',
-    marginTop: 4,
-    paddingVertical: 2,
-    maxWidth: '100%',
-  },
+
+
+
   dayHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -852,163 +381,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-  tagsContainer: {
-    marginTop: 1,
-    marginBottom: 2,
-    paddingHorizontal: 1,
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  monthTagsContainer: {
-    maxHeight: 20,
-    justifyContent: 'center',
-  },
+
   weekContent: {
     flex: 1,
     justifyContent: 'space-between',
   },
-  salesSection: {
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  salesTag: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginBottom: 2,
-  },
-  salesTagText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  salesCount: {
-    fontSize: 10,
-    color: '#666666',
-    textAlign: 'center',
-  },
-  actionsSection: {
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  actionsTag: {
-    backgroundColor: '#FF9800',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginBottom: 2,
-  },
-  actionsTagText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  actionsCount: {
-    fontSize: 10,
-    color: '#666666',
-    textAlign: 'center',
-  },
-  tooltipContainer: {
-    flexDirection: 'row',
-    gap: 2,
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 6,
-    maxWidth: '100%',
-    flexWrap: 'nowrap',
-  },
-  tooltipButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#d0d0d0',
-    minWidth: 20,
-    maxWidth: 26,
-    ...(Platform.OS === 'web' ? {
-      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.15)',
-    } : {
-      elevation: 1,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.15,
-      shadowRadius: 1,
-    }),
-  },
-  tooltipButtonHovered: {
-    backgroundColor: '#e3f2fd',
-    borderColor: '#2196F3',
-    borderWidth: 2,
-    ...(Platform.OS === 'web' ? {
-      boxShadow: '0 2px 6px rgba(33, 150, 243, 0.3)',
-    } : {}),
-  },
-  tooltipStock: {
-    backgroundColor: '#A5D6A7', // Verde pastello
-    borderColor: '#66BB6A',
-    borderWidth: 1,
-  },
-  tooltipNotes: {
-    backgroundColor: '#CE93D8', // Viola pastello
-    borderColor: '#AB47BC',
-    borderWidth: 1,
-  },
-  tooltipInfo: {
-    backgroundColor: '#FFCC80', // Arancione pastello
-    borderColor: '#FF8A65',
-    borderWidth: 1,
-  },
-  tooltipImages: {
-    backgroundColor: '#90CAF9', // Blu pastello
-    borderColor: '#42A5F5',
-    borderWidth: 1,
-  },
-  tooltipText: {
-    fontSize: 10,
-    color: '#ffffff',
-    textAlign: 'center',
-  },
+
+
   monthContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  monthIndicator: {
-    flexDirection: 'row',
-    gap: 4,
-    justifyContent: 'center',
-  },
-  monthSalesDot: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  monthSalesText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  monthActionsDot: {
-    backgroundColor: '#FF9800',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  monthActionsText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
+
   monthProblemDot: {
     backgroundColor: '#f44336',
     borderRadius: 10,
@@ -1077,81 +462,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  // Stili per le referenze focus (layout a 2 colonne)
-  focusReferencesContainer: {
-    marginTop: 4,
-    paddingHorizontal: 2,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  focusReferenceItem: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 4,
-    padding: 3,
-    marginBottom: 2,
-    borderWidth: 2,
-    borderColor: '#E5E5EA',
-    width: '48%', // Metà larghezza per 2 colonne
-    minHeight: 40,
-  },
-  focusReferenceItemWeek: {
-    padding: 2,
-    marginBottom: 1,
-    minHeight: 30,
-  },
-  focusReferenceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  focusReferenceAcronym: {
-    fontSize: 9,
-    fontWeight: 'bold',
-    color: '#007AFF',
-    backgroundColor: '#E3F2FD',
-    paddingHorizontal: 3,
-    paddingVertical: 1,
-    borderRadius: 3,
-  },
-  focusReferenceAcronymWeek: {
-    fontSize: 8,
-    paddingHorizontal: 2,
-    paddingVertical: 1,
-  },
 
-  focusReferenceDesc: {
-    fontSize: 8,
-    color: '#666666',
-    marginBottom: 2,
-    lineHeight: 10,
-  },
-  focusReferenceNumbers: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  focusReferenceSold: {
-    fontSize: 7,
-    color: '#28A745',
-    fontWeight: '600',
-  },
-  focusReferenceStock: {
-    fontSize: 7,
-    color: '#FF6B35',
-    fontWeight: '600',
-  },
-  focusReferenceSoldActive: {
-    color: '#1E7E34',
-    fontWeight: 'bold',
-  },
-  focusReferenceStockActive: {
-    color: '#E65100',
-    fontWeight: 'bold',
-  },
-  focusReferenceTextWeek: {
-    fontSize: 6,
-  },
   // Stili per l'indicatore dei messaggi
   tooltipButtonContent: {
     position: 'relative',
@@ -1222,52 +533,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  // Stili per i tooltip della vista mensile
-  monthTooltipContainer: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    flexDirection: 'row',
-    gap: 2,
-  },
-  monthTooltipButton: {
-    width: 20,
-    height: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  monthTooltipButtonContent: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  monthTooltipText: {
-    fontSize: 10,
-    color: '#666666',
-  },
-  monthMessageCountBadge: {
-    position: 'absolute',
-    top: -3,
-    right: -3,
-    backgroundColor: '#FF3B30',
-    borderRadius: 6,
-    minWidth: 10,
-    height: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ffffff',
-  },
-  monthMessageCountText: {
-    color: '#ffffff',
-    fontSize: 6,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
+
+
 });
 
 // Ottimizzazione delle performance con React.memo
@@ -1281,7 +548,6 @@ export default React.memo(CustomCalendarCell, (prevProps, nextProps) => {
     prevProps.entry?.id === nextProps.entry?.id &&
     prevProps.entry?.updatedAt === nextProps.entry?.updatedAt &&
     prevProps.onPress === nextProps.onPress &&
-    prevProps.onTooltipPress === nextProps.onTooltipPress &&
-    prevProps.onSellInChange === nextProps.onSellInChange
+    prevProps.onTooltipPress === nextProps.onTooltipPress
   );
 });

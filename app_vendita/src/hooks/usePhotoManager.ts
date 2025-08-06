@@ -16,6 +16,7 @@ interface UsePhotoManagerProps {
   salesPointName: string;
   userId: string;
   userName?: string;
+  autoLoad?: boolean; // Nuovo flag per controllare il caricamento automatico
 }
 
 interface UsePhotoManagerReturn {
@@ -34,6 +35,10 @@ interface UsePhotoManagerReturn {
   showPhotoSource: () => Promise<void>;
 }
 
+// Cache globale per evitare ricaricamenti multipli per la stessa data/salespoint
+const photoCache = new Map<string, { photos: PhotoData[], timestamp: number }>();
+const CACHE_DURATION = 60000; // 1 minuto
+
 /**
  * Hook intelligente per gestire foto con adattamento automatico alla piattaforma
  * - Web: Solo upload da file system
@@ -45,6 +50,7 @@ export function usePhotoManager({
   salesPointName,
   userId,
   userName = 'Utente',
+  autoLoad = true, // Default: carica automaticamente
 }: UsePhotoManagerProps): UsePhotoManagerReturn {
   const [photos, setPhotos] = useState<PhotoData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,10 +68,28 @@ export function usePhotoManager({
   const loadPhotos = useCallback(async () => {
     if (!salesPointId) return;
 
+    // Chiave cache unica per data e punto vendita
+    const cacheKey = `${calendarDate}_${salesPointId}`;
+    
+    // Verifica cache
+    const cached = photoCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      console.log('📱 usePhotoManager: Uso cache per', cacheKey);
+      setPhotos(cached.photos);
+      return;
+    }
+
     setIsLoading(true);
     try {
       console.log('📥 usePhotoManager: Caricamento foto per', calendarDate, salesPointId);
       const loadedPhotos = await FirebasePhotoService.getPhotosForDate(calendarDate, salesPointId);
+      
+      // Salva in cache
+      photoCache.set(cacheKey, {
+        photos: loadedPhotos,
+        timestamp: Date.now(),
+      });
+      
       setPhotos(loadedPhotos);
       console.log('✅ usePhotoManager: Caricate', loadedPhotos.length, 'foto');
     } catch (error) {
@@ -128,6 +152,10 @@ export function usePhotoManager({
       };
 
       setPhotos(prev => [newPhoto, ...prev]);
+      
+      // Invalida cache per forzare reload
+      const cacheKey = `${calendarDate}_${salesPointId}`;
+      photoCache.delete(cacheKey);
       
       Alert.alert(
         'Successo!', 
@@ -214,6 +242,11 @@ export function usePhotoManager({
               
               await FirebasePhotoService.deletePhoto(firestoreId);
               setPhotos(prev => prev.filter(p => p.firestoreId !== firestoreId));
+              
+              // Invalida cache per forzare reload
+              const cacheKey = `${calendarDate}_${salesPointId}`;
+              photoCache.delete(cacheKey);
+              
               Alert.alert('Successo', 'Foto eliminata');
             } catch (error) {
               console.error('❌ usePhotoManager: Errore eliminazione:', error);
@@ -225,10 +258,13 @@ export function usePhotoManager({
     );
   }, []);
 
-  // Carica foto all'avvio
+  // Carica foto all'avvio solo se autoLoad è true e c'è un punto vendita valido
   useEffect(() => {
-    loadPhotos();
-  }, [loadPhotos]);
+    // Non caricare per salesPointId 'default' o se mancano dati essenziali
+    if (autoLoad && salesPointId && salesPointId !== 'default' && calendarDate) {
+      loadPhotos();
+    }
+  }, [autoLoad, loadPhotos, salesPointId, calendarDate]);
 
   return {
     photos,

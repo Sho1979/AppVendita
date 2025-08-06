@@ -10,6 +10,8 @@ import {
   KeyboardAvoidingView,
   Image,
   ActivityIndicator,
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
 import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
@@ -64,16 +66,22 @@ export default function TooltipModal({
   };
 
   // Photo manager per gestione intelligente foto
+  // Carica automaticamente solo quando il tooltip è di tipo 'images'
   const salesPointId = activeFilters?.selectedSalesPointId || 'default';
   const photoManager = usePhotoManager({
     calendarDate: date,
     salesPointId,
     salesPointName,
     userId,
+    autoLoad: type === 'images', // Carica solo quando serve
   });
   const scrollViewRef = useRef<ScrollView>(null);
   const [newMessage, setNewMessage] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
+  const [standardNotes, setStandardNotes] = useState(entry?.notes || '');
+  
+  // WhatsApp-like features
+  const [replyToMessage, setReplyToMessage] = useState<{id: string, userName: string, message: string} | null>(null);
 
   // Scroll to bottom when new messages are added
   useEffect(() => {
@@ -84,15 +92,34 @@ export default function TooltipModal({
     }
   }, [visible, type, entry?.chatNotes?.length]);
 
+  // Aggiorna note standard quando cambia l'entry
+  useEffect(() => {
+    setStandardNotes(entry?.notes || '');
+  }, [entry?.notes]);
+
+  // Carica foto quando si passa al tooltip images
+  useEffect(() => {
+    if (visible && type === 'images') {
+      photoManager.loadPhotos();
+    }
+  }, [visible, type, photoManager]);
+
   const handleSendMessage = () => {
     if (!newMessage.trim() || !entry || !onUpdateEntry) return;
 
     const newChatNote = {
       id: `note_${Date.now()}`,
       userId: 'default_user', // TODO: Usare utente selezionato
-      userName: 'Utente', // TODO: Usare nome utente selezionato
+      userName: 'Tu', // TODO: Usare nome utente selezionato
       message: newMessage.trim(),
       timestamp: new Date(),
+      ...(replyToMessage ? {
+        replyTo: {
+          messageId: replyToMessage.id,
+          userName: replyToMessage.userName,
+          message: replyToMessage.message
+        }
+      } : {})
     };
 
     const updatedEntry: CalendarEntry = {
@@ -103,6 +130,62 @@ export default function TooltipModal({
 
     onUpdateEntry(updatedEntry);
     setNewMessage('');
+    setReplyToMessage(null);
+  };
+
+  // WhatsApp-like functions
+  const handleReaction = (messageId: string, emoji: string) => {
+    if (!entry || !onUpdateEntry) return;
+    
+    const updatedChatNotes = entry.chatNotes?.map(note => {
+      if (note.id === messageId) {
+        const reactions = note.reactions || [];
+        const existingReaction = reactions.find(r => r.userId === 'default_user' && r.emoji === emoji);
+        
+        if (existingReaction) {
+          // Rimuovi reazione se già presente
+          return {
+            ...note,
+            reactions: reactions.filter(r => !(r.userId === 'default_user' && r.emoji === emoji))
+          };
+        } else {
+          // Aggiungi nuova reazione
+          return {
+            ...note,
+            reactions: [...reactions, {
+              emoji,
+              userId: 'default_user',
+              userName: 'Tu'
+            }]
+          };
+        }
+      }
+      return note;
+    }) || [];
+
+    const updatedEntry = {
+      ...entry,
+      chatNotes: updatedChatNotes,
+      updatedAt: new Date()
+    };
+
+    onUpdateEntry(updatedEntry);
+  };
+
+  const handleReply = (messageId: string, userName: string, message: string) => {
+    setReplyToMessage({ id: messageId, userName, message });
+  };
+
+  const handleSaveStandardNotes = () => {
+    if (!entry || !onUpdateEntry) return;
+
+    const updatedEntry: CalendarEntry = {
+      ...entry,
+      notes: standardNotes.trim(),
+      updatedAt: new Date(),
+    };
+
+    onUpdateEntry(updatedEntry);
   };
 
 
@@ -185,49 +268,237 @@ export default function TooltipModal({
       case 'notes':
         return (
           <View style={styles.notesContent}>
+            {/* Note standard */}
+            <View style={styles.standardNotesSection}>
+              <Text style={styles.sectionTitle}>📝 Note</Text>
+              <View style={styles.standardNoteContainer}>
+                <TextInput
+                  style={styles.standardNotesInput}
+                  placeholder="Aggiungi una nota..."
+                  value={standardNotes}
+                  onChangeText={setStandardNotes}
+                  multiline
+                  maxLength={1000}
+                  textAlignVertical="top"
+                />
+                {standardNotes !== (entry?.notes || '') && (
+                  <SafeTouchableOpacity
+                    style={styles.saveNotesButton}
+                    onPress={handleSaveStandardNotes}
+                  >
+                    <Text style={styles.saveNotesButtonText}>Salva Note</Text>
+                  </SafeTouchableOpacity>
+                )}
+              </View>
+            </View>
+            
             <Text style={styles.sectionTitle}>💬 Chat Note</Text>
             
             {/* Lista messaggi esistenti */}
+            {(() => {
+              console.log('🔧 TooltipModal: Rendering chat notes. Entry ID:', entry?.id);
+              console.log('🔧 TooltipModal: ChatNotes esistenti:', entry?.chatNotes?.length || 0);
+              console.log('🔧 TooltipModal: ChatNotes array:', entry?.chatNotes);
+              return null;
+            })()}
+            
             {entry?.chatNotes && entry.chatNotes.length > 0 ? (
               <ScrollView 
                 ref={scrollViewRef}
-                style={styles.chatContainer}
-                showsVerticalScrollIndicator={false}
+                style={{ 
+                  maxHeight: 300, 
+                  backgroundColor: '#f5f5f5', 
+                  borderRadius: 8, 
+                  marginVertical: 10,
+                  paddingHorizontal: 8
+                }}
+                showsVerticalScrollIndicator={true}
               >
-                {entry.chatNotes.map((note) => {
-                  const isCurrentUser = note.userId === 'default_user'; // TODO: Usare utente corrente
-                  const userInitials = (note.userName || note.userId).substring(0, 2).toUpperCase();
+                {entry.chatNotes.map((note, index) => {
+                  const isCurrentUser = note.userId === 'default_user';
+                  
+                  // Calcola timestamp
+                  let timeString = '--:--';
+                  try {
+                    let date;
+                    if ((note.timestamp as any)?.seconds) {
+                      date = new Date((note.timestamp as any).seconds * 1000);
+                    } else {
+                      date = new Date(note.timestamp);
+                    }
+                    timeString = date.toLocaleTimeString('it-IT', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    });
+                  } catch (error) {
+                    console.error('Errore timestamp:', error);
+                  }
                   
                   return (
-                    <View key={note.id} style={[
-                      styles.chatMessage,
-                      isCurrentUser ? styles.chatMessageOwn : styles.chatMessageOther
-                    ]}>
-                      <View style={[
-                        styles.chatBubble,
-                        isCurrentUser ? styles.chatBubbleOwn : styles.chatBubbleOther
-                      ]}>
-                        <View style={styles.chatHeader}>
-                          <View style={[
-                            styles.userAvatar,
-                            isCurrentUser ? styles.userAvatarOwn : styles.userAvatarOther
-                          ]}>
-                            <Text style={styles.userInitials}>{userInitials}</Text>
-                          </View>
-                          <Text style={styles.userName}>{note.userName}</Text>
-                          <Text style={styles.messageTime}>
-                            {new Date(note.timestamp).toLocaleTimeString('it-IT', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                    <View key={note.id || index} style={{
+                      marginVertical: 6,
+                    }}>
+                      {/* Reply preview se presente */}
+                      {note.replyTo && (
+                        <View style={{
+                          marginLeft: isCurrentUser ? 50 : 40,
+                          marginRight: isCurrentUser ? 8 : 50,
+                          marginBottom: 4,
+                          backgroundColor: 'rgba(0,0,0,0.1)',
+                          borderLeftWidth: 3,
+                          borderLeftColor: '#007AFF',
+                          borderRadius: 8,
+                          padding: 8
+                        }}>
+                          <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#007AFF' }}>
+                            {note.replyTo.userName}
+                          </Text>
+                          <Text style={{ fontSize: 12, color: 'gray' }} numberOfLines={1}>
+                            {note.replyTo.message}
                           </Text>
                         </View>
-                        <Text style={[
-                          styles.messageText,
-                          isCurrentUser ? styles.messageTextOwn : styles.messageTextOther
-                        ]}>
-                          {note.message}
-                        </Text>
+                      )}
+                      
+                      <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'flex-end',
+                        justifyContent: isCurrentUser ? 'flex-end' : 'flex-start'
+                      }}>
+                        {/* Avatar utente */}
+                        {!isCurrentUser && (
+                          <View style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 16,
+                            backgroundColor: '#007AFF',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            marginRight: 8
+                          }}>
+                            <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>
+                              {(note.userName || note.userId).substring(0, 2).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+                        
+                        {/* Container messaggio con long press */}
+                        <TouchableOpacity
+                          style={{ maxWidth: '75%' }}
+                          onLongPress={() => {
+                            Alert.alert(
+                              'Azioni messaggio',
+                              `Cosa vuoi fare con questo messaggio?`,
+                              [
+                                { text: '👍', onPress: () => handleReaction(note.id, '👍') },
+                                { text: '❤️', onPress: () => handleReaction(note.id, '❤️') },
+                                { text: '😂', onPress: () => handleReaction(note.id, '😂') },
+                                { text: '💬 Rispondi', onPress: () => handleReply(note.id, note.userName || 'Utente', note.message) },
+                                { text: 'Annulla', style: 'cancel' }
+                              ],
+                              { cancelable: true }
+                            );
+                          }}
+                          onPress={() => {
+                            // Doppio tap veloce per aprire il menu
+                            setTimeout(() => {
+                              Alert.alert(
+                                'Menu Messaggio',
+                                'Seleziona un\'azione:',
+                                [
+                                  { text: '👍 Mi piace', onPress: () => handleReaction(note.id, '👍') },
+                                  { text: '💬 Rispondi', onPress: () => handleReply(note.id, note.userName || 'Utente', note.message) },
+                                  { text: 'Annulla', style: 'cancel' }
+                                ]
+                              );
+                            }, 300);
+                          }}
+                          activeOpacity={0.8}
+                          delayLongPress={800}
+                        >
+                          {/* Bubble messaggio */}
+                          <View style={{
+                            backgroundColor: isCurrentUser ? '#007AFF' : '#E5E5EA',
+                            borderRadius: 18,
+                            paddingHorizontal: 12,
+                            paddingVertical: 8,
+                            marginBottom: 2
+                          }}>
+                            {/* Nome utente se non è current user */}
+                            {!isCurrentUser && (
+                              <Text style={{
+                                fontSize: 12,
+                                fontWeight: 'bold',
+                                color: '#007AFF',
+                                marginBottom: 2
+                              }}>
+                                {note.userName}
+                              </Text>
+                            )}
+                            
+                            {/* Messaggio */}
+                            <Text style={{
+                              fontSize: 16,
+                              color: isCurrentUser ? 'white' : 'black',
+                              lineHeight: 20
+                            }}>
+                              {note.message}
+                            </Text>
+                            
+                            {/* Timestamp */}
+                            <Text style={{
+                              fontSize: 11,
+                              color: isCurrentUser ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)',
+                              marginTop: 4,
+                              textAlign: 'right'
+                            }}>
+                              {timeString}
+                            </Text>
+                          </View>
+                          
+                          {/* Reazioni */}
+                          {note.reactions && note.reactions.length > 0 && (
+                            <View style={{
+                              flexDirection: 'row',
+                              flexWrap: 'wrap',
+                              marginTop: 2,
+                              marginLeft: isCurrentUser ? 'auto' : 0,
+                              marginRight: isCurrentUser ? 0 : 'auto'
+                            }}>
+                              {note.reactions.map((reaction, idx) => (
+                                <View key={idx} style={{
+                                  backgroundColor: 'rgba(0,0,0,0.1)',
+                                  borderRadius: 12,
+                                  paddingHorizontal: 6,
+                                  paddingVertical: 2,
+                                  marginRight: 4,
+                                  marginBottom: 2,
+                                  flexDirection: 'row',
+                                  alignItems: 'center'
+                                }}>
+                                  <Text style={{ fontSize: 14 }}>{reaction.emoji}</Text>
+                                  <Text style={{ fontSize: 10, marginLeft: 2, color: 'gray' }}>1</Text>
+                                </View>
+                              ))}
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                        
+                        {/* Avatar current user */}
+                        {isCurrentUser && (
+                          <View style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 16,
+                            backgroundColor: '#34C759',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            marginLeft: 8
+                          }}>
+                            <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>
+                              TU
+                            </Text>
+                          </View>
+                        )}
                       </View>
                     </View>
                   );
@@ -239,6 +510,37 @@ export default function TooltipModal({
                 <Text style={styles.emptySubtext}>
                   Inizia la conversazione aggiungendo un messaggio
                 </Text>
+              </View>
+            )}
+
+            {/* Reply preview se stai rispondendo */}
+            {replyToMessage && (
+              <View style={{
+                backgroundColor: '#f0f0f0',
+                borderLeftWidth: 3,
+                borderLeftColor: '#007AFF',
+                padding: 10,
+                marginHorizontal: 10,
+                marginTop: 10,
+                borderRadius: 8,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#007AFF' }}>
+                    Rispondi a {replyToMessage.userName}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: 'gray' }} numberOfLines={1}>
+                    {replyToMessage.message}
+                  </Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={() => setReplyToMessage(null)}
+                  style={{ padding: 5 }}
+                >
+                  <Text style={{ fontSize: 16, color: 'gray' }}>✕</Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -1003,6 +1305,46 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.warmBorder,
+  },
+  standardNotesSection: {
+    marginBottom: Spacing.medium,
+  },
+  standardNoteContainer: {
+    backgroundColor: Colors.warmBackground,
+    borderRadius: 8,
+    padding: Spacing.medium,
+    marginTop: Spacing.small,
+    borderWidth: 1,
+    borderColor: Colors.warmBorder,
+  },
+  standardNoteText: {
+    fontSize: 14,
+    color: Colors.textPrimary,
+    lineHeight: 20,
+  },
+  standardNotesInput: {
+    borderWidth: 1,
+    borderColor: Colors.warmBorder,
+    borderRadius: 8,
+    padding: Spacing.medium,
+    fontSize: 14,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.warmBackground,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  saveNotesButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: 8,
+    paddingVertical: Spacing.small,
+    paddingHorizontal: Spacing.medium,
+    marginTop: Spacing.small,
+    alignItems: 'center',
+  },
+  saveNotesButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   chatMessage: {
     marginBottom: Spacing.small,

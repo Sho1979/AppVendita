@@ -26,6 +26,18 @@ export interface CalendarEntry {
     userName?: string;
     message: string;
     timestamp: Date;
+    // Reazioni al messaggio
+    reactions?: {
+      emoji: string; // 👍, ❤️, 😂, 😢, 😮, 😡
+      userId: string;
+      userName?: string;
+    }[];
+    // Reply a un altro messaggio
+    replyTo?: {
+      messageId: string;
+      userName: string;
+      message: string; // Preview del messaggio originale
+    };
   }[];
   // Nuovi campi per i tag
   tags: string[]; // Array di ID dei tag selezionati

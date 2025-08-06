@@ -11,6 +11,7 @@ interface WeekCalendarProps {
   currentDate: Date;
   entries: CalendarEntry[];
   selectedDate: string;
+  selectedSalesPointId?: string;
   onDayPress: (date: string) => void;
   onTooltipPress?: (type: 'stock' | 'notes' | 'info' | 'images', date: string, entry?: CalendarEntry) => void;
 }
@@ -19,6 +20,7 @@ export default function WeekCalendar({
   currentDate,
   entries,
   selectedDate,
+  selectedSalesPointId,
   onDayPress,
   onTooltipPress,
 }: WeekCalendarProps) {
@@ -166,6 +168,7 @@ export default function WeekCalendar({
               entry={entry}
               isSelected={isSelected(date)}
               isToday={isToday(date)}
+              selectedSalesPointId={selectedSalesPointId}
               onPress={() => {
                 onDayPress(dateStr || '');
               }}

@@ -1,277 +1,268 @@
-import React, { useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  Platform,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
-
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { CalendarEntry } from '../../data/models/CalendarEntry';
 
 interface FocusReferencesDisplayProps {
-  onRefresh?: () => void;
+  displayData: {
+    useOriginalData: boolean;
+    progressiveData?: {
+      displayData: {
+        progressiveEntries: any[];
+      };
+      sellInProgressivo: number;
+    };
+  };
+  entry?: CalendarEntry | undefined;
+  isWeekView: boolean;
+  getFocusReferenceById: (id: string) => any;
+  getNetPrice: (referenceId: string) => string;
 }
 
-const FocusReferencesDisplay: React.FC<FocusReferencesDisplayProps> = ({
-  onRefresh,
+export const FocusReferencesDisplay: React.FC<FocusReferencesDisplayProps> = React.memo(({
+  displayData,
+  entry,
+  isWeekView,
+  getFocusReferenceById,
+  getNetPrice,
 }) => {
-  const focusReferencesStore = useFocusReferencesStore();
-  const focusReferences = focusReferencesStore.getAllReferences().filter(ref => 
-    focusReferencesStore.getFocusReferences().includes(ref.id)
-  );
-  const loading = focusReferencesStore.isLoading;
-  
-  const getNetPrice = (referenceId: string): string => {
-    const netPrices = focusReferencesStore.getNetPrices();
-    const netPrice = netPrices[referenceId];
-    return netPrice || '0';
+  // Utility function per creare acronimi (estratta e ottimizzata)
+  const createAcronym = (description: string, referenceCode: string): string => {
+    // Rimuovi caratteri speciali e dividi in parole
+    const words = description
+      .replace(/[^\w\s]/g, ' ')
+      .split(' ')
+      .filter(word => word.length > 0);
+    
+    if (words.length === 0) {
+      // Fallback al codice se la descrizione è vuota
+      return referenceCode.substring(0, 4).toUpperCase();
+    }
+    
+    if (words.length === 1) {
+      // Se c'è solo una parola, prendi i primi 4 caratteri
+      return words[0]?.substring(0, 4).toUpperCase() || referenceCode.substring(0, 4).toUpperCase();
+    }
+    
+    if (words.length === 2) {
+      // Se ci sono 2 parole, prendi 2 caratteri da ogni parola
+      const first = words[0]?.substring(0, 2) || '';
+      const second = words[1]?.substring(0, 2) || '';
+      const acronym = (first + second).toUpperCase();
+      return acronym.length > 0 ? acronym : referenceCode.substring(0, 4).toUpperCase();
+    }
+    
+    // Se ci sono 3+ parole, prendi le prime lettere di ogni parola
+    const acronym = words
+      .slice(0, 4) // Massimo 4 parole
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase();
+    
+    return acronym.length > 0 ? acronym : referenceCode.substring(0, 4).toUpperCase();
   };
 
-  // Carica le referenze focus all'inizializzazione del componente
-  useEffect(() => {
-    const loadFocusReferences = async () => {
-      console.log('🔍 FocusReferencesDisplay: Caricamento referenze focus...');
-      
-      // Carica il listino completo (statico)
-      focusReferencesStore.loadAllReferences();
-      
-      // Carica le configurazioni focus da Firestore (globali)
-      await focusReferencesStore.loadFocusReferencesFromFirestore();
-      
-      console.log('✅ FocusReferencesDisplay: Referenze focus caricate');
-    };
-    
-    loadFocusReferences();
-  }, []); // Esegui solo all'inizializzazione - nessuna dipendenza per evitare loop
-
-  const handleNetPriceChange = async (referenceId: string, value: string) => {
-    // Aggiorna il prezzo nello store
-    focusReferencesStore.updateNetPrice(referenceId, value);
-    
-    // Salva su Firestore (globale)
-    await focusReferencesStore.saveNetPricesToFirestore();
+  // Determina il colore del bordo in base alla situazione stock
+  const getBorderColor = (soldPieces: number, stockPieces: number): string => {
+    if (stockPieces <= 0) return '#FF3B30'; // Rosso - stock esaurito
+    if (soldPieces >= stockPieces * 0.8) return '#FF9500'; // Giallo - stock basso (80%+ venduti)
+    if (soldPieces >= stockPieces * 0.5) return '#FFCC00'; // Giallo chiaro - stock medio (50%+ venduti)
+    return '#34C759'; // Verde - stock alto
   };
 
-  if (loading) {
+  // Se il sistema progressivo non è inizializzato, usa i dati originali
+  if (displayData.useOriginalData) {
+    if (!entry?.focusReferencesData || entry.focusReferencesData.length === 0) {
+      return null;
+    }
+
+    // Controlla se tutte le referenze hanno valori uguali a 0
+    const allReferencesHaveZeroValues = entry.focusReferencesData.every(focusData => {
+      const soldPieces = parseFloat(focusData.soldPieces) || 0;
+      const stockPieces = parseFloat(focusData.stockPieces) || 0;
+      const orderedPieces = parseFloat(focusData.orderedPieces) || 0;
+      return soldPieces === 0 && stockPieces === 0 && orderedPieces === 0;
+    });
+
+    // Se tutte le referenze hanno valori 0, non mostrare nulla
+    if (allReferencesHaveZeroValues) {
+      return null;
+    }
+
     return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>Caricamento referenze focus...</Text>
+      <View style={styles.focusReferencesContainer}>
+        {entry.focusReferencesData.map((focusData) => {
+          const reference = getFocusReferenceById(focusData.referenceId);
+          if (!reference) return null;
+
+          const soldPieces = parseFloat(focusData.soldPieces) || 0;
+          const stockPieces = parseFloat(focusData.stockPieces) || 0;
+          
+          const acronym = createAcronym(reference.description || '', reference.code);
+
+          return (
+            <View key={focusData.referenceId} style={[
+              styles.focusReferenceItem,
+              isWeekView && styles.focusReferenceItemWeek,
+              { borderColor: getBorderColor(soldPieces, stockPieces) }
+            ]}>
+              <View style={styles.focusReferenceHeader}>
+                <Text style={[
+                  styles.focusReferenceAcronym,
+                  isWeekView && styles.focusReferenceAcronymWeek
+                ]}>{acronym}</Text>
+              </View>
+              <View style={styles.focusReferenceNumbers}>
+                <Text style={[
+                  styles.focusReferenceSold, 
+                  soldPieces > 0 && styles.focusReferenceSoldActive,
+                  isWeekView && styles.focusReferenceTextWeek
+                ]}>
+                  V: {soldPieces}
+                </Text>
+                <Text style={[
+                  styles.focusReferenceStock, 
+                  stockPieces > 0 && styles.focusReferenceStockActive,
+                  isWeekView && styles.focusReferenceTextWeek
+                ]}>
+                  S: {stockPieces}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
       </View>
     );
   }
 
-  if (focusReferences.length === 0) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.emptyContainer}>
-                     <Ionicons name="locate-outline" size={48} color="#8E8E93" />
-          <Text style={styles.emptyTitle}>Nessuna Referenza Focus</Text>
-          <Text style={styles.emptySubtitle}>
-            Vai nelle Impostazioni per selezionare le referenze focus
-          </Text>
-          {onRefresh && (
-            <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
-              <Ionicons name="refresh" size={16} color="#007AFF" />
-              <Text style={styles.refreshButtonText}>Aggiorna</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    );
+  // Altrimenti usa i dati progressivi
+  if (!displayData.progressiveData?.displayData.progressiveEntries || 
+      displayData.progressiveData.displayData.progressiveEntries.length === 0) {
+    return null;
+  }
+
+  // Controlla se l'entry originale aveva dati focus
+  // Se non aveva dati focus, non mostrare nulla anche se il sistema progressivo ha calcolato i dati
+  const originalEntryHasFocusData = entry?.focusReferencesData && entry.focusReferencesData.length > 0;
+  if (!originalEntryHasFocusData) {
+    return null;
+  }
+
+  // Controlla se l'entry ha effettivamente dati focus con valori > 0
+  const hasActualFocusData = entry?.focusReferencesData?.some(focusData => {
+    const soldPieces = parseFloat(focusData.soldPieces) || 0;
+    const stockPieces = parseFloat(focusData.stockPieces) || 0;
+    const orderedPieces = parseFloat(focusData.orderedPieces) || 0;
+    return soldPieces > 0 || stockPieces > 0 || orderedPieces > 0;
+  }) || false;
+
+  // Se l'entry non ha dati focus con valori > 0, non mostrare nulla
+  if (!hasActualFocusData) {
+    return null;
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-                     <Ionicons name="locate" size={20} color="#007AFF" />
-          <Text style={styles.headerTitle}>Referenze Focus</Text>
-          <Text style={styles.headerCount}>({focusReferences.length})</Text>
-        </View>
-        {onRefresh && (
-          <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
-            <Ionicons name="refresh" size={16} color="#007AFF" />
-          </TouchableOpacity>
-        )}
-      </View>
+    <View style={styles.focusReferencesContainer}>
+      {displayData.progressiveData.displayData.progressiveEntries.map((productEntry: any) => {
+        const reference = getFocusReferenceById(productEntry.productId);
+        if (!reference) return null;
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {focusReferences.map((reference) => (
-          <View key={reference.id} style={styles.referenceItem}>
-            <View style={styles.referenceHeader}>
-              <View style={styles.referenceInfo}>
-                <Text style={styles.brandText}>{reference.brand}</Text>
-                <Text style={styles.subBrandText}>{reference.subBrand}</Text>
-                <Text style={styles.codeText}>COD: {reference.code}</Text>
-              </View>
-              <View style={styles.priceInfo}>
-                <Text style={styles.unitPriceText}>€{reference.unitPrice.toFixed(2)}</Text>
-              </View>
+        const soldPieces = productEntry.vendite;
+        const stockPieces = productEntry.scorte;
+        
+        const acronym = createAcronym(reference.description || '', reference.code);
+
+        return (
+          <View key={productEntry.productId} style={[
+            styles.focusReferenceItem,
+            { borderColor: getBorderColor(soldPieces, stockPieces) }
+          ]}>
+            <View style={styles.focusReferenceHeader}>
+              <Text style={styles.focusReferenceAcronym}>{acronym}</Text>
             </View>
-            
-            <View style={styles.netPriceSection}>
-              <Text style={styles.netPriceLabel}>Prezzo Netto:</Text>
-              <TextInput
-                style={styles.netPriceInput}
-                value={getNetPrice(reference.id)}
-                onChangeText={(text) => handleNetPriceChange(reference.id, text)}
-                keyboardType="numeric"
-                placeholder="0.00"
-                placeholderTextColor="#8E8E93"
-              />
-              <Text style={styles.netPriceCurrency}>€</Text>
+            <View style={styles.focusReferenceNumbers}>
+              <Text style={[styles.focusReferenceSold, soldPieces > 0 && styles.focusReferenceSoldActive]}>
+                V: {soldPieces}
+              </Text>
+              <Text style={[styles.focusReferenceStock, stockPieces > 0 && styles.focusReferenceStockActive]}>
+                S: {stockPieces}
+              </Text>
             </View>
           </View>
-        ))}
-      </ScrollView>
+        );
+      })}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    elevation: 2,
-    ...(Platform.OS === 'web' ? {
-      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
-    } : {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.1,
-      shadowRadius: 2,
-    }),
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-    marginLeft: 8,
-  },
-  headerCount: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginLeft: 4,
-  },
-  refreshButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  refreshButtonText: {
-    fontSize: 12,
-    color: '#007AFF',
-    marginLeft: 4,
-  },
-  scrollView: {
-    maxHeight: 200,
-  },
-  referenceItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  referenceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  referenceInfo: {
-    flex: 1,
-  },
-  brandText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 2,
-  },
-  subBrandText: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginBottom: 2,
-  },
-  codeText: {
-    fontSize: 10,
-    color: '#8E8E93',
-  },
-  priceInfo: {
-    alignItems: 'flex-end',
-  },
-  unitPriceText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
-  netPriceSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  netPriceLabel: {
-    fontSize: 12,
-    color: '#666666',
-    marginRight: 8,
-  },
-  netPriceInput: {
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    fontSize: 12,
-    backgroundColor: '#FFFFFF',
-    width: 60,
-    textAlign: 'center',
-  },
-  netPriceCurrency: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#007AFF',
-    marginLeft: 4,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: '#8E8E93',
-    textAlign: 'center',
-    padding: 20,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#8E8E93',
-    marginTop: 8,
-  },
-  emptySubtitle: {
-    fontSize: 12,
-    color: '#8E8E93',
-    textAlign: 'center',
+  // Stili per le referenze focus (layout a 2 colonne)
+  focusReferencesContainer: {
     marginTop: 4,
+    paddingHorizontal: 2,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  focusReferenceItem: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 4,
+    padding: 3,
+    marginBottom: 2,
+    borderWidth: 2,
+    borderColor: '#E5E5EA',
+    width: '48%', // Metà larghezza per 2 colonne
+    minHeight: 40,
+  },
+  focusReferenceItemWeek: {
+    padding: 2,
+    marginBottom: 1,
+    minHeight: 30,
+  },
+  focusReferenceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  focusReferenceAcronym: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 3,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  focusReferenceAcronymWeek: {
+    fontSize: 8,
+    paddingHorizontal: 2,
+    paddingVertical: 1,
+  },
+  focusReferenceNumbers: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  focusReferenceSold: {
+    fontSize: 7,
+    color: '#28A745',
+    fontWeight: '600',
+  },
+  focusReferenceStock: {
+    fontSize: 7,
+    color: '#FF6B35',
+    fontWeight: '600',
+  },
+  focusReferenceSoldActive: {
+    color: '#1E7E34',
+    fontWeight: 'bold',
+  },
+  focusReferenceStockActive: {
+    color: '#E65100',
+    fontWeight: 'bold',
+  },
+  focusReferenceTextWeek: {
+    fontSize: 6,
   },
 });
 
-export default FocusReferencesDisplay; 
+FocusReferencesDisplay.displayName = 'FocusReferencesDisplay';

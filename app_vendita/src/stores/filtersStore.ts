@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useMasterDataStore } from './masterDataStore';
+import { createStorageAdapter } from '../utils/storageAdapter';
 
 
 
@@ -129,7 +130,8 @@ export const useFiltersStore = create<FiltersState>()(
       }),
     }),
     {
-      name: 'filters-storage', // Nome per AsyncStorage
+      name: 'filters-storage', // Nome per storage
+      storage: createStorageAdapter(), // Usa adapter che funziona su web e mobile
       partialize: (state) => ({ 
         selectedDate: state.selectedDate,
         selectedUserId: state.selectedUserId,

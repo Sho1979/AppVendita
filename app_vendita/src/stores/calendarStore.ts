@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { CalendarEntry } from '../data/models/CalendarEntry';
 import { User } from '../data/models/User';
 import { SalesPoint } from '../data/models/SalesPoint';
+import { createStorageAdapter } from '../utils/storageAdapter';
 
 // Utility per logging condizionale
 const devLog = (message: string, ...args: any[]) => {
@@ -195,6 +196,7 @@ export const useCalendarStore = create<CalendarState>()(
     }),
     {
       name: 'calendar-storage',
+      storage: createStorageAdapter() as any, // Cast temporaneo per compatibilità TypeScript
       partialize: (state) => ({
         entries: state.entries,
         users: state.users,
