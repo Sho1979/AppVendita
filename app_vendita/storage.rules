@@ -1,10 +1,21 @@
 rules_version = '2';
 
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
+// Regole Firebase Storage per app vendita
 service firebase.storage {
   match /b/{bucket}/o {
+    // Regole per le foto dei punti vendita
+    match /photos/{year}/{month}/{day}/{salesPointId}/{fileName} {
+      // Permetti lettura a tutti gli utenti autenticati
+      allow read: if request.auth != null;
+      
+      // Permetti scrittura solo agli utenti autenticati
+      // con controlli aggiuntivi sulla dimensione del file
+      allow write: if request.auth != null 
+        && request.resource.size < 10 * 1024 * 1024  // Max 10MB
+        && request.resource.contentType.matches('image/.*'); // Solo immagini
+    }
+    
+    // Blocca tutto il resto
     match /{allPaths=**} {
       allow read, write: if false;
     }

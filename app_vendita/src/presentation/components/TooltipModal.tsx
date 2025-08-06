@@ -5,16 +5,20 @@ import {
   StyleSheet,
   Modal,
   ScrollView,
-  Alert,
   Platform,
   TextInput,
   KeyboardAvoidingView,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { Colors } from '../../constants/Colors';
 import { Spacing } from '../../constants/Spacing';
 import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
+import { usePhotoManager } from '../../hooks/usePhotoManager';
+import { supportsCameraCapture } from '../../utils/cameraConfig';
+import { IS_WEB, IS_MOBILE } from '../../utils/platformConfig';
 
 interface TooltipModalProps {
   visible: boolean;
@@ -37,6 +41,9 @@ interface TooltipModalProps {
   salesPoints?: any[];
   agents?: any[];
   excelRows?: any[];
+  // Props per photo manager
+  userId?: string;
+  salesPointName?: string;
 }
 
 export default function TooltipModal({
@@ -47,15 +54,26 @@ export default function TooltipModal({
   onClose,
   onUpdateEntry,
   activeFilters,
+  userId = 'default_user',
+  salesPointName = 'Punto Vendita',
 }: TooltipModalProps) {
   const focusReferencesStore = useFocusReferencesStore();
   
   const getFocusReferenceById = (id: string) => {
     return focusReferencesStore.getAllReferences().find(ref => ref.id === id);
   };
+
+  // Photo manager per gestione intelligente foto
+  const salesPointId = activeFilters?.selectedSalesPointId || 'default';
+  const photoManager = usePhotoManager({
+    calendarDate: date,
+    salesPointId,
+    salesPointName,
+    userId,
+  });
   const scrollViewRef = useRef<ScrollView>(null);
   const [newMessage, setNewMessage] = useState('');
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
 
   // Scroll to bottom when new messages are added
   useEffect(() => {
@@ -87,10 +105,7 @@ export default function TooltipModal({
     setNewMessage('');
   };
 
-  const handleEmojiSelect = (emoji: any) => {
-    setNewMessage(prev => prev + emoji.native);
-    setShowEmojiPicker(false);
-  };
+
 
   const getModalTitle = () => {
     switch (type) {
@@ -308,29 +323,132 @@ export default function TooltipModal({
       case 'images':
         return (
           <View style={styles.imagesContent}>
-            <Text style={styles.sectionTitle}>📷 Immagini</Text>
+            <Text style={styles.sectionTitle}>
+              📷 Foto {IS_MOBILE ? '(Live + Geolocalizzazione)' : '(Upload)'}
+            </Text>
             <Text style={styles.description}>
-              Carica e visualizza immagini per questo giorno
+              {photoManager.currentCount}/{photoManager.maxPhotos} foto caricate per questo giorno
             </Text>
             
-            <View style={styles.imagesContainer}>
-              <SafeTouchableOpacity
-                style={styles.uploadButton}
-                onPress={() => {
-                  // TODO: Implementare upload immagini
-                  Alert.alert('Upload Immagini', 'Funzionalità in sviluppo');
-                }}
-              >
-                <Text style={styles.uploadButtonText}>📷 Carica Immagine</Text>
-              </SafeTouchableOpacity>
+            {/* Pulsanti di azione */}
+            <View style={styles.photoActions}>
+              {IS_MOBILE && supportsCameraCapture() && (
+                <SafeTouchableOpacity
+                  style={[styles.photoButton, styles.cameraButton, !photoManager.canAddMore && styles.disabledButton]}
+                  onPress={photoManager.takePhoto}
+                  disabled={!photoManager.canAddMore || photoManager.isUploading}
+                >
+                  <Text style={styles.photoButtonText}>📷 Scatta Foto</Text>
+                </SafeTouchableOpacity>
+              )}
               
-              <View style={styles.imagesList}>
-                <Text style={styles.emptyText}>Nessuna immagine caricata</Text>
-                <Text style={styles.emptySubtext}>
-                  Carica immagini per documentare questo giorno
+              <SafeTouchableOpacity
+                style={[styles.photoButton, styles.galleryButton, !photoManager.canAddMore && styles.disabledButton]}
+                onPress={IS_MOBILE ? photoManager.showPhotoSource : photoManager.selectPhoto}
+                disabled={!photoManager.canAddMore || photoManager.isUploading}
+              >
+                <Text style={styles.photoButtonText}>
+                  {IS_WEB ? '📂 Carica File' : '🖼️ Dalla Galleria'}
+                </Text>
+              </SafeTouchableOpacity>
+            </View>
+
+            {/* Progress bar durante upload */}
+            {photoManager.isUploading && (
+              <View style={styles.uploadProgress}>
+                <Text style={styles.uploadText}>Caricamento foto... {Math.round(photoManager.uploadProgress)}%</Text>
+                <View style={styles.progressBar}>
+                  <View style={[styles.progressFill, { width: `${photoManager.uploadProgress}%` }]} />
+                </View>
+              </View>
+            )}
+
+            {/* Loading indicator */}
+            {photoManager.isLoading && (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+                <Text style={styles.loadingText}>Caricamento foto...</Text>
+              </View>
+            )}
+
+            {/* Lista foto con preview */}
+            <View style={styles.imagesList}>
+              {photoManager.photos.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>Nessuna foto caricata</Text>
+                  <Text style={styles.emptySubtext}>
+                    {IS_MOBILE 
+                      ? 'Scatta foto con geolocalizzazione automatica' 
+                      : 'Carica immagini per documentare questo giorno'
+                    }
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.photosGrid}>
+                  {photoManager.photos.map((photo) => (
+                    <SafeTouchableOpacity
+                      key={photo.firestoreId}
+                      style={styles.photoThumbnailContainer}
+                      onPress={() => setSelectedPhoto(photo)}
+                    >
+                      {/* Thumbnail */}
+                      <Image 
+                        source={{ uri: photo.thumbnail }} 
+                        style={styles.photoThumbnail}
+                        resizeMode="cover"
+                      />
+                      
+                      {/* Overlay info */}
+                      <View style={styles.photoOverlay}>
+                        <Text style={styles.photoTime}>
+                          {new Date(photo.dateTaken).toLocaleTimeString('it-IT', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Text>
+                        <Text style={styles.photoUser}>
+                          {photo.userName || 'Utente'}
+                        </Text>
+                      </View>
+
+                      {/* Badge piattaforma */}
+                      <View style={styles.platformBadge}>
+                        <Text style={styles.platformIcon}>
+                          {photo.platform === 'mobile' ? '📱' : '💻'}
+                        </Text>
+                      </View>
+
+                      {/* Badge geolocalizzazione */}
+                      {photo.location && (
+                        <View style={styles.locationBadge}>
+                          <Text style={styles.locationIcon}>📍</Text>
+                        </View>
+                      )}
+
+                      {/* Pulsante elimina */}
+                      <SafeTouchableOpacity
+                        style={styles.deletePhotoButton}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          photoManager.deletePhoto(photo.firestoreId);
+                        }}
+                      >
+                        <Text style={styles.deletePhotoIcon}>🗑️</Text>
+                      </SafeTouchableOpacity>
+                    </SafeTouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {/* Info limite */}
+            {!photoManager.canAddMore && (
+              <View style={styles.limitInfo}>
+                <Text style={styles.limitText}>
+                  ⚠️ Limite massimo di {photoManager.maxPhotos} foto raggiunto per oggi
                 </Text>
               </View>
-            </View>
+            )}
           </View>
         );
 
@@ -347,38 +465,126 @@ export default function TooltipModal({
   };
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <KeyboardAvoidingView 
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <>
+      {/* Modal principale */}
+      <Modal
+        visible={visible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={onClose}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <SafeTouchableOpacity
-            style={styles.closeButton}
-            onPress={onClose}
-            accessibilityLabel="Chiudi"
-            accessibilityHint="Chiudi il modal"
-          >
-            <Text style={styles.closeButtonText}>✕</Text>
-          </SafeTouchableOpacity>
-          
-          <Text style={styles.title}>{getModalTitle()}</Text>
-          
-          <View style={styles.headerSpacer} />
-        </View>
+        <KeyboardAvoidingView 
+          style={styles.container}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <SafeTouchableOpacity
+              style={styles.closeButton}
+              onPress={onClose}
+              accessibilityLabel="Chiudi"
+              accessibilityHint="Chiudi il modal"
+            >
+              <Text style={styles.closeButtonText}>✕</Text>
+            </SafeTouchableOpacity>
+            
+            <Text style={styles.title}>{getModalTitle()}</Text>
+            
+            <View style={styles.headerSpacer} />
+          </View>
 
-        {/* Contenuto */}
-        <View style={styles.content}>
-          {getModalContent()}
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+          {/* Contenuto */}
+          <View style={styles.content}>
+            {getModalContent()}
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Modal full-screen per foto */}
+      {selectedPhoto && (
+        <Modal
+          visible={!!selectedPhoto}
+          animationType="fade"
+          presentationStyle="fullScreen"
+          onRequestClose={() => setSelectedPhoto(null)}
+        >
+          <View style={styles.fullscreenContainer}>
+            {/* Header foto */}
+            <View style={styles.fullscreenHeader}>
+              <SafeTouchableOpacity
+                style={styles.fullscreenCloseButton}
+                onPress={() => setSelectedPhoto(null)}
+              >
+                <Text style={styles.fullscreenCloseText}>✕</Text>
+              </SafeTouchableOpacity>
+              
+              <View style={styles.photoHeaderInfo}>
+                <Text style={styles.photoHeaderTitle}>
+                  📷 {selectedPhoto.fileName}
+                </Text>
+                <Text style={styles.photoHeaderSubtitle}>
+                  {selectedPhoto.userName} • {new Date(selectedPhoto.dateTaken).toLocaleString('it-IT')}
+                </Text>
+              </View>
+
+              <SafeTouchableOpacity
+                style={styles.fullscreenDeleteButton}
+                onPress={() => {
+                  setSelectedPhoto(null);
+                  photoManager.deletePhoto(selectedPhoto.firestoreId);
+                }}
+              >
+                <Text style={styles.fullscreenDeleteText}>🗑️</Text>
+              </SafeTouchableOpacity>
+            </View>
+
+            {/* Foto full-screen */}
+            <View style={styles.fullscreenImageContainer}>
+              <Image
+                source={{ uri: selectedPhoto.base64Data }}
+                style={styles.fullscreenImage}
+                resizeMode="contain"
+              />
+            </View>
+
+            {/* Info dettagliate */}
+            <View style={styles.fullscreenInfo}>
+              <View style={styles.fullscreenInfoRow}>
+                <Text style={styles.fullscreenInfoLabel}>Dimensioni:</Text>
+                <Text style={styles.fullscreenInfoValue}>
+                  {selectedPhoto.width}x{selectedPhoto.height}px
+                </Text>
+              </View>
+              
+              <View style={styles.fullscreenInfoRow}>
+                <Text style={styles.fullscreenInfoLabel}>Dimensione:</Text>
+                <Text style={styles.fullscreenInfoValue}>
+                  {Math.round(selectedPhoto.compressedSize / 1024)}KB 
+                  (originale: {Math.round(selectedPhoto.originalSize / 1024)}KB)
+                </Text>
+              </View>
+
+              <View style={styles.fullscreenInfoRow}>
+                <Text style={styles.fullscreenInfoLabel}>Piattaforma:</Text>
+                <Text style={styles.fullscreenInfoValue}>
+                  {selectedPhoto.platform === 'mobile' ? '📱 Mobile' : '💻 Web'}
+                </Text>
+              </View>
+
+              {selectedPhoto.location && (
+                <View style={styles.fullscreenInfoRow}>
+                  <Text style={styles.fullscreenInfoLabel}>Posizione:</Text>
+                  <Text style={styles.fullscreenInfoValue}>
+                    📍 {selectedPhoto.location.address || 
+                      `${selectedPhoto.location.latitude.toFixed(4)}, ${selectedPhoto.location.longitude.toFixed(4)}`}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
+    </>
   );
 }
 
@@ -456,50 +662,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
-  },
-  // Stili per il tooltip stock
-  stockItem: {
-    marginBottom: Spacing.medium,
-    padding: Spacing.medium,
-    backgroundColor: Colors.warmSurface,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.warmBorder,
-  },
-  stockHeader: {
-    marginBottom: Spacing.small,
-  },
-  stockTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.warmText,
-    marginBottom: 4,
-  },
-  stockCode: {
-    fontSize: 12,
-    color: Colors.warmTextSecondary,
-    fontStyle: 'italic',
-  },
-  stockDetails: {
-    gap: Spacing.small,
-  },
-  stockRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 2,
-  },
-  stockLabel: {
-    fontSize: 14,
-    color: Colors.warmText,
-    flex: 2,
-  },
-  stockValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.warmText,
-    flex: 1,
-    textAlign: 'right',
   },
   stockPercentage: {
     fontSize: 12,
@@ -802,7 +964,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   stockDetails: {
-    gap: Spacing.small,
+    marginVertical: Spacing.small,
   },
   stockRow: {
     flexDirection: 'row',
@@ -933,24 +1095,136 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.warmBorder,
   },
-  imagesContainer: {
+  photoActions: {
+    flexDirection: 'row',
     marginTop: Spacing.medium,
+    marginBottom: Spacing.medium,
   },
-  uploadButton: {
-    backgroundColor: Colors.warmPrimary,
+  photoButton: {
+    flex: 1,
     padding: Spacing.medium,
     borderRadius: 8,
     alignItems: 'center',
-    marginBottom: Spacing.medium,
+    justifyContent: 'center',
+    marginHorizontal: Spacing.small / 2,
   },
-  uploadButtonText: {
+  cameraButton: {
+    backgroundColor: Colors.warmPrimary,
+  },
+  galleryButton: {
+    backgroundColor: '#007AFF',
+  },
+  disabledButton: {
+    backgroundColor: '#cccccc',
+    opacity: 0.6,
+  },
+  photoButtonText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
   },
-  imagesList: {
+  uploadProgress: {
+    marginBottom: Spacing.medium,
+  },
+  uploadText: {
+    fontSize: 12,
+    color: Colors.warmText,
+    textAlign: 'center',
+    marginBottom: Spacing.small,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: Colors.warmPrimary,
+  },
+  loadingContainer: {
     alignItems: 'center',
-    padding: Spacing.medium,
+    padding: Spacing.large,
+  },
+  loadingText: {
+    marginTop: Spacing.small,
+    fontSize: 14,
+    color: Colors.warmText,
+  },
+  imagesList: {
+    marginTop: Spacing.medium,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    padding: Spacing.large,
+  },
+  photosScroll: {
+    marginVertical: Spacing.small,
+  },
+  photoContainer: {
+    marginRight: Spacing.medium,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: Spacing.small,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    width: 160,
+  },
+  photoImage: {
+    width: '100%',
+    height: 120,
+    borderRadius: 6,
+    backgroundColor: '#f0f0f0',
+  },
+  photoInfo: {
+    marginTop: Spacing.small,
+  },
+  photoDate: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.warmText,
+  },
+  photoLocation: {
+    fontSize: 10,
+    color: '#666666',
+    marginTop: 2,
+  },
+  photoPlatform: {
+    fontSize: 10,
+    color: Colors.warmPrimary,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  deleteButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(255, 0, 0, 0.8)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    fontSize: 12,
+    color: '#ffffff',
+  },
+  limitInfo: {
+    marginTop: Spacing.medium,
+    padding: Spacing.small,
+    backgroundColor: '#fff3cd',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#ffeaa7',
+  },
+  limitText: {
+    fontSize: 12,
+    color: '#856404',
+    textAlign: 'center',
   },
   defaultContent: {
     padding: Spacing.medium,
@@ -993,5 +1267,168 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.warmPrimary,
     fontWeight: '500',
+  },
+  // Nuovi stili per la griglia foto
+  photosGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  photoThumbnailContainer: {
+    width: '48%',
+    aspectRatio: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: Colors.warmSurface,
+    borderWidth: 1,
+    borderColor: Colors.warmBorder,
+    position: 'relative',
+  },
+  photoThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  photoOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: 4,
+  },
+  photoTime: {
+    fontSize: 10,
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  photoUser: {
+    fontSize: 9,
+    color: '#dddddd',
+    marginTop: 1,
+  },
+  platformBadge: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  platformIcon: {
+    fontSize: 10,
+  },
+  locationBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 26,
+    backgroundColor: 'rgba(76, 175, 80, 0.8)',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  locationIcon: {
+    fontSize: 10,
+    color: '#ffffff',
+  },
+  deletePhotoButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(244, 67, 54, 0.8)',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  deletePhotoIcon: {
+    fontSize: 10,
+    color: '#ffffff',
+  },
+  // Stili per modal full-screen
+  fullscreenContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  fullscreenHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: Spacing.medium,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingTop: Platform.OS === 'ios' ? 50 : Spacing.medium,
+  },
+  fullscreenCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenCloseText: {
+    fontSize: 18,
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  photoHeaderInfo: {
+    flex: 1,
+    marginHorizontal: Spacing.medium,
+    alignItems: 'center',
+  },
+  photoHeaderTitle: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  photoHeaderSubtitle: {
+    fontSize: 12,
+    color: '#cccccc',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  fullscreenDeleteButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(244, 67, 54, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenDeleteText: {
+    fontSize: 18,
+    color: '#ffffff',
+  },
+  fullscreenImageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenImage: {
+    width: '100%',
+    height: '100%',
+  },
+  fullscreenInfo: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: Spacing.medium,
+    paddingBottom: Platform.OS === 'ios' ? 34 : Spacing.medium,
+  },
+  fullscreenInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  fullscreenInfoLabel: {
+    fontSize: 14,
+    color: '#cccccc',
+    fontWeight: '500',
+  },
+  fullscreenInfoValue: {
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '400',
+    flex: 1,
+    textAlign: 'right',
   },
 }); 

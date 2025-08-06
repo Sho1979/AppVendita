@@ -138,11 +138,60 @@ export default function MainCalendarPage({
   // Funzione per ottenere tutte le entries per le viste calendario (senza filtro data)
   const getCalendarEntries = useCallback(() => {
     const filtersState = useFiltersStore.getState();
-    return state.entries.filter(entry => {
-      if (filtersState.selectedSalesPointId && entry.salesPointId !== filtersState.selectedSalesPointId) return false;
-      if (filtersState.selectedUserId && entry.userId !== filtersState.selectedUserId) return false;
+    
+    // SOLUZIONE SEMPLICE: Se c'è un punto vendita selezionato, usa SOLO quello
+    // Ignora completamente tutti gli altri filtri (userId, AM, NAM, etc.)
+    if (filtersState.selectedSalesPointId) {
+      const filteredEntries = state.entries.filter(entry => {
+        return entry.salesPointId === filtersState.selectedSalesPointId;
+      });
+      
+      console.log('🎯 getCalendarEntries: SOLO PUNTO VENDITA:', {
+        selectedSalesPointId: filtersState.selectedSalesPointId,
+        tuttiGliAltriFiltriIgnorati: {
+          selectedUserId: filtersState.selectedUserId,
+          selectedAMCode: filtersState.selectedAMCode,
+          selectedNAMCode: filtersState.selectedNAMCode
+        },
+        totalEntries: state.entries.length,
+        filteredEntries: filteredEntries.length,
+        primiTreEntries: filteredEntries.slice(0, 3).map(e => ({
+          id: e.id,
+          date: e.date,
+          salesPointId: e.salesPointId,
+          userId: e.userId,
+          hasTags: !!e.tags?.length,
+          hasNotes: !!e.notes?.length,
+          hasFocusReferences: !!e.focusReferencesData?.length
+        }))
+      });
+      
+      return filteredEntries;
+    }
+    
+    // Se NON c'è punto vendita, usa la logica originale
+    const filteredEntries = state.entries.filter(entry => {
+      if (filtersState.selectedUserId && entry.userId !== filtersState.selectedUserId) {
+        return false;
+      }
       return true;
     });
+    
+    console.log('🔍 getCalendarEntries: Risultato filtraggio:', {
+      filtri: {
+        selectedSalesPointId: filtersState.selectedSalesPointId,
+        selectedUserId: filtersState.selectedUserId,
+      },
+      totalEntries: state.entries.length,
+      filteredEntries: filteredEntries.length,
+      sampleEntries: state.entries.slice(0, 3).map(e => ({
+        id: e.id,
+        userId: e.userId,
+        salesPointId: e.salesPointId
+      }))
+    });
+    
+    return filteredEntries;
   }, [state.entries]);
   
 
@@ -279,14 +328,32 @@ export default function MainCalendarPage({
           startDate.toISOString(),
           'al',
           endDate.toISOString(),
-          'per punto vendita:',
-          selectedSalesPointId || 'tutti'
+          'con filtri:',
+          {
+            userId: selectedUserId || 'tutti',
+            salesPointId: selectedSalesPointId || 'tutti'
+          }
         );
         
-        // Carica solo le entries del punto vendita selezionato
-        const entries = selectedSalesPointId 
-          ? await repository.getCalendarEntries(startDate, endDate, undefined, selectedSalesPointId)
-          : await repository.getCalendarEntries(startDate, endDate);
+        // LOGICA PRIORITARIA: Se c'è punto vendita, ignora userId (come nella vista calendario)
+        let entries;
+        if (selectedSalesPointId) {
+          console.log('🎯 MainCalendarPage: Caricamento SOLO per punto vendita:', selectedSalesPointId);
+          entries = await repository.getCalendarEntries(
+            startDate, 
+            endDate, 
+            undefined,  // Ignora userId quando c'è salesPointId
+            selectedSalesPointId
+          );
+        } else {
+          console.log('🔍 MainCalendarPage: Caricamento con filtri normali');
+          entries = await repository.getCalendarEntries(
+            startDate, 
+            endDate, 
+            selectedUserId || undefined,
+            undefined  // No salesPointId se non selezionato
+          );
+        }
         console.log('✅ MainCalendarPage: Entries caricati:', entries.length);
         console.log('✅ MainCalendarPage: Dettagli entries:', entries.map(entry => ({
           id: entry.id,
@@ -727,8 +794,8 @@ export default function MainCalendarPage({
     
     // Filtra i dati Excel in base alle selezioni
     const filteredExcelRows = excelRows.filter(row => {
-      return selectedFilterItems.every(selectedItem => {
-        return (
+      const matches = selectedFilterItems.every(selectedItem => {
+        const itemMatch = (
           row.linea === selectedItem ||
           row.amCode === selectedItem ||
           row.namCode === selectedItem ||
@@ -737,7 +804,22 @@ export default function MainCalendarPage({
           row.codiceCliente === selectedItem ||
           row.cliente === selectedItem
         );
+        
+        if (!itemMatch && __DEV__) {
+          console.log('❌ Excel row non matcha:', selectedItem, 'in row:', {
+            linea: row.linea,
+            amCode: row.amCode,
+            agenteCode: row.agenteCode,
+            cliente: row.cliente,
+            insegnaCliente: row.insegnaCliente,
+            codiceCliente: row.codiceCliente
+          });
+        }
+        
+        return itemMatch;
       });
+      
+      return matches;
     });
 
     // Estrai agenti e punti vendita dai dati filtrati
@@ -762,7 +844,7 @@ export default function MainCalendarPage({
     let autoDetectedAgent = null;
     let autoDetectedSalesPoint = null;
 
-    // Se abbiamo selezionato un punto vendita, trova l'agente associato
+    // Se abbiamo selezionato un punto vendita (tramite filtri o selectedSalesPointId), trova l'agente associato
     const selectedSalesPoint = selectedFilterItems.find(item => {
       return filteredExcelRows.some(row => 
         row.insegnaCliente === item ||
@@ -770,17 +852,47 @@ export default function MainCalendarPage({
         row.cliente === item
       );
     });
+    
+    // SOLUZIONE SEMPLICE: Se nei filtri c'è qualcosa che sembra un punto vendita, usalo
+    let effectiveSalesPoint = selectedSalesPoint;
+    let forcedSalesPointId = null;
+    
+    // Cerca nei selectedFilterItems qualcosa che potrebbe essere un punto vendita
+    if (!effectiveSalesPoint && selectedFilterItems.length > 0) {
+      // Prova l'ultimo item selezionato (spesso è il punto vendita)
+      const lastItem = selectedFilterItems[selectedFilterItems.length - 1];
+      const matchingRow = excelRows.find(row => 
+        row.cliente === lastItem || 
+        row.insegnaCliente === lastItem ||
+        row.codiceCliente === lastItem
+      );
+      
+      if (matchingRow) {
+        effectiveSalesPoint = lastItem;
+        forcedSalesPointId = matchingRow.codiceCliente;
+        console.log('🎯 FORZATURA: Trovato punto vendita nei filtri:', {
+          lastItem,
+          forcedSalesPointId,
+          matchingRow: {
+            cliente: matchingRow.cliente,
+            codiceCliente: matchingRow.codiceCliente
+          }
+        });
+      }
+    }
 
-    if (selectedSalesPoint) {
+    if (effectiveSalesPoint) {
       // Trova l'agente associato a questo punto vendita
       const relatedRow = filteredExcelRows.find(row => 
-        row.insegnaCliente === selectedSalesPoint ||
-        row.codiceCliente === selectedSalesPoint ||
-        row.cliente === selectedSalesPoint
+        row.insegnaCliente === effectiveSalesPoint ||
+        row.codiceCliente === effectiveSalesPoint ||
+        row.cliente === effectiveSalesPoint ||
+        (selectedSalesPointId && row.codiceCliente === selectedSalesPointId)
       );
 
       if (relatedRow) {
         autoDetectedAgent = {
+          id: relatedRow.agenteCode, // Aggiungo id per compatibilità con setSelectedUserId
           code: relatedRow.agenteCode,
           name: relatedRow.agenteName,
           amCode: relatedRow.amCode,
@@ -788,7 +900,7 @@ export default function MainCalendarPage({
           line: relatedRow.linea,
         };
         autoDetectedSalesPoint = {
-          id: relatedRow.codiceCliente,
+          id: forcedSalesPointId || relatedRow.codiceCliente,
           name: relatedRow.insegnaCliente,
         };
         console.log('🔍 MainCalendarPage: Agente rilevato automaticamente:', autoDetectedAgent);
@@ -801,6 +913,18 @@ export default function MainCalendarPage({
       excelRows: filteredExcelRows.length,
       autoDetectedAgent,
       autoDetectedSalesPoint,
+      selectedFilterItems,
+      selectedSalesPointId,
+      selectedUserId,
+      effectiveSalesPoint,
+      selectedSalesPoint,
+      sampleExcelRows: filteredExcelRows.slice(0, 2).map(row => ({
+        insegnaCliente: row.insegnaCliente,
+        codiceCliente: row.codiceCliente,
+        cliente: row.cliente,
+        agenteCode: row.agenteCode,
+        agenteName: row.agenteName
+      }))
     });
 
     return {
@@ -815,13 +939,51 @@ export default function MainCalendarPage({
   // Ottieni i dati filtrati
       const { filteredAgents, filteredSalesPoints, autoDetectedAgent, autoDetectedSalesPoint } = getFilteredData;
 
-      // Aggiorna selectedSalesPointId se viene rilevato automaticamente un punto vendita
+      // LOGICA SEMPLICE: Cerca sempre un punto vendita e agente nei filtri selezionati
   useEffect(() => {
-    if (autoDetectedSalesPoint) {
-      console.log('🔍 MainCalendarPage: Impostazione automatica selectedSalesPointId:', autoDetectedSalesPoint.id);
-      setSelectedSalesPointId(autoDetectedSalesPoint.id);
+    if (selectedFilterItems.length > 0) {
+      // Cerca punto vendita
+      for (const item of selectedFilterItems) {
+        const matchingRow = excelRows.find(row => 
+          row.cliente === item || 
+          row.insegnaCliente === item ||
+          row.codiceCliente === item
+        );
+        
+        if (matchingRow) {
+          const salesPointId = matchingRow.codiceCliente;
+          if (selectedSalesPointId !== salesPointId) {
+            setSelectedSalesPointId(salesPointId);
+          }
+          break;
+        }
+      }
+      
+      // Cerca agente
+      for (const item of selectedFilterItems) {
+        const matchingRow = excelRows.find(row => 
+          row.codiceAgente === item ||
+          row.nomeAgente === item
+        );
+        
+        if (matchingRow) {
+          const agentId = matchingRow.codiceAgente;
+          if (selectedUserId !== agentId) {
+            setSelectedUserId(agentId);
+          }
+          break;
+        }
+      }
     }
-  }, [autoDetectedSalesPoint]);
+  }, [selectedFilterItems, excelRows, selectedSalesPointId, selectedUserId]);
+
+  // Aggiorna selectedUserId se viene rilevato automaticamente un agente (mantieni per compatibilità)
+  useEffect(() => {
+    if (autoDetectedAgent) {
+      console.log('🔍 MainCalendarPage: Impostazione automatica selectedUserId:', autoDetectedAgent.id);
+      setSelectedUserId(autoDetectedAgent.id);
+    }
+  }, [autoDetectedAgent]);
 
   // Ricarica i dati quando cambia il punto vendita selezionato
   useEffect(() => {
@@ -904,6 +1066,18 @@ export default function MainCalendarPage({
         console.error('❌ MainCalendarPage: Errore aggiornamento entry dal tooltip:', error);
         Alert.alert('Errore', 'Impossibile aggiornare l\'entry. Riprova.');
       }
+    };
+
+    // Helper per ottenere il nome del punto vendita
+    const getSalesPointName = (salesPointId?: string): string => {
+      if (!salesPointId) return 'Punto Vendita';
+      
+      const salesPoint = state.salesPoints.find(sp => sp.id === salesPointId);
+      if (salesPoint) return salesPoint.name;
+      
+      // Cerca nei dati Excel se non trovato nei sales points
+      const excelMatch = excelRows.find(row => row.codiceCliente === salesPointId);
+      return excelMatch?.cliente || 'Punto Vendita';
     };
 
     // Funzione per copiare i tag da una data esistente
@@ -1081,35 +1255,16 @@ export default function MainCalendarPage({
             <View style={styles.activeFiltersContent}>
               <View style={styles.filteredDataInfo}>
                 <Text style={styles.filteredDataText}>
-                  👤 Agenti: {autoDetectedAgent ? 1 : filteredAgents.length} | 🏪 Punti Vendita: {autoDetectedSalesPoint ? 1 : filteredSalesPoints.length}
+                  👤 Agenti: {selectedUserId ? 1 : 0} | 🏪 Punti Vendita: {selectedSalesPointId ? 1 : 0}
                 </Text>
+
               </View>
               <View style={styles.selectedFiltersList}>
-                {/* Mostra i nomi specifici quando disponibili */}
-                {autoDetectedAgent && (
-                  <View style={styles.selectedFilterItem}>
-                    <Text style={styles.selectedFilterText}>👤 {autoDetectedAgent.name}</Text>
+                {selectedFilterItems.map((item, index) => (
+                  <View key={index} style={styles.selectedFilterItem}>
+                    <Text style={styles.selectedFilterText}>{item}</Text>
                   </View>
-                )}
-                {autoDetectedSalesPoint && (
-                  <View style={styles.selectedFilterItem}>
-                    <Text style={styles.selectedFilterText}>🏪 {autoDetectedSalesPoint.name}</Text>
-                  </View>
-                )}
-                {/* Mostra filtri generici per quelli non rilevati automaticamente */}
-                {selectedFilterItems
-                  .filter(item => {
-                    // Filtra via gli elementi che abbiamo già mostrato con nomi specifici
-                    const hasAgent = autoDetectedAgent && item.includes('Agenti');
-                    const hasSalesPoint = autoDetectedSalesPoint && item.includes('Punti Vendita');
-                    return !hasAgent && !hasSalesPoint;
-                  })
-                  .map((item, index) => (
-                    <View key={index} style={styles.selectedFilterItem}>
-                      <Text style={styles.selectedFilterText}>{item}</Text>
-                    </View>
-                  ))
-                }
+                ))}
               </View>
             </View>
           </View>
@@ -1281,6 +1436,8 @@ export default function MainCalendarPage({
           salesPoints={state.salesPoints}
           agents={agents}
           excelRows={excelRows}
+          userId={selectedUserId || "default_user"}
+          salesPointName={getSalesPointName(selectedSalesPointId)}
         />
       </SafeAreaView>
     );

@@ -4,7 +4,9 @@ import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import { User } from '../../data/models/User';
 import { SalesPoint } from '../../data/models/SalesPoint';
 import { Agent } from '../../data/models/Agent';
-import { useFirebaseExcelData, ExcelDataRow } from '../../hooks/useFirebaseExcelData';
+import { useOptimizedExcelData } from '../../hooks/useOptimizedExcelData';
+import { ExcelDataRow } from '../../hooks/useFirebaseExcelData';
+import { IS_WEB, IS_MOBILE, logPlatformInfo } from '../../utils/platformConfig';
 
 interface FilterComponentsProps {
   users: User[];
@@ -56,8 +58,13 @@ function FilterComponents({
   const [tempSelectedItemTypes, setTempSelectedItemTypes] = useState<{[key: string]: string}>({});
   const [tempShowAllOptions, setTempShowAllOptions] = useState(false);
 
-  // Usa i dati da Firebase Excel
-  const { excelData, isLoading: excelDataLoading } = useFirebaseExcelData();
+  // Usa i dati ottimizzati per piattaforma (WEB = originale, MOBILE = ottimizzato)
+  const { excelData, isLoading: excelDataLoading } = useOptimizedExcelData();
+
+  // Log informazioni piattaforma al mount
+  useEffect(() => {
+    logPlatformInfo();
+  }, []);
 
   // Dati filtrati per tab
   const filteredData = useMemo(() => {
@@ -65,7 +72,7 @@ function FilterComponents({
     
     let filteredExcelData = excelData;
     
-    console.log('🔍 FilterComponents: Dati Excel ricevuti:', excelData.length);
+    console.log(`🔍 FilterComponents (${IS_WEB ? 'WEB' : 'MOBILE'}): Dati Excel ricevuti:`, excelData.length);
     console.log('🔍 FilterComponents: showAllOptions:', showAllOptions);
     console.log('🔍 FilterComponents: selectedItemTypes:', selectedItemTypes);
     

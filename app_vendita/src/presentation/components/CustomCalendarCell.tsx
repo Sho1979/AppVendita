@@ -5,6 +5,8 @@ import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import { CellTags } from './common/CellTags';
 import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
 import { useCalendar } from '../../presentation/providers/CalendarContext';
+import { usePhotoManager } from '../../hooks/usePhotoManager';
+import { useFiltersStore } from '../../stores/filtersStore';
 
 
 
@@ -47,6 +49,23 @@ function CustomCalendarCell({
   
   const isInitialized = progressiveSystem.isInitialized;
   const { getDisplayDataForDate, loadFocusReferencesData, getLastUpdated } = progressiveSystem;
+
+  // Ottieni filtri correnti per photo manager
+  const { selectedUserId } = useFiltersStore();
+
+  // Photo manager per conteggio foto - Logica prioritaria per punto vendita
+  // Se c'è un punto vendita selezionato, mostra sempre i dati (priorità al punto vendita)
+  // Se NON c'è punto vendita, usa la logica entry-based
+  const shouldShowPhotos = selectedSalesPointId ? true : (entry !== undefined);
+  
+  const photoManager = usePhotoManager({
+    calendarDate: date,
+    salesPointId: selectedSalesPointId || 'default',
+    salesPointName: 'Punto Vendita',
+    userId: selectedUserId || 'default_user', // userId non viene usato per caricare foto (solo per salvare)
+  });
+
+
   
   // Carica i dati focusReferencesData nel sistema progressivo quando l'entry ha questi dati
   useEffect(() => {
@@ -587,7 +606,16 @@ function CustomCalendarCell({
                 accessibilityLabel="Immagini"
                 accessibilityHint="Carica o visualizza immagini per questo giorno"
               >
-                <Text style={styles.tooltipText}>📷</Text>
+                <View style={styles.tooltipButtonContent}>
+                  <Text style={styles.tooltipText}>📷</Text>
+                  {shouldShowPhotos && photoManager.photos && photoManager.photos.length > 0 && (
+                    <View style={styles.messageCountBadge}>
+                      <Text style={styles.messageCountText}>
+                        {photoManager.photos.length > 99 ? '99+' : photoManager.photos.length}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </SafeTouchableOpacity>
             </View>
           </View>
@@ -635,7 +663,16 @@ function CustomCalendarCell({
                 accessibilityLabel="Immagini"
                 accessibilityHint="Carica o visualizza immagini per questo giorno"
               >
-                <Text style={styles.monthTooltipText}>📷</Text>
+                <View style={styles.monthTooltipButtonContent}>
+                  <Text style={styles.monthTooltipText}>📷</Text>
+                  {shouldShowPhotos && photoManager.photos && photoManager.photos.length > 0 && (
+                    <View style={styles.monthMessageCountBadge}>
+                      <Text style={styles.monthMessageCountText}>
+                        {photoManager.photos.length > 9 ? '9+' : photoManager.photos.length}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </SafeTouchableOpacity>
             </View>
           </View>
