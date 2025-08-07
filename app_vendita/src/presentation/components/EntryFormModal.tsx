@@ -6,7 +6,6 @@ import {
   Modal,
   ScrollView,
   Alert,
-  Platform,
 } from 'react-native';
 import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import InputField from './common/InputField';
@@ -17,7 +16,6 @@ import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { Colors } from '../../constants/Colors';
 import { Spacing } from '../../constants/Spacing';
 import { useFirebaseCalendar } from '../../hooks/useFirebaseCalendar';
-import { AsyncStorageCalendarRepository } from '../../data/repositories/CalendarRepository';
 
 interface EntryFormModalProps {
   visible: boolean;
@@ -584,9 +582,15 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: Spacing.small,
     marginLeft: Spacing.small,
+    backgroundColor: '#FF3B30',
+    borderRadius: 6,
+    minWidth: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deleteButtonText: {
     fontSize: 18,
+    color: '#FFFFFF',
   },
   closeButton: {
     padding: Spacing.small,

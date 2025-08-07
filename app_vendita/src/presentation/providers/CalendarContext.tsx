@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode, useEffect, useState } from 'react';
+import React, { createContext, useContext, ReactNode, useEffect, useState, useMemo } from 'react';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { User } from '../../data/models/User';
 import { SalesPoint } from '../../data/models/SalesPoint';
@@ -7,6 +7,7 @@ import { useProgressiveCalculation } from '../../hooks/useProgressiveCalculation
 import { ProgressiveCalculationService } from '../../services/ProgressiveCalculationService';
 import { useCalendarStore } from '../../stores/calendarStore';
 import { logger } from '../../utils/logger';
+import { useBatchedState, useStatePerformanceMonitor } from '../../hooks/useBatchedState';
 
 // Manteniamo le stesse interfacce per compatibilità
 export interface ActiveFilters {
@@ -66,11 +67,31 @@ interface CalendarProviderProps {
 }
 
 export function CalendarProvider({ children }: CalendarProviderProps) {
+  // Performance monitoring per CalendarProvider
+  const { renderCount } = useStatePerformanceMonitor('CalendarProvider');
+  
   // Usa il calendar store di Zustand
   const calendarStore = useCalendarStore();
   
   // Crea un'istanza condivisa del servizio progressivo
   const [sharedProgressiveService] = useState(() => new ProgressiveCalculationService());
+
+  // Batch state per ottimizzare re-render
+  const [providerState, updateProviderState] = useBatchedState({
+    lastInitialization: 0,
+    initializationInProgress: false,
+    syncInProgress: false,
+    lastSyncBatch: 0,
+    performanceMetrics: {
+      totalSyncs: 0,
+      avgSyncTime: 0,
+      lastSyncDuration: 0
+    }
+  }, {
+    debounceMs: 100, // Più aggressivo per provider
+    maxBatchSize: 3,
+    logUpdates: true
+  });
 
   // Inizializza il sistema progressivo con l'istanza condivisa
   const {
@@ -87,57 +108,56 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
   // Ottieni il metodo resetSystem dal hook useProgressiveCalculation
   const { resetSystem, getLastUpdated } = useProgressiveCalculation(sharedProgressiveService);
 
-  // Force re-render when isInitialized changes
-  const [forceUpdate, setForceUpdate] = useState(0);
+  // Memoizza la condizione di inizializzazione per evitare re-render inutili
+  const shouldInitialize = useMemo(() => 
+    calendarStore.entries.length > 0 && !isInitialized, 
+    [calendarStore.entries.length, isInitialized]
+  );
 
-  // Inizializza il sistema progressivo quando i dati cambiano
+  // Inizializza il sistema progressivo quando necessario
   useEffect(() => {
-    
-    // Carica i dati nel sistema progressivo solo se non è già inizializzato
-    if (calendarStore.entries.length > 0 && !isInitialized) {
+    if (shouldInitialize) {
       try {
         // Carica tutti i dati esistenti nel sistema progressivo
         initializeWithExistingData(calendarStore.entries);
-        // Force re-render after initialization
-        setForceUpdate(prev => prev + 1);
+        logger.info('CalendarProvider', 'Sistema progressivo inizializzato', { 
+          entriesCount: calendarStore.entries.length 
+        });
       } catch (error) {
-        // Silently handle error
+        logger.error('CalendarProvider', 'Errore inizializzazione sistema progressivo', error);
       }
     }
-  }, [calendarStore.entries, isInitialized, initializeWithExistingData]);
+  }, [shouldInitialize, initializeWithExistingData, calendarStore.entries]);
 
-  // Force re-render when isInitialized changes
-  useEffect(() => {
-    if (isInitialized) {
-      logger.sync('CalendarProvider: isInitialized changed to true, forcing re-render');
-      setForceUpdate(prev => prev + 1);
-    }
-  }, [isInitialized]);
+  // Memoizza le entries da sincronizzare per evitare calcoli ripetuti
+  const entriesToSync = useMemo(() => {
+    if (!isInitialized || calendarStore.entries.length === 0) return [];
+    
+    return calendarStore.entries.filter(entry => {
+      const entryTimestamp = new Date(entry.updatedAt || entry.createdAt).getTime();
+      return entryTimestamp > calendarStore.lastSyncTimestamp;
+    });
+  }, [isInitialized, calendarStore.entries, calendarStore.lastSyncTimestamp]);
 
-  // Sincronizza le nuove entries con il sistema progressivo
+  // Sincronizza le nuove entries con il sistema progressivo (ottimizzato)
   useEffect(() => {
-    if (isInitialized && calendarStore.entries.length > 0) {
-      // Trova le entries che sono state modificate dopo l'ultima sincronizzazione
-      const currentTimestamp = Date.now();
-      const entriesToSync = calendarStore.entries.filter(entry => {
-        // Sincronizza se l'entry è stata creata o modificata dopo l'ultima sincronizzazione
-        const entryTimestamp = new Date(entry.updatedAt || entry.createdAt).getTime();
-        return entryTimestamp > calendarStore.lastSyncTimestamp;
+    if (entriesToSync.length > 0) {
+      logger.debug('CalendarProvider', 'Sincronizzazione entries progressive', { 
+        count: entriesToSync.length 
       });
       
-      if (entriesToSync.length > 0) {
-        entriesToSync.forEach(entry => {
-          try {
-            updateEntryWithProgressiveSync(entry);
-          } catch (error) {
-            // Silently handle error
-          }
-        });
-        
-
-      }
+      entriesToSync.forEach(entry => {
+        try {
+          updateEntryWithProgressiveSync(entry);
+        } catch (error) {
+          logger.warn('CalendarProvider', 'Errore sincronizzazione entry', { 
+            entryId: entry.id, 
+            error 
+          });
+        }
+      });
     }
-  }, [calendarStore.entries, calendarStore.lastSyncTimestamp, isInitialized, updateEntryWithProgressiveSync]);
+  }, [entriesToSync, updateEntryWithProgressiveSync]);
 
   // Adapter per mantenere la compatibilità con l'interfaccia esistente
   const state: CalendarState = {
@@ -223,3 +243,4 @@ export function useCalendar() {
 
   return context;
 }
+

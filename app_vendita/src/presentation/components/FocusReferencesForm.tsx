@@ -77,9 +77,16 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
     }
   }, [focusData]); // Rimossa onDataChange dalle dipendenze per evitare loop
 
+  // Parsing sicuro dei valori numerici
+  const parseValidNumber = (value: string): number => {
+    const parsed = parseFloat(value);
+    if (isNaN(parsed) || !isFinite(parsed) || parsed < 0) return 0;
+    return parsed;
+  };
+
   const calculatePercentage = (sold: string, ordered: string): string => {
-    const soldNum = parseFloat(sold) || 0;
-    const orderedNum = parseFloat(ordered) || 0;
+    const soldNum = parseValidNumber(sold);
+    const orderedNum = parseValidNumber(ordered);
     
     if (orderedNum === 0) return '0';
     
@@ -91,8 +98,8 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
     setFocusData(prev => {
       const updatedData = prev.map(item => {
         if (item.referenceId === referenceId) {
-          const orderedNum = parseFloat(item.orderedPieces) || 0;
-          const soldNum = parseFloat(value) || 0;
+          const orderedNum = parseValidNumber(item.orderedPieces);
+          const soldNum = parseValidNumber(value);
           const stockNum = Math.max(0, orderedNum - soldNum);
           const percentage = calculatePercentage(value, item.orderedPieces);
           
@@ -114,8 +121,8 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
     setFocusData(prev => {
       const updatedData = prev.map(item => {
         if (item.referenceId === referenceId) {
-          const soldNum = parseFloat(item.soldPieces) || 0;
-          const orderedNum = parseFloat(value) || 0;
+          const soldNum = parseValidNumber(item.soldPieces);
+          const orderedNum = parseValidNumber(value);
           const stockNum = Math.max(0, orderedNum - soldNum);
           const percentage = calculatePercentage(item.soldPieces, value);
           
@@ -232,14 +239,16 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
 
                              {/* Ordinato */}
                <View style={styles.cell}>
-                 <TextInput
-                   style={styles.inputCell}
-                   value={data.orderedPieces}
-                   onChangeText={(text) => {
-                     console.log('🔍 Ordinato onChangeText:', { text, currentValue: data.orderedPieces });
-                     handleOrderedChange(reference.id, text);
-                   }}
-                   keyboardType="numeric"
+                                 <TextInput
+                  style={styles.inputCell}
+                  value={data.orderedPieces}
+                  onChangeText={(text) => {
+                    // Filtra solo numeri e punto decimale, no negativi
+                    const filteredText = text.replace(/[^0-9.]/g, '').replace(/(\..*?)\./g, '$1');
+                    console.log('🔍 Ordinato onChangeText:', { text: filteredText, currentValue: data.orderedPieces });
+                    handleOrderedChange(reference.id, filteredText);
+                  }}
+                  keyboardType="numeric"
                    placeholder="0"
                    placeholderTextColor="#8E8E93"
                    editable={true}
@@ -253,8 +262,10 @@ const FocusReferencesForm: React.FC<FocusReferencesFormProps> = ({
                   style={styles.inputCell}
                   value={data.soldPieces}
                   onChangeText={(text) => {
-                    console.log('🔍 Venduto onChangeText:', { text, currentValue: data.soldPieces });
-                    handleSoldChange(reference.id, text);
+                    // Filtra solo numeri e punto decimale, no negativi
+                    const filteredText = text.replace(/[^0-9.]/g, '').replace(/(\..*?)\./g, '$1');
+                    console.log('🔍 Venduto onChangeText:', { text: filteredText, currentValue: data.soldPieces });
+                    handleSoldChange(reference.id, filteredText);
                   }}
                   keyboardType="numeric"
                   placeholder="0"

@@ -166,6 +166,8 @@ export default function VirtualizedMonthCalendar({
           const entry = getEntryForDate(date);
           const dateStr = date.toISOString().split('T')[0];
 
+          if (!dateStr || !selectedSalesPointId) return null;
+
           return (
             <View key={dateStr} style={styles.cellContainer}>
               <CustomCalendarCell
@@ -187,7 +189,7 @@ export default function VirtualizedMonthCalendar({
   }, [getEntryForDate, isSelected, isToday, onDayPress, onTooltipPress]);
 
   // Ottimizzazioni FlatList
-  const getItemLayout = useCallback((data: any, index: number) => ({
+  const getItemLayout = useCallback((_: any, index: number) => ({
     length: CELL_HEIGHT,
     offset: CELL_HEIGHT * index,
     index,
@@ -235,7 +237,7 @@ const styles = StyleSheet.create({
     color: Colors.warmText,
   },
   dayHeaderIndicator: {
-    backgroundColor: Colors.primaryColor,
+    backgroundColor: Colors.primary,
     borderRadius: 6,
     paddingHorizontal: 4,
     paddingVertical: 1,

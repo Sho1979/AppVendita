@@ -4,10 +4,16 @@ import { User } from '../data/models/User';
 import { SalesPoint } from '../data/models/SalesPoint';
 import { PriceReference } from '../data/models/PriceReference';
 import { useCalendarStore } from '../stores/calendarStore';
+import { logger } from '../utils/logger';
+import { NetworkErrorHandler } from '../utils/networkErrorHandler';
 
 export class FirebaseCalendarService {
   private repository: FirebaseCalendarRepository;
   private unsubscribe: (() => void) | null = null;
+  
+  // Cache per evitare verifiche Firebase duplicate
+  private connectionCache: { isConnected: boolean; timestamp: number } | null = null;
+  private readonly CACHE_DURATION = 30000; // 30 secondi
 
   constructor() {
     this.repository = new FirebaseCalendarRepository();
@@ -56,7 +62,11 @@ export class FirebaseCalendarService {
     try {
       console.log('➕ FirebaseCalendarService: Aggiunta entry:', entry);
       
-      const entryId = await this.repository.addEntry(entry);
+      const entryId = await NetworkErrorHandler.withRetry(
+        () => this.repository.addEntry(entry),
+        3, // max 3 retry
+        1000 // 1 secondo di delay iniziale
+      );
       
       // Aggiorna lo store locale
       const newEntry: CalendarEntry = {
@@ -68,8 +78,9 @@ export class FirebaseCalendarService {
       console.log('✅ FirebaseCalendarService: Entry aggiunta con ID:', entryId);
       return entryId;
     } catch (error) {
+      const userMessage = NetworkErrorHandler.getUserFriendlyMessage(error);
       console.error('❌ FirebaseCalendarService: Errore aggiunta entry:', error);
-      useCalendarStore.getState().setError('Errore nell\'aggiunta dell\'entry');
+      useCalendarStore.getState().setError(`Errore nell'aggiunta dell'entry: ${userMessage}`);
       throw error;
     }
   }
@@ -264,19 +275,33 @@ export class FirebaseCalendarService {
   // ===== UTILITY =====
 
   /**
-   * Verifica la connessione con Firebase
+   * Verifica la connessione con Firebase con cache per evitare verifiche duplicate
    */
   async checkConnection(): Promise<boolean> {
     try {
-      console.log('🔍 FirebaseCalendarService: Verifica connessione Firebase...');
+      // Controlla cache prima di fare una nuova verifica
+      const now = Date.now();
+      if (this.connectionCache && (now - this.connectionCache.timestamp) < this.CACHE_DURATION) {
+        return this.connectionCache.isConnected;
+      }
       
       // Prova a recuperare le entries senza filtri per testare la connessione
       const entries = await this.repository.getEntries();
-      console.log('✅ FirebaseCalendarService: Connessione Firebase OK, entries trovate:', entries.length);
-      return true;
+      const isConnected = true;
+      
+      // Aggiorna cache
+      this.connectionCache = { isConnected, timestamp: now };
+      
+      logger.info('Firebase', 'Connessione OK', { entriesCount: entries.length });
+      return isConnected;
     } catch (error) {
-      console.error('❌ FirebaseCalendarService: Errore connessione Firebase:', error);
-      return false;
+      const isConnected = false;
+      
+      // Aggiorna cache anche per errori
+      this.connectionCache = { isConnected, timestamp: Date.now() };
+      
+      logger.error('Firebase', 'Errore connessione', error);
+      return isConnected;
     }
   }
 

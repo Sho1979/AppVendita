@@ -1,0 +1,597 @@
+[
+  {
+    "id": "TC001",
+    "title": "Firebase Authentication Successful Login",
+    "description": "Verify that a user can successfully log in with valid Firebase authentication credentials and session persists on app restart.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page."
+      },
+      {
+        "type": "action",
+        "description": "Enter valid username/email and password."
+      },
+      {
+        "type": "action",
+        "description": "Click the login button."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the user is authenticated and redirected to the main calendar."
+      },
+      {
+        "type": "action",
+        "description": "Close and reopen the app."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user session is persisted and no login screen is shown."
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Firebase Authentication Failed Login",
+    "description": "Verify that login fails with invalid credentials and appropriate error message is shown.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page."
+      },
+      {
+        "type": "action",
+        "description": "Enter invalid username/email and/or password."
+      },
+      {
+        "type": "action",
+        "description": "Click the login button."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify login is rejected and an error notification is displayed."
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Registration Flow Success",
+    "description": "Verify that a new user can register successfully using valid data and receives a confirmation.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the registration page."
+      },
+      {
+        "type": "action",
+        "description": "Enter valid registration details and submit."
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure registration is successful and user is logged in automatically."
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Password Reset Flow",
+    "description": "Verify the password reset process initiates correctly and the user receives an email to reset password.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the password reset page."
+      },
+      {
+        "type": "action",
+        "description": "Enter registered email and submit reset request."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify confirmation message that reset email is sent."
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Weekly Calendar View Rendering",
+    "description": "Verify weekly calendar view renders all events correctly with real-time synchronization.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login and navigate to weekly calendar view."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all scheduled events for the week are displayed properly."
+      },
+      {
+        "type": "action",
+        "description": "Simulate event addition from another user/device."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new event appears in real-time."
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Monthly Calendar View Rendering with Virtualization",
+    "description": "Ensure monthly calendar view loads efficiently with virtualization and displays all events correctly.",
+    "category": "performance",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to monthly calendar view."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all events are displayed without UI lags or crashes."
+      },
+      {
+        "type": "action",
+        "description": "Scroll through the calendar to trigger virtualization."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm UI stays responsive and events load correctly as user scrolls."
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Create New Calendar Entry with Data Validation",
+    "description": "Verify a user can create a new calendar entry (sales order) with all required fields and validation prevents invalid input.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open a calendar cell to add a new entry."
+      },
+      {
+        "type": "action",
+        "description": "Fill the form with valid sales and order data, including tags and notes."
+      },
+      {
+        "type": "action",
+        "description": "Submit the entry."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the entry is saved to Firebase and appears in the calendar."
+      },
+      {
+        "type": "action",
+        "description": "Open the form again and input invalid data (e.g. negative sales value)."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify validation error messages are shown and submission is blocked."
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Edit and Delete Calendar Entry",
+    "description": "Validate that a user can edit existing calendar entries and delete them with confirmation prompts, and changes reflect in synchronization.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Select an existing calendar entry."
+      },
+      {
+        "type": "action",
+        "description": "Modify its sales or order details and save."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updates are saved and shown correctly across devices."
+      },
+      {
+        "type": "action",
+        "description": "Delete the calendar entry and confirm deletion."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the entry is removed from Firebase and calendar view."
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Progressive Calculation Engine Accuracy",
+    "description": "Ensure the progressive calculation engine recalculates sales and order metrics chronologically and accurately triggers batch updates on large datasets.",
+    "category": "integration",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Load a dataset with multiple calendar entries containing sales and orders."
+      },
+      {
+        "type": "action",
+        "description": "Modify an entry earlier in the timeline."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify sales metrics update progressively and correctly for all subsequent entries."
+      },
+      {
+        "type": "action",
+        "description": "Insert a bulk of entries and trigger batch update."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify batch updates complete without data inconsistencies or performance degradation."
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Multi-level Filtering Functionality",
+    "description": "Validate that multi-level filters for agents, sales points, and products apply correctly with multi-selection and correlated dependencies.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open filters panel."
+      },
+      {
+        "type": "action",
+        "description": "Select multiple agents, products, and sales points."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify calendar updates to show only filtered entries."
+      },
+      {
+        "type": "action",
+        "description": "Test textual search within filters."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify results update based on text input and interdependent filter settings."
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Real-time Multi-user Data Synchronization",
+    "description": "Ensure real-time synchronization of calendar data across multiple logged-in users with role-based permissions.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in User A and User B simultaneously on different devices."
+      },
+      {
+        "type": "action",
+        "description": "User A adds or modifies a calendar entry."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify User B sees the update in real-time without refresh."
+      },
+      {
+        "type": "action",
+        "description": "User B attempts to edit an entry restricted by role-based permissions."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify edit is blocked and appropriate notification shown."
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Offline Mode and Synchronization Upon Reconnect",
+    "description": "Verify that the app allows work to continue offline and automatically syncs data changes to Firebase when connection is restored.",
+    "category": "integration",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Turn off network connectivity."
+      },
+      {
+        "type": "action",
+        "description": "Create and edit calendar entries locally."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that edits are queued locally without errors."
+      },
+      {
+        "type": "action",
+        "description": "Restore network connectivity."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify data synchronizes correctly to Firebase and updates other users."
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Image Capture, Compression and Upload",
+    "description": "Test media handling by capturing or selecting images, verifying compression, permission handling, upload success, and display.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open media upload interface within a calendar entry."
+      },
+      {
+        "type": "action",
+        "description": "Capture or select an image from device gallery."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify image is compressed before upload effectively."
+      },
+      {
+        "type": "action",
+        "description": "Confirm app requests required permissions if not granted."
+      },
+      {
+        "type": "action",
+        "description": "Upload image to Firebase Storage."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify image is stored and displayed correctly in the gallery for the entry."
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Excel Data Import with Validation",
+    "description": "Validate that importing Excel files for agents, customers, and price lists correctly processes valid data and rejects invalid inputs gracefully.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Select a valid Excel file and trigger import."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify data is parsed, validated, and integrated without errors."
+      },
+      {
+        "type": "action",
+        "description": "Select an Excel file with corrupted or inconsistent data."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify import fails predictably and displays error notifications without data loss."
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Export Data to Excel",
+    "description": "Test exporting current filtered data sets (agents, customers, price lists) to Excel with correct formatting and completeness.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Apply complex filters to the data."
+      },
+      {
+        "type": "action",
+        "description": "Export displayed data to an Excel file."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the exported file contains accurately filtered data with correct formatting."
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Integrated Chat Messaging with Real-time Notifications",
+    "description": "Validate chat messages, replies, and reactions are sent, received, and notified in real-time within calendar entries.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open chat in a calendar entry."
+      },
+      {
+        "type": "action",
+        "description": "Send a message, reply, and react to a message."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify messages and reactions are displayed immediately and notifications are received on other users' devices."
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Tagging System UI and Configuration",
+    "description": "Verify tagging calendar entries using configurable presets with correct color coding in the UI.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open entry and assign multiple tags from preset list."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify tags appear with correct colors in calendar cells and entry details."
+      },
+      {
+        "type": "action",
+        "description": "Modify tag presets and apply changes."
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure updated tags are reflected visually and stored correctly."
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Cross-platform Navigation with Deep Linking and Tabs",
+    "description": "Ensure the navigation system works consistently across web, iOS, and Android platforms with tab switching and supports deep links.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Launch app on web, iOS, and Android devices."
+      },
+      {
+        "type": "action",
+        "description": "Navigate through all tabs."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify smooth tab transitions and state persistence."
+      },
+      {
+        "type": "action",
+        "description": "Open app using deep link URL for a specific calendar entry."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify navigation goes directly to the targeted entry across platforms."
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "Performance under Large Datasets",
+    "description": "Validate app responsiveness, memory usage, and CPU load during large dataset handling with virtualized calendar and batch updates.",
+    "category": "performance",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Load a large dataset with thousands of calendar entries."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI remains responsive with smooth scrolling and no freezing."
+      },
+      {
+        "type": "action",
+        "description": "Trigger progressive calculation and batch updates with this large dataset."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm updates complete within acceptable time and without memory leaks."
+      }
+    ]
+  },
+  {
+    "id": "TC020",
+    "title": "Error Handling and User-friendly Notifications",
+    "description": "Verify the app gracefully handles errors such as network failures, Firebase errors, and shows user-friendly notifications with retry options.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Simulate a network failure during calendar entry save."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify error boundary UI is shown with retry option."
+      },
+      {
+        "type": "action",
+        "description": "Select retry and restore network connectivity."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify data is saved successfully and notification disappears."
+      }
+    ]
+  },
+  {
+    "id": "TC021",
+    "title": "State Management Consistency with Zustand",
+    "description": "Test that global state managed by Zustand persists changes locally and updates correctly reflect across components.",
+    "category": "integration",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Modify filters, calendar entries, and master data."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify changes persist on app restart and update all relevant UI components."
+      }
+    ]
+  },
+  {
+    "id": "TC022",
+    "title": "Responsive Design across Devices",
+    "description": "Check that UI elements adapt properly across mobile, tablet, and web with correct theming, spacing and touch response.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open app on multiple device form factors."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify layouts, font sizes, colors, and spacing adjust correctly."
+      },
+      {
+        "type": "action",
+        "description": "Switch app themes if applicable."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm theme changes apply globally affecting color schemes."
+      }
+    ]
+  },
+  {
+    "id": "TC023",
+    "title": "Automated Testing Framework Coverage Verification",
+    "description": "Verify that unit, integration, UI, e2e, and performance tests are detected and executed with appropriate coverage results.",
+    "category": "test automation",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Run the complete test suite."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm successful execution of unit, integration, UI, e2e, and performance tests."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify test coverage reports meet or exceed thresholds for key modules."
+      }
+    ]
+  }
+]

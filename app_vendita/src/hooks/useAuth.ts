@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { firebaseAuthService, AuthUser } from '../core/services/firebaseAuth';
+import { logger } from '../utils/logger';
 
 export interface UseAuthReturn {
   // Stato
@@ -37,9 +38,9 @@ export const useAuth = (): UseAuthReturn => {
     try {
       const authUser = await firebaseAuthService.signIn(email, password);
       setUser(authUser);
-      console.log('✅ useAuth: Login completato per:', email);
+      logger.business('Login completato', { email });
     } catch (error) {
-      console.error('❌ useAuth: Errore nel login:', error);
+      logger.error('useAuth', 'Errore nel login', error);
       const errorMessage = error instanceof Error ? error.message : 'Errore di autenticazione';
       setError(errorMessage);
       throw error;
@@ -55,9 +56,9 @@ export const useAuth = (): UseAuthReturn => {
     try {
       const authUser = await firebaseAuthService.signUp(email, password, displayName);
       setUser(authUser);
-      console.log('✅ useAuth: Registrazione completata per:', email);
+      logger.business('Registrazione completata', { email });
     } catch (error) {
-      console.error('❌ useAuth: Errore nella registrazione:', error);
+      logger.error('useAuth', 'Errore nella registrazione', error);
       const errorMessage = error instanceof Error ? error.message : 'Errore di registrazione';
       setError(errorMessage);
       throw error;
@@ -77,9 +78,9 @@ export const useAuth = (): UseAuthReturn => {
       setUser(null);
       setIsLoading(false);
       
-      console.log('✅ useAuth: Logout completato');
+      logger.business('Logout completato', {});
     } catch (error) {
-      console.error('❌ useAuth: Errore nel logout:', error);
+      logger.error('useAuth', 'Errore nel logout', error);
       
       // Anche se c'è un errore, forziamo il logout locale
       setUser(null);
@@ -96,9 +97,9 @@ export const useAuth = (): UseAuthReturn => {
 
     try {
       await firebaseAuthService.resetPassword(email);
-      console.log('✅ useAuth: Email di reset inviata a:', email);
+      logger.business('Email di reset inviata', { email });
     } catch (error) {
-      console.error('❌ useAuth: Errore nell\'invio email reset:', error);
+      logger.error('useAuth', 'Errore invio email reset', error);
       const errorMessage = error instanceof Error ? error.message : 'Errore nell\'invio email';
       setError(errorMessage);
       throw error;
@@ -109,17 +110,20 @@ export const useAuth = (): UseAuthReturn => {
 
   // Ascolta i cambiamenti di stato dell'autenticazione
   useEffect(() => {
-    console.log('🔄 useAuth: Inizializzazione listener autenticazione');
+    logger.business('Inizializzazione listener autenticazione', {});
     
     const unsubscribe = firebaseAuthService.onAuthStateChange((authUser) => {
-      console.log('🔄 useAuth: Cambio stato autenticazione:', authUser ? authUser.email : 'null');
+      logger.business('Cambio stato autenticazione', { 
+        email: authUser?.email || null,
+        isAuthenticated: !!authUser 
+      });
       setUser(authUser);
       setIsLoading(false);
       
       if (authUser) {
-        console.log('✅ useAuth: Utente autenticato:', authUser.email);
+        logger.business('Utente autenticato', { email: authUser.email });
       } else {
-        console.log('🔓 useAuth: Nessun utente autenticato');
+        logger.business('Nessun utente autenticato', {});
       }
     });
 

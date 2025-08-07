@@ -1,0 +1,16 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:8081",
+  "executionArgs": {
+    "projectName": "app_vendita",
+    "projectPath": "C:\\AndroidProgetti\\AppVendita\\app_vendita",
+    "testIds": [],
+    "additionalInstruction": "Esegui test completo dell'app React Native AppVendita su localhost:8081. Testa: 1) Login/Auth Firebase 2) Calendario settimanale/mensile 3) CRUD entries calendario 4) Filtri avanzati multi-livello 5) Sistema calcoli progressivi 6) Upload/gestione foto 7) Import Excel 8) Chat system 9) Performance UI 10) Navigazione cross-platform. Verifica flussi utente critici, gestione errori, sync Firebase real-time. Genera report dettagliato con metriche performance e raccomandazioni.",
+    "envs": {
+      "API_KEY": "sk-user-_irFl6Yt1SUcp366btRDP9LLza68SpRqr-Nb67Fox0cfnUczwzDdKlOag5M4CuKjmCOYuMP-zTetCIk-0LHjykhOvZWFz3cEnHkcNv0C8J_2bMVMb45roMFEySrSq8x8DyM"
+    }
+  },
+  "proxy": "http://50bf7aec-565a-499d-9fb1-103cd870a0ab:LNyMrm9qbKxQt4DF4ocLSsDIt3i4FAyX@tun.testsprite.com:8080"
+}

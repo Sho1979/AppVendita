@@ -10,6 +10,7 @@ export const Spacing = {
   medium: 16, // 16px
   large: 24, // 24px
   xl: 32, // 32px
+  xlarge: 32, // 32px - alias per xl
   xxl: 48, // 48px
 
   // Spaziatura specifica per componenti

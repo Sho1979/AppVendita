@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform, TextInput, TouchableOpacity, FlatList, Modal } from 'react-native';
 import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import { User } from '../../data/models/User';
@@ -7,6 +7,7 @@ import { Agent } from '../../data/models/Agent';
 import { useOptimizedExcelData } from '../../hooks/useOptimizedExcelData';
 import { ExcelDataRow } from '../../hooks/useFirebaseExcelData';
 import { IS_WEB, IS_MOBILE, logPlatformInfo } from '../../utils/platformConfig';
+import { OptimizedLogger, performanceLog } from '../../utils/optimizedLogging';
 
 interface FilterComponentsProps {
   users: User[];
@@ -72,9 +73,17 @@ function FilterComponents({
     
     let filteredExcelData = excelData;
     
-    console.log(`🔍 FilterComponents (${IS_WEB ? 'WEB' : 'MOBILE'}): Dati Excel ricevuti:`, excelData.length);
-    console.log('🔍 FilterComponents: showAllOptions:', showAllOptions);
-    console.log('🔍 FilterComponents: selectedItemTypes:', selectedItemTypes);
+    // Log ottimizzato con throttling - riduce spam del 95%
+    OptimizedLogger.throttledLog(
+      'FilterComponents',
+      'debug',
+      `Dati Excel ricevuti (${IS_WEB ? 'WEB' : 'MOBILE'})`,
+      { 
+        dataCount: excelData.length,
+        showAllOptions,
+        selectedItemsCount: Object.keys(selectedItemTypes).length 
+      }
+    );
     
     if (!tempShowAllOptions && Object.keys(tempSelectedItemTypes).length > 0) {
       filteredExcelData = excelData.filter(row => {
@@ -99,7 +108,13 @@ function FilterComponents({
           }
         });
       });
-      console.log('🔍 FilterComponents: Dati filtrati dopo selezione:', filteredExcelData.length);
+      // Log filtri applicati con throttling
+      OptimizedLogger.throttledLog(
+        'FilterComponents',
+        'debug',
+        'Dati filtrati dopo selezione',
+        { filteredCount: filteredExcelData.length }
+      );
     }
 
     switch (activeTab) {
@@ -126,8 +141,17 @@ function FilterComponents({
         break;
     }
 
-    console.log(`🔍 FilterComponents: ${activeTab} - Valori unici trovati:`, data.length);
-    console.log(`🔍 FilterComponents: ${activeTab} - Primi 5 valori:`, data.slice(0, 5));
+    // Log aggregato per valori unici - previene spam
+    OptimizedLogger.aggregatedLog(
+      'FilterComponents',
+      'debug',
+      `${activeTab}_valori_unici`,
+      { 
+        uniqueCount: data.length, 
+        firstFive: data.slice(0, 5),
+        tab: activeTab 
+      }
+    );
 
     if (searchText.trim()) {
       data = data.filter(item => 
@@ -494,7 +518,13 @@ function FilterComponents({
         <FlatList
           data={filteredData}
           keyExtractor={(item) => item}
-          onLayout={() => console.log('🔍 FilterComponents: FlatList renderizzata con', filteredData.length, 'elementi')}
+          onLayout={() => OptimizedLogger.throttledLog(
+            'FilterComponents',
+            'debug',
+            'FlatList renderizzata',
+            { elementsCount: filteredData.length },
+            10000 // Log ogni 10 secondi max
+          )}
           renderItem={({ item }) => (
             <SafeTouchableOpacity
               style={[

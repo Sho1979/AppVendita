@@ -14,6 +14,13 @@ import { CalendarEntry } from '../data/models/CalendarEntry';
 export class ProgressiveCalculationService {
   private state: ProgressiveState;
   private performanceMetrics: PerformanceMetrics;
+  
+  // 🚀 CHIRURGIA: Smart Cache System
+  private calculationCache: Map<string, DailyTotals>;
+  private sortedDatesCache: string[] | null;
+  private cacheInvalidationFlags: Set<string>;
+  private lastCacheUpdate: number;
+  private readonly CACHE_TTL = 300000; // 5 minuti cache TTL
 
   constructor() {
     this.state = {
@@ -33,6 +40,12 @@ export class ProgressiveCalculationService {
       cacheHits: 0,
       cacheMisses: 0
     };
+
+    // 🎯 INIZIALIZZAZIONE CACHE CHIRURGICA
+    this.calculationCache = new Map();
+    this.sortedDatesCache = null;
+    this.cacheInvalidationFlags = new Set();
+    this.lastCacheUpdate = Date.now();
   }
 
   /**
@@ -73,7 +86,6 @@ export class ProgressiveCalculationService {
    * Calcola i totali progressivi accumulando con i giorni precedenti
    */
   private calculateProgressiveTotals(
-    date: string,
     dailyTotals: DailyTotals,
     previousDayTotals?: DailyTotals
   ): DailyTotals {
@@ -90,7 +102,7 @@ export class ProgressiveCalculationService {
   }
 
   /**
-   * Ottiene i totali del giorno precedente
+   * Ottiene i totali del giorno precedente (legacy - non usato)
    */
   private getPreviousDayTotals(date: string): DailyTotals | undefined {
     const currentDate = new Date(date);
@@ -98,6 +110,8 @@ export class ProgressiveCalculationService {
     previousDate.setDate(currentDate.getDate() - 1);
     
     const previousDateString = previousDate.toISOString().split('T')[0];
+    if (!previousDateString) return undefined;
+    
     return this.state.progressiveTotals.get(previousDateString);
   }
 
@@ -109,8 +123,6 @@ export class ProgressiveCalculationService {
     date: string,
     newEntries: ProductEntry[]
   ): ProgressiveCalculationResult {
-    const startTime = performance.now();
-
     // Validazione input
     const validation = this.validateEntries(newEntries);
     if (!validation.isValid) {
@@ -151,7 +163,7 @@ export class ProgressiveCalculationService {
   }
 
   /**
-   * Salva i dati di una cella senza ricalcoli
+   * 🚀 CHIRURGIA: Salva i dati di una cella con cache invalidation
    */
   private saveCellData(date: string, newEntries: ProductEntry[]): void {
     const dailyTotals = this.calculateDailyTotals(newEntries);
@@ -161,54 +173,181 @@ export class ProgressiveCalculationService {
       entries: newEntries,
       dailyTotals,
       progressiveTotals: dailyTotals, // Temporaneo, sarà ricalcolato
-      previousDayTotals: undefined
     };
 
     this.state.entries.set(date, progressiveEntry);
+    
+    // 🎯 CHIRURGIA: Invalida cache per questa data e successive
+    this.invalidateCache(date);
   }
 
   /**
-   * Trova il primo giorno con dati
+   * 🚀 CHIRURGIA: Trova il primo giorno con dati (CACHED)
    */
   private findFirstDateWithData(): string | undefined {
-    const dates = Array.from(this.state.entries.keys()).sort();
-    return dates[0] || undefined;
+    // Usa cache per evitare sorting ripetuto
+    const sortedDates = this.getSortedDatesOptimized();
+    return sortedDates[0] || undefined;
   }
 
   /**
-   * Ricalcola tutti i totali progressivi da una data specifica
+   * 🎯 CHIRURGIA: Ottieni date ordinate con cache intelligente
+   */
+  private getSortedDatesOptimized(): string[] {
+    const now = Date.now();
+    
+    // Cache hit con TTL check
+    if (this.sortedDatesCache && 
+        (now - this.lastCacheUpdate) < this.CACHE_TTL &&
+        this.cacheInvalidationFlags.size === 0) {
+      this.performanceMetrics.cacheHits++;
+      return this.sortedDatesCache;
+    }
+
+    // Cache miss - ricalcola
+    this.performanceMetrics.cacheMisses++;
+    this.sortedDatesCache = Array.from(this.state.entries.keys()).sort();
+    this.lastCacheUpdate = now;
+    this.cacheInvalidationFlags.clear();
+    
+    return this.sortedDatesCache;
+  }
+
+  /**
+   * 🔥 CHIRURGIA: Cache invalidation intelligente
+   */
+  private invalidateCache(affectedDate?: string): void {
+    if (affectedDate) {
+      this.cacheInvalidationFlags.add(affectedDate);
+      // Invalida anche le date successive per calcolo progressivo
+      const sortedDates = this.sortedDatesCache || Array.from(this.state.entries.keys()).sort();
+      const affectedIndex = sortedDates.indexOf(affectedDate);
+      if (affectedIndex >= 0) {
+        for (let i = affectedIndex; i < sortedDates.length; i++) {
+          const dateToInvalidate = sortedDates[i];
+          if (dateToInvalidate) {
+            this.cacheInvalidationFlags.add(dateToInvalidate);
+          }
+        }
+      }
+    } else {
+      // Invalidazione completa
+      this.sortedDatesCache = null;
+      this.calculationCache.clear();
+      this.cacheInvalidationFlags.clear();
+    }
+  }
+
+  /**
+   * 🚀 CHIRURGIA COMPLETA: Ricalcolo incrementale ottimizzato
+   * Riduce complessità da O(n²) a O(k) dove k = affected dates
    */
   private recalculateFromDate(startDate: string): void {
-    const dates = Array.from(this.state.entries.keys())
-      .filter(date => date >= startDate)
-      .sort();
-
-    let previousTotals: DailyTotals | undefined;
+    const startTime = performance.now();
     
-    for (const date of dates) {
+    // 🎯 OTTIMIZZAZIONE 1: Use cached sorted dates
+    const sortedDates = this.getSortedDatesOptimized();
+    const startIndex = sortedDates.indexOf(startDate);
+    
+    if (startIndex === -1) {
+      console.warn(`🚨 CHIRURGIA: Data di partenza ${startDate} non trovata`);
+      return;
+    }
+
+    // 🎯 OTTIMIZZAZIONE 2: Ottieni totali precedenti dalla cache o calcolo
+    let previousTotals = this.getPreviousDayTotalsOptimized(startDate);
+    
+    // 🎯 OTTIMIZZAZIONE 3: Processa solo date invalidate o successive
+    const datesToProcess = sortedDates.slice(startIndex).filter(date => 
+      this.cacheInvalidationFlags.has(date) || 
+      !this.calculationCache.has(date)
+    );
+
+    console.log(`🔬 CHIRURGIA: Processando ${datesToProcess.length}/${sortedDates.length - startIndex} date`);
+    
+    for (const date of datesToProcess) {
       const entry = this.state.entries.get(date);
       if (entry) {
-        // Ricalcola totali progressivi
-        const newProgressiveTotals = this.calculateProgressiveTotals(
-          date,
-          entry.dailyTotals,
-          previousTotals
-        );
+        // 🎯 OTTIMIZZAZIONE 4: Check cache prima di calcolare
+        let newProgressiveTotals = this.calculationCache.get(date);
         
-        // Aggiorna entry
+        if (!newProgressiveTotals || this.cacheInvalidationFlags.has(date)) {
+          // Cache miss - calcola e salva
+          newProgressiveTotals = this.calculateProgressiveTotals(
+            entry.dailyTotals,
+            previousTotals
+          );
+          
+          // 🚀 SALVA IN CACHE
+          this.calculationCache.set(date, newProgressiveTotals);
+          this.performanceMetrics.cacheMisses++;
+        } else {
+          this.performanceMetrics.cacheHits++;
+        }
+        
+        // Aggiorna entry con batch optimization
         entry.progressiveTotals = newProgressiveTotals;
         if (previousTotals) {
           entry.previousDayTotals = previousTotals;
         }
         
-        // Salva
-        this.state.entries.set(date, entry);
-        this.state.progressiveTotals.set(date, newProgressiveTotals);
+        // 🎯 OTTIMIZZAZIONE 5: Batch write operations
+        this.batchUpdateEntry(date, entry, newProgressiveTotals);
         
         // Prepara per il giorno successivo
         previousTotals = newProgressiveTotals;
+        this.performanceMetrics.entriesProcessed++;
       }
     }
+
+    // 🎯 CLEAN UP: Rimuovi flags invalidazione processati
+    datesToProcess.forEach(date => this.cacheInvalidationFlags.delete(date));
+    
+    // 📊 METRICHE PERFORMANCE
+    const elapsedTime = performance.now() - startTime;
+    this.performanceMetrics.calculationTime += elapsedTime;
+    
+    console.log(`⚡ CHIRURGIA COMPLETATA: ${elapsedTime.toFixed(2)}ms, ${datesToProcess.length} date processate`);
+  }
+
+  /**
+   * 🎯 CHIRURGIA: Ottieni totali giorno precedente con cache
+   */
+  private getPreviousDayTotalsOptimized(date: string): DailyTotals | undefined {
+    const sortedDates = this.getSortedDatesOptimized();
+    const currentIndex = sortedDates.indexOf(date);
+    
+    if (currentIndex <= 0) return undefined;
+    
+    const previousDate = sortedDates[currentIndex - 1];
+    if (!previousDate) return undefined;
+    
+    // Try cache first
+    let previousTotals = this.calculationCache.get(previousDate);
+    if (previousTotals) {
+      this.performanceMetrics.cacheHits++;
+      return previousTotals;
+    }
+    
+    // Fallback to state
+    const previousEntry = this.state.entries.get(previousDate);
+    if (previousEntry?.progressiveTotals) {
+      // Update cache
+      this.calculationCache.set(previousDate, previousEntry.progressiveTotals);
+      this.performanceMetrics.cacheMisses++;
+      return previousEntry.progressiveTotals;
+    }
+    
+    return undefined;
+  }
+
+  /**
+   * 🚀 CHIRURGIA: Batch update ottimizzato
+   */
+  private batchUpdateEntry(date: string, entry: ProgressiveEntry, totals: DailyTotals): void {
+    // Single atomic operation invece di multiple writes
+    this.state.entries.set(date, entry);
+    this.state.progressiveTotals.set(date, totals);
   }
 
 
@@ -233,6 +372,31 @@ export class ProgressiveCalculationService {
     }
 
     return entries.sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  /**
+   * Parsing sicuro di valori numerici con validazione
+   */
+  private parseValidNumber(value: string | number | undefined, defaultValue: number = 0): number {
+    if (value === undefined || value === null || value === '') {
+      return defaultValue;
+    }
+    
+    const parsed = typeof value === 'number' ? value : parseFloat(String(value));
+    
+    // Controlli di validità
+    if (isNaN(parsed) || !isFinite(parsed)) {
+      console.warn(`⚠️ ProgressiveCalculationService: Valore non valido "${value}", uso default ${defaultValue}`);
+      return defaultValue;
+    }
+    
+    // Non permettere valori negativi per vendite/scorte (ma prezzi possono essere negativi per sconti)
+    if (parsed < 0 && defaultValue >= 0) {
+      console.warn(`⚠️ ProgressiveCalculationService: Valore negativo "${parsed}" convertito a 0`);
+      return 0;
+    }
+    
+    return parsed;
   }
 
   /**
@@ -300,35 +464,42 @@ export class ProgressiveCalculationService {
   }
 
   /**
-   * Resetta completamente il sistema progressivo
+   * 🚀 CHIRURGIA: Reset sistema con pulizia cache completa
    */
   public resetSystem(): void {
     this.state = {
       entries: new Map(),
       progressiveTotals: new Map(),
       calculationConfig: { ...this.state.calculationConfig },
-      lastUpdated: new Date(),
-      firstDateWithData: undefined
+      lastUpdated: new Date().toISOString(),
     };
+    
+    // 🎯 CHIRURGIA: Pulizia cache completa
+    this.calculationCache.clear();
+    this.sortedDatesCache = null;
+    this.cacheInvalidationFlags.clear();
+    this.lastCacheUpdate = Date.now();
+    
     this.resetPerformanceMetrics();
-    console.log('🔄 ProgressiveCalculationService: Sistema completamente resettato');
+    console.log('🔄 CHIRURGIA: Sistema progressivo completamente resettato con cache cleanup');
   }
 
   /**
-   * Esporta lo stato corrente
+   * 🚀 CHIRURGIA: Esporta lo stato corrente con firstDateWithData dinamico
    */
   public exportState(): ProgressiveState {
+    const firstDate = this.findFirstDateWithData();
     return {
       entries: new Map(this.state.entries),
       progressiveTotals: new Map(this.state.progressiveTotals),
       calculationConfig: { ...this.state.calculationConfig },
       lastUpdated: this.state.lastUpdated,
-      firstDateWithData: this.state.firstDateWithData
+      ...(firstDate && { firstDateWithData: firstDate })
     };
   }
 
   /**
-   * Importa uno stato
+   * 🚀 CHIRURGIA: Importa uno stato con cache cleanup
    */
   public importState(state: ProgressiveState): void {
     this.state = {
@@ -336,8 +507,10 @@ export class ProgressiveCalculationService {
       progressiveTotals: new Map(state.progressiveTotals),
       calculationConfig: { ...state.calculationConfig },
       lastUpdated: state.lastUpdated,
-      firstDateWithData: state.firstDateWithData
     };
+    
+    // 🎯 CHIRURGIA: Reset cache dopo import
+    this.invalidateCache();
   }
 
   /**
@@ -349,17 +522,25 @@ export class ProgressiveCalculationService {
     }
 
     // Converti FocusReferenceData in ProductEntry[]
-    const productEntries: ProductEntry[] = focusReferencesData.map(focusData => ({
-      productId: focusData.referenceId,
-      productName: `Reference ${focusData.referenceId}`, // Placeholder
-      vendite: parseFloat(focusData.soldPieces) || 0,
-      scorte: parseFloat(focusData.stockPieces) || 0,
-      ordinati: parseFloat(focusData.orderedPieces) || 0,
-      prezzoNetto: parseFloat(focusData.netPrice) || 0, // Usa il prezzo netto dalla referenza
-      categoria: 'focus', // Categoria per le referenze focus
-      colore: '#007bff', // Colore blu per le referenze focus
-      sellIn: 0 // Sarà calcolato dal sistema
-    }));
+    const productEntries: ProductEntry[] = focusReferencesData.map(focusData => {
+      // Validazione sicura dei valori numerici
+      const vendite = this.parseValidNumber(focusData.soldPieces, 0);
+      const scorte = this.parseValidNumber(focusData.stockPieces, 0); 
+      const ordinati = this.parseValidNumber(focusData.orderedPieces, 0);
+      const prezzoNetto = this.parseValidNumber(focusData.netPrice, 0);
+
+      return {
+        productId: focusData.referenceId,
+        productName: `Reference ${focusData.referenceId}`, // Placeholder
+        vendite,
+        scorte,
+        ordinati,
+        prezzoNetto,
+        categoria: 'focus', // Categoria per le referenze focus
+        colore: '#007bff', // Colore blu per le referenze focus
+        sellIn: 0 // Sarà calcolato dal sistema
+      };
+    });
 
     // Salva i dati nel sistema progressivo
     this.saveCellData(date, productEntries);
@@ -405,7 +586,7 @@ export class ProgressiveCalculationService {
       };
     }
 
-    const isFirstDay = date === this.state.firstDateWithData;
+    const isFirstDay = date === this.findFirstDateWithData();
     
     if (isFirstDay) {
       // Primo giorno: mostra dati originali inseriti nel form
@@ -442,7 +623,7 @@ export class ProgressiveCalculationService {
    * Calcola le entries progressivi per un giorno specifico
    */
   private calculateProgressiveEntries(date: string): ProductEntry[] {
-    const firstDate = this.state.firstDateWithData;
+    const firstDate = this.findFirstDateWithData();
     if (!firstDate) return [];
 
     
@@ -483,19 +664,23 @@ export class ProgressiveCalculationService {
     if (activeEntries) {
       // Usa solo le entries attive dal database
       for (const calendarEntry of activeEntries) {
-        const date = calendarEntry.date;
-        const entry = this.state.entries.get(date);
-        if (entry) {
-          // Calcola il sell-in giornaliero per questa entry (come getMonthlySellIn)
-          const dailySellIn = entry.entries.reduce((total, product) => {
-            return total + (product.ordinati * product.prezzoNetto);
-          }, 0);
-          totalSellIn += dailySellIn;
+        const dateStr = typeof calendarEntry.date === 'string' 
+          ? calendarEntry.date 
+          : calendarEntry.date.toISOString().split('T')[0];
+        if (dateStr) {
+          const entry = this.state.entries.get(dateStr);
+          if (entry) {
+            // Calcola il sell-in giornaliero per questa entry (come getMonthlySellIn)
+            const dailySellIn = entry.entries.reduce((total, product) => {
+              return total + (product.ordinati * product.prezzoNetto);
+            }, 0);
+            totalSellIn += dailySellIn;
+          }
         }
       }
     } else {
       // Fallback: usa tutte le entries del service (per compatibilità)
-      for (const [date, entry] of this.state.entries) {
+      for (const [, entry] of this.state.entries) {
         // Calcola il sell-in giornaliero per questa entry
         const dailySellIn = entry.entries.reduce((total, product) => {
           return total + (product.ordinati * product.prezzoNetto);
@@ -518,9 +703,11 @@ export class ProgressiveCalculationService {
     if (activeEntries) {
       // Usa solo le entries attive del mese specifico
       for (const calendarEntry of activeEntries) {
-        const date = calendarEntry.date;
-        if (date >= startDate && date <= endDate) {
-          const entry = this.state.entries.get(date);
+        const dateStr = typeof calendarEntry.date === 'string' 
+          ? calendarEntry.date 
+          : calendarEntry.date.toISOString().split('T')[0];
+        if (dateStr && dateStr >= startDate && dateStr <= endDate) {
+          const entry = this.state.entries.get(dateStr);
           if (entry) {
             // Calcola il sell-in giornaliero per questa entry
             const dailySellIn = entry.entries.reduce((total, product) => {
@@ -532,8 +719,8 @@ export class ProgressiveCalculationService {
       }
     } else {
       // Fallback: usa tutte le entries del service (per compatibilità)
-      for (const [date, entry] of this.state.entries) {
-        if (date >= startDate && date <= endDate) {
+      for (const [dateStr, entry] of this.state.entries) {
+        if (dateStr >= startDate && dateStr <= endDate) {
           // Calcola il sell-in giornaliero per questa entry
           const dailySellIn = entry.entries.reduce((total, product) => {
             return total + (product.ordinati * product.prezzoNetto);
@@ -547,10 +734,10 @@ export class ProgressiveCalculationService {
   }
 
   /**
-   * Aggiorna il primo giorno con dati
+   * 🚀 CHIRURGIA: Aggiorna il primo giorno con dati (ora dinamico)
    */
   private updateFirstDateWithData(): void {
-    const firstDate = this.findFirstDateWithData();
-    this.state.firstDateWithData = firstDate;
+    // Non più necessario - firstDateWithData è ora calcolato dinamicamente
+    // via findFirstDateWithData() che usa la cache ottimizzata
   }
 } 

@@ -12,6 +12,7 @@ import { Colors } from '../../constants/Colors';
 import { Spacing } from '../../constants/Spacing';
 import { AuthUser } from '../../core/services/firebaseAuth';
 import { useAuth } from '../../hooks/useAuth';
+import { createTestUsers } from '../../utils/setupTestUsers';
 
 export default function AccountPage() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -53,6 +54,20 @@ export default function AccountPage() {
     );
   };
 
+  const handleCreateTestUsers = async () => {
+    try {
+      await createTestUsers();
+      Alert.alert(
+        'Successo',
+        'Utenti di test creati con successo! Ora TestSprite può utilizzare le credenziali di test.',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('❌ AccountPage: Errore creazione utenti test:', error);
+      Alert.alert('Errore', 'Errore nella creazione degli utenti di test.', [{ text: 'OK' }]);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <View style={styles.container}>
@@ -73,6 +88,15 @@ export default function AccountPage() {
           >
             <Text style={styles.loginButtonText}>Accedi o Registrati</Text>
           </SafeTouchableOpacity>
+
+          {__DEV__ && (
+            <SafeTouchableOpacity
+              style={styles.testButton}
+              onPress={handleCreateTestUsers}
+            >
+              <Text style={styles.testButtonText}>🧪 Crea Utenti Test (TestSprite)</Text>
+            </SafeTouchableOpacity>
+          )}
 
           <Text style={styles.infoText}>
             Accedi per sincronizzare i tuoi dati e accedere a tutte le funzionalità
@@ -207,6 +231,21 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  testButton: {
+    backgroundColor: '#FF9800',
+    borderRadius: 8,
+    paddingVertical: Spacing.medium,
+    paddingHorizontal: Spacing.large,
+    marginBottom: Spacing.medium,
+    borderWidth: 1,
+    borderColor: '#F57C00',
+  },
+  testButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   logoutButton: {
     backgroundColor: '#f44336',

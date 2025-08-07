@@ -12,10 +12,6 @@ import {
   Platform,
 } from 'react-native';
 import { useCalendar } from '../providers/CalendarContext';
-import { AsyncStorageCalendarRepository } from '../../data/repositories/CalendarRepository';
-import { FirebaseCalendarRepository } from '../../data/repositories/firebaseCalendarRepository';
-import { RepositoryAdapter } from '../../data/repositories/repositoryAdapter';
-import { FirebaseCalendarRepositoryAdapter } from '../../data/repositories/firebaseCalendarRepositoryAdapter';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { Agent } from '../../data/models/Agent';
 import WeekCalendar from '../components/WeekCalendar';
@@ -31,6 +27,7 @@ import { Spacing } from '../../constants/Spacing';
 import { getTagById } from '../../constants/Tags';
 import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
 import { logger } from '../../utils/logger';
+import { useRepository } from '../../hooks/useRepository';
 
 interface MainCalendarPageProps {
   navigation?: any;
@@ -105,7 +102,8 @@ export default function MainCalendarPage({
   const [tooltipEntry, setTooltipEntry] = useState<CalendarEntry | undefined>();
   const [dailySellIn, setDailySellIn] = useState<{ [date: string]: number }>({});
 
-  const repository = new FirebaseCalendarRepositoryAdapter();
+  // Repository tramite DI (elimina istanza hardcoded)
+  const repository = useRepository();
   
   // Debug: verifica il tipo di repository
 
@@ -191,11 +189,7 @@ export default function MainCalendarPage({
 
     // Carica dati iniziali
     useEffect(() => {
-      if (__DEV__) {
-        console.log(
-          '🔄 MainCalendarPage: useEffect triggered - caricamento dati iniziali'
-        );
-      }
+      logger.ui('useEffect triggered - caricamento dati iniziali');
       loadInitialData();
     }, []);
 
@@ -204,7 +198,7 @@ export default function MainCalendarPage({
     useEffect(() => {
       if (navigation?.addListener) {
         const unsubscribe = navigation.addListener('focus', () => {
-          console.log('🔄 MainCalendarPage: Pagina attiva, ricaricamento dati Excel...');
+          logger.ui('Pagina attiva, ricaricamento dati Excel');
           reloadExcelData();
         });
 
@@ -213,16 +207,16 @@ export default function MainCalendarPage({
     }, [navigation, reloadExcelData]);
 
     const loadInitialData = async () => {
-      console.log('📥 MainCalendarPage: Inizio caricamento dati iniziali');
+      logger.business('Inizio caricamento dati iniziali');
       try {
         setIsLoading(true);
         dispatch({ type: 'SET_LOADING', payload: true });
 
-        console.log('👥 MainCalendarPage: Caricamento utenti...');
+        logger.data('Caricamento utenti...');
         const users = await repository.getUsers();
-        console.log('✅ MainCalendarPage: Utenti caricati:', users.length);
+        logger.data('Utenti caricati', { count: users.length });
 
-        console.log('🏪 MainCalendarPage: Caricamento punti vendita...');
+        logger.data('Caricamento punti vendita...');
         const salesPoints = await repository.getSalesPoints();
         console.log(
           '✅ MainCalendarPage: Punti vendita caricati:',
@@ -394,7 +388,7 @@ export default function MainCalendarPage({
           return entryDate.toDateString() === selectedDate.toDateString();
         });
         
-        logger.ui('📅 MainCalendarPage: Entry esistenti per', dateString, ':', existingEntries.length);
+        logger.ui(`📅 MainCalendarPage: Entry esistenti per ${dateString}: ${existingEntries.length}`);
         
         if (existingEntries.length > 0) {
           // Se esistono entry, apri in modalità modifica con il primo entry
@@ -498,16 +492,43 @@ export default function MainCalendarPage({
     }, [editingEntry, selectedUserId, selectedSalesPointId, dispatch, repository]);
 
     const handleDeleteEntry = async (entryId: string) => {
-      console.log('🗑️ MainCalendarPage: Eliminazione entry:', entryId);
-      try {
-        await repository.deleteCalendarEntry(entryId);
-        dispatch({ type: 'DELETE_ENTRY', payload: entryId });
-        setShowEntryModal(false);
-        setEditingEntry(undefined);
-      } catch (error) {
-        console.error('❌ MainCalendarPage: Errore eliminazione entry:', error);
-        Alert.alert('Errore', 'Impossibile eliminare l\'entry. Riprova.');
-      }
+      console.log('🗑️ MainCalendarPage: Richiesta eliminazione entry:', entryId);
+      
+      // Trova l'entry per mostrare il titolo nella conferma
+      const entryToDelete = state.entries.find(e => e.id === entryId);
+      const entryTitle = entryToDelete?.date?.toLocaleDateString() || 'Entry';
+      
+      // Dialog di conferma per eliminazione
+      Alert.alert(
+        'Conferma eliminazione',
+        `Sei sicuro di voler eliminare l'entry del ${entryTitle}?\n\nQuesta azione non può essere annullata.`,
+        [
+          {
+            text: 'Annulla',
+            style: 'cancel',
+            onPress: () => console.log('🚫 MainCalendarPage: Eliminazione annullata')
+          },
+          {
+            text: 'Elimina',
+            style: 'destructive',
+            onPress: async () => {
+              console.log('🗑️ MainCalendarPage: Confermata eliminazione entry:', entryId);
+              try {
+                await repository.deleteCalendarEntry(entryId);
+                dispatch({ type: 'DELETE_ENTRY', payload: entryId });
+                setShowEntryModal(false);
+                setEditingEntry(undefined);
+                
+                // Notifica di successo
+                Alert.alert('Successo', 'Entry eliminata correttamente.');
+              } catch (error) {
+                console.error('❌ MainCalendarPage: Errore eliminazione entry:', error);
+                Alert.alert('Errore', 'Impossibile eliminare l\'entry. Riprova.');
+              }
+            }
+          }
+        ]
+      );
     };
 
     const handleCancelEntry = () => {
@@ -789,10 +810,41 @@ export default function MainCalendarPage({
           itemMatch = row['namCode']?.startsWith('NAM ') || false;
         }
         
-        // Rimuovo log verboso per migliorare performance
-        // Log solo il primo mismatch per debug
-        if (!itemMatch && __DEV__ && (!filteredExcelRows || filteredExcelRows.length === 0)) {
-          console.log('⚠️ Primo mismatch:', selectedItem, 'vs disponibili:', [...new Set([row['amCode'], row['namCode'], row['agenteCode']].filter(Boolean))]);
+        // Sistema di logging ottimizzato con cleanup automatico cache
+        if (!itemMatch && __DEV__) {
+          const mismatchKey = `${selectedItem}_${row['amCode']}_${row['namCode']}_${row['agenteCode']}`;
+          
+          // Inizializza cache con cleanup automatico
+          if (!(global as any).loggedMismatches) {
+            (global as any).loggedMismatches = new Set();
+            (global as any).mismatchCacheCreated = Date.now();
+            
+            // Cleanup automatico ogni 10 minuti per prevenire memory leaks
+            setInterval(() => {
+              if ((global as any).loggedMismatches) {
+                const oldSize = (global as any).loggedMismatches.size;
+                (global as any).loggedMismatches.clear();
+                logger.debug('AgentMatcher', 'Cache cleaned up', { 
+                  oldSize, 
+                  runtime: `${(Date.now() - (global as any).mismatchCacheCreated) / 1000}s` 
+                });
+              }
+            }, 600000); // 10 minuti
+          }
+          
+          // Log con throttling intelligente - max 5 mismatch per tipo
+          const baseKey = selectedItem;
+          const existingForType = Array.from((global as any).loggedMismatches as Set<string>)
+            .filter((key: string) => key.startsWith(baseKey)).length;
+          
+          if (!((global as any).loggedMismatches).has(mismatchKey) && existingForType < 5) {
+            ((global as any).loggedMismatches).add(mismatchKey);
+            logger.warn('AgentMatcher', `Mismatch: ${selectedItem}`, { 
+              disponibili: [...new Set([row['amCode'], row['namCode'], row['agenteCode']].filter(Boolean))],
+              mismatchCount: existingForType + 1,
+              cacheSize: ((global as any).loggedMismatches).size
+            });
+          }
         }
         
         return itemMatch;
@@ -849,7 +901,7 @@ export default function MainCalendarPage({
       if (matchingRow) {
         effectiveSalesPoint = lastItem;
         forcedSalesPointId = matchingRow.codiceCliente;
-        console.log('🎯 FORZATURA: Trovato punto vendita nei filtri:', {
+        logger.debug('AgentMatcher', 'Punto vendita forzato nei filtri', {
           lastItem,
           forcedSalesPointId,
           matchingRow: {
@@ -882,28 +934,17 @@ export default function MainCalendarPage({
           id: forcedSalesPointId || relatedRow.codiceCliente,
           name: relatedRow['insegnaCliente'],
         };
-        console.log('🔍 MainCalendarPage: Agente rilevato automaticamente:', autoDetectedAgent);
+        logger.info('AgentMatcher', 'Agente rilevato automaticamente', { agent: autoDetectedAgent });
       }
     }
 
-    console.log('🔍 MainCalendarPage: Dati filtrati:', {
+    logger.debug('AgentMatcher', 'Dati filtrati', {
       agents: filteredAgents?.length || 0,
       salesPoints: filteredSalesPoints?.length || 0,
       excelRows: filteredExcelRows?.length || 0,
-      autoDetectedAgent,
-      autoDetectedSalesPoint,
-      selectedFilterItems,
-      selectedSalesPointId,
-      selectedUserId,
-      effectiveSalesPoint,
-      selectedSalesPoint,
-      sampleExcelRows: filteredExcelRows.slice(0, 2).map(row => ({
-        insegnaCliente: row['insegnaCliente'],
-        codiceCliente: row.codiceCliente,
-        cliente: row.cliente,
-        agenteCode: row['agenteCode'],
-        agenteName: row['agenteName']
-      }))
+      autoDetectedAgent: autoDetectedAgent?.code,
+      autoDetectedSalesPoint: autoDetectedSalesPoint?.name,
+      selectedFilterItemsCount: selectedFilterItems?.length || 0
     });
 
     return {
@@ -1277,23 +1318,6 @@ export default function MainCalendarPage({
 
         {/* CALENDARIO - 90% DELLO SCHERMO */}
         <View style={styles.calendarContainer}>
-          {/* Rimuoviamo questo log che causa re-render continui */}
-          {/* {(() => {
-            console.log('📊 MainCalendarPage: Rendering calendar con entries:', {
-              entriesCount: state.entries.length,
-              entriesWithFocusData: state.entries.filter(e => e.focusReferencesData && e.focusReferencesData.length > 0).length,
-              entriesWithTags: state.entries.filter(e => e.tags && e.tags.length > 0).length,
-              sampleEntry: state.entries.length > 0 && state.entries[0] ? {
-                id: state.entries[0]?.id,
-                date: state.entries[0]?.date,
-                focusReferencesData: state.entries[0]?.focusReferencesData,
-                hasFocusData: state.entries[0]?.focusReferencesData && state.entries[0]?.focusReferencesData.length > 0,
-                tags: state.entries[0]?.tags,
-                tagsCount: state.entries[0]?.tags?.length || 0
-              } : null
-            });
-            return null;
-          })()} */}
           {calendarView === 'week' ? (
             <WeekCalendar
               currentDate={currentDate}

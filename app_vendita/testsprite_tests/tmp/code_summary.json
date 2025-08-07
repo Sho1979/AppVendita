@@ -1,0 +1,209 @@
+{
+  "tech_stack": [
+    "TypeScript",
+    "React Native",
+    "Expo",
+    "Firebase",
+    "Zustand",
+    "React Navigation",
+    "Firestore",
+    "Firebase Auth",
+    "Firebase Storage",
+    "React Native Calendars",
+    "AsyncStorage",
+    "Jest"
+  ],
+  "features": [
+    {
+      "name": "Autenticazione Firebase",
+      "description": "Sistema di autenticazione completo con login, registrazione, logout e reset password utilizzando Firebase Auth. Include gestione persistente delle sessioni e verifica automatica dell'utente.",
+      "files": [
+        "App.tsx",
+        "src/hooks/useAuth.ts",
+        "src/core/services/firebaseAuth.ts",
+        "src/presentation/pages/LoginPage.tsx",
+        "src/presentation/components/LoginModal.tsx"
+      ]
+    },
+    {
+      "name": "Calendario Dinamico Multi-Vista",
+      "description": "Sistema di calendario avanzato con vista settimanale e mensile. Include navigazione intuitiva, selezione di date, gestione eventi e sincronizzazione real-time. Supporta virtualizzazione per performance ottimali.",
+      "files": [
+        "src/presentation/pages/MainCalendarPage.tsx",
+        "src/presentation/components/WeekCalendar.tsx",
+        "src/presentation/components/VirtualizedMonthCalendar.tsx",
+        "src/presentation/components/optimized/MemoizedWeekCalendar.tsx",
+        "src/presentation/components/optimized/VirtualizedMonthCalendar.tsx",
+        "src/presentation/components/calendar/CalendarUI.tsx",
+        "src/presentation/components/calendar/CalendarHelpers.tsx"
+      ]
+    },
+    {
+      "name": "Gestione Entries Calendario",
+      "description": "Sistema CRUD completo per la gestione delle entries del calendario con supporto per vendite, azioni, note, chat, tag e allegati. Include validazione dati e gestione errori robusta.",
+      "files": [
+        "src/data/models/CalendarEntry.ts",
+        "src/presentation/components/EntryFormModal.tsx",
+        "src/presentation/components/CustomCalendarCell.tsx",
+        "src/services/FirebaseCalendarService.ts",
+        "src/data/repositories/firebaseCalendarRepository.ts",
+        "src/data/repositories/CalendarRepository.ts"
+      ]
+    },
+    {
+      "name": "Sistema di Filtri Avanzati",
+      "description": "Filtri multipli e progressivi per agenti, punti vendita, linee di prodotto, area manager e NAM. Include ricerca testuale, selezione multipla e correlazione automatica dei dati.",
+      "files": [
+        "src/presentation/components/FilterComponents.tsx",
+        "src/stores/filtersStore.ts",
+        "src/hooks/useOptimizedExcelData.ts",
+        "src/hooks/useFirebaseExcelData.ts"
+      ]
+    },
+    {
+      "name": "State Management con Zustand",
+      "description": "Gestione dello stato globale utilizzando Zustand con persistenza locale. Include store separati per calendario, filtri, dati master e referenze focus con ottimizzazioni per performance.",
+      "files": [
+        "src/stores/calendarStore.ts",
+        "src/stores/filtersStore.ts",
+        "src/stores/masterDataStore.ts",
+        "src/stores/staticDataStore.ts",
+        "src/stores/focusReferencesStore.ts"
+      ]
+    },
+    {
+      "name": "Sistema Progressivo di Calcolo",
+      "description": "Motore di calcolo progressivo per sell-in e metriche vendite con aggiornamenti cronologici automatici. Include gestione batch e ottimizzazioni per grandi dataset.",
+      "files": [
+        "src/services/ProgressiveCalculationService.ts",
+        "src/hooks/useProgressiveCalculation.ts",
+        "src/hooks/useProgressiveIntegration.ts",
+        "src/hooks/useDefinitiveProgressiveData.ts",
+        "src/hooks/useMemoizedCalculations.ts"
+      ]
+    },
+    {
+      "name": "Gestione Media e Foto",
+      "description": "Sistema completo per cattura, compressione e upload di immagini con Firebase Storage. Include gestione permessi, ottimizzazione automatica e galleria integrata.",
+      "files": [
+        "src/services/PhotoService.ts",
+        "src/services/FirebasePhotoService.ts",
+        "src/services/ImageCompressionService.ts",
+        "src/hooks/usePhotoManager.ts",
+        "src/utils/imageOptimization.ts",
+        "src/utils/cameraConfig.ts"
+      ]
+    },
+    {
+      "name": "Import/Export Dati Excel",
+      "description": "Sistema di importazione ed esportazione dati Excel per agenti, clienti e listini prezzi. Include validazione, parsing robusto e gestione errori.",
+      "files": [
+        "src/data/models/ExcelData.ts",
+        "src/services/DataAdapter.ts",
+        "src/hooks/useFirebaseExcelData.ts",
+        "src/hooks/useOptimizedExcelData.ts"
+      ]
+    },
+    {
+      "name": "Sistema di Chat e Note",
+      "description": "Chat system integrato nelle entries del calendario con supporto per messaggi multipli, reazioni, reply e timestamp. Include notifiche real-time.",
+      "files": [
+        "src/presentation/components/TooltipModal.tsx",
+        "src/presentation/components/calendar/TooltipManagement.tsx",
+        "src/data/models/CalendarEntry.ts"
+      ]
+    },
+    {
+      "name": "Tag e Categorizzazione",
+      "description": "Sistema di tagging avanzato per categorizzare azioni, problemi e stati. Include predefiniti configurabili e gestione visuale con colori.",
+      "files": [
+        "src/constants/Tags.ts",
+        "src/presentation/components/CalendarCellTags.tsx",
+        "src/presentation/components/common/CellTags.tsx"
+      ]
+    },
+    {
+      "name": "Navigazione Multi-Piattaforma",
+      "description": "Sistema di navigazione React Navigation con tab navigation e deep linking. Ottimizzato per web, iOS e Android con adattamenti platform-specific.",
+      "files": [
+        "src/presentation/navigation/MainTabNavigator.tsx",
+        "src/presentation/pages/AccountPage.tsx"
+      ]
+    },
+    {
+      "name": "Gestione Performance",
+      "description": "Sistema di monitoraggio e ottimizzazione performance con lazy loading, virtualizzazione, memoization e batching. Include metriche real-time e logging strutturato.",
+      "files": [
+        "src/hooks/usePerformance.ts",
+        "src/hooks/useLazyComponents.ts",
+        "src/hooks/useBatchedState.ts",
+        "src/utils/performanceMonitor.tsx",
+        "src/utils/optimizedLogging.ts"
+      ]
+    },
+    {
+      "name": "Dependency Injection e Architettura",
+      "description": "Architettura basata su dependency injection con container IoC, pattern repository e service layer. Include setup modulare e configurazione avanzata.",
+      "files": [
+        "src/infrastructure/container.ts",
+        "src/infrastructure/serviceSetup.ts",
+        "src/hooks/useRepository.ts",
+        "src/data/repositories/modules/CalendarEntryRepository.ts",
+        "src/data/repositories/modules/PriceReferenceRepository.ts"
+      ]
+    },
+    {
+      "name": "Logging e Debug",
+      "description": "Sistema di logging strutturato con categorizzazione, throttling e debug utilities. Include logging ottimizzato per produzione e development.",
+      "files": [
+        "src/utils/logger.ts",
+        "src/utils/debugLogger.ts",
+        "src/utils/optimizedLogging.ts"
+      ]
+    },
+    {
+      "name": "Gestione Errori e Resilienza",
+      "description": "Error boundary, gestione errori Firebase, fallback UI e retry logic. Include notifiche user-friendly e recovery automatico.",
+      "files": [
+        "src/presentation/components/ErrorBoundary.tsx",
+        "src/presentation/components/common/ErrorWidget.tsx",
+        "src/presentation/components/common/LoadingWidget.tsx"
+      ]
+    },
+    {
+      "name": "Responsive Design e Theming",
+      "description": "Design system completo con colori, spaziature e componenti responsive. Supporta adattamento automatico per web, tablet e mobile.",
+      "files": [
+        "src/constants/Colors.ts",
+        "src/constants/Spacing.ts",
+        "src/presentation/components/common/SafeTouchableOpacity.tsx",
+        "src/utils/platformConfig.ts"
+      ]
+    },
+    {
+      "name": "Context Provider System",
+      "description": "Sistema di context providers per condivisione stato tra componenti. Include calendar context, auth context e gestione lifecycle.",
+      "files": [
+        "src/presentation/providers/CalendarContext.tsx",
+        "src/presentation/containers/CalendarViewContainer.tsx",
+        "src/presentation/containers/DataLoadingContainer.tsx",
+        "src/presentation/containers/EntryManagementContainer.tsx"
+      ]
+    },
+    {
+      "name": "Testing Framework",
+      "description": "Suite di test completa con unit test, integration test, e2e test e performance test. Include setup automatizzato e coverage reporting.",
+      "files": [
+        "src/__tests__/setup.ts",
+        "src/__tests__/simple.test.ts",
+        "src/__tests__/components/CustomCalendarCell.test.tsx",
+        "src/__tests__/hooks/useFirebaseCalendar.test.ts",
+        "src/__tests__/services/FirebaseCalendarService.test.ts",
+        "src/__tests__/stores/calendarStore.test.ts",
+        "src/__tests__/performance/performance.test.ts",
+        "src/__tests__/integration/integration.test.ts",
+        "src/__tests__/e2e/e2e.test.ts"
+      ]
+    }
+  ]
+}

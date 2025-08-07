@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { firebaseCalendarService } from '../services/FirebaseCalendarService';
 import { useCalendarStore } from '../stores/calendarStore';
 import { CalendarEntry } from '../data/models/CalendarEntry';
+import { logger } from '../utils/logger';
 
 export interface UseFirebaseCalendarReturn {
   // Stato
@@ -50,13 +51,13 @@ export const useFirebaseCalendar = (): UseFirebaseCalendarReturn => {
 
   const checkConnection = useCallback(async (): Promise<boolean> => {
     try {
-      console.log('🔍 useFirebaseCalendar: Verifica connessione Firebase...');
+      // Usa cache per evitare verifiche duplicate
       const connected = await firebaseCalendarService.checkConnection();
       setIsConnected(connected);
-      console.log('✅ useFirebaseCalendar: Connessione Firebase:', connected);
+      logger.info('Firebase', 'Connessione verificata', { connected });
       return connected;
     } catch (error) {
-      console.error('❌ useFirebaseCalendar: Errore controllo connessione:', error);
+      logger.error('Firebase', 'Errore controllo connessione', error);
       setIsConnected(false);
       return false;
     }

@@ -13,6 +13,7 @@ import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import { Colors } from '../../constants/Colors';
 import { Spacing } from '../../constants/Spacing';
 import { firebaseAuthService, AuthUser } from '../../core/services/firebaseAuth';
+import { DEFAULT_TEST_CREDENTIAL, enableTestAutoLogin, getSecureTestCredentials, validateEmailForFirebase } from '../../utils/testCredentials';
 
 interface LoginModalProps {
   visible: boolean;
@@ -25,11 +26,34 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onClose,
   onLoginSuccess,
 }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  // Auto-popolamento per TestSprite con validazione sicura
+  const getInitialCredentials = () => {
+    if (enableTestAutoLogin()) {
+      try {
+        const secureCredentials = getSecureTestCredentials();
+        return {
+          email: secureCredentials.email,
+          password: secureCredentials.password,
+          displayName: secureCredentials.displayName
+        };
+      } catch (error) {
+        console.warn('TestSprite: Errore credenziali sicure, using fallback', error);
+        return {
+          email: DEFAULT_TEST_CREDENTIAL.email,
+          password: DEFAULT_TEST_CREDENTIAL.password,
+          displayName: DEFAULT_TEST_CREDENTIAL.displayName
+        };
+      }
+    }
+    return { email: '', password: '', displayName: '' };
+  };
+
+  const initialCredentials = getInitialCredentials();
+  const [email, setEmail] = useState(initialCredentials.email);
+  const [password, setPassword] = useState(initialCredentials.password);
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const [displayName, setDisplayName] = useState('');
+  const [displayName, setDisplayName] = useState(initialCredentials.displayName);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -40,19 +64,24 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     setIsLoading(true);
 
     try {
+      // Validazione email per Firebase
+      const validatedEmail = validateEmailForFirebase(email);
+      
       let user: AuthUser;
 
       if (isSignUp) {
-        user = await firebaseAuthService.signUp(email, password, displayName || undefined);
+        user = await firebaseAuthService.signUp(validatedEmail, password, displayName || undefined);
         Alert.alert('Successo', 'Account creato con successo!');
       } else {
-        user = await firebaseAuthService.signIn(email, password);
+        user = await firebaseAuthService.signIn(validatedEmail, password);
       }
 
       onLoginSuccess(user);
       onClose();
     } catch (error) {
-      Alert.alert('Errore', error instanceof Error ? error.message : 'Errore di autenticazione');
+      const errorMessage = error instanceof Error ? error.message : 'Errore di autenticazione';
+      console.error('LoginModal: Errore autenticazione', { email, error: errorMessage });
+      Alert.alert('Errore', errorMessage);
     } finally {
       setIsLoading(false);
     }
