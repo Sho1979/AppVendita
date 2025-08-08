@@ -3,7 +3,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import MainCalendarPage from '../pages/MainCalendarPage';
 import SettingsPage from '../pages/SettingsPage';
-import { TagTestPage } from '../pages/TagTestPage';
+// import { TagTestPage } from '../pages/TagTestPage';
+import LeaderboardPage from '../pages/LeaderboardPage';
 
 const Tab = createBottomTabNavigator();
 
@@ -37,12 +38,13 @@ export default function MainTabNavigator() {
           ),
         }}
       />
+      {/* Tag Test nascosto dalla tab bar per non incidere sulla UX */}
       <Tab.Screen
-        name="Tag Test"
-        component={TagTestPage}
+        name="Classifica"
+        component={LeaderboardPage}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ color, fontSize: size * 0.7 }}>🏷️</Text>
+            <Text style={{ color, fontSize: size * 0.7 }}>🏆</Text>
           ),
         }}
       />
