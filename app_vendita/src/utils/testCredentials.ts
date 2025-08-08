@@ -57,5 +57,24 @@ export function getSecureTestCredentials() {
 // Credenziale di default per fallback
 export const DEFAULT_TEST_CREDENTIAL = TEST_CREDENTIALS.DEMO_USER;
 
+// Funzione per validare e normalizzare email per Firebase
+export function validateEmailForFirebase(email: string): string {
+  if (!email || typeof email !== 'string') {
+    throw new Error('Email non valida');
+  }
+  
+  // Normalizza l'email: trim e lowercase
+  const normalizedEmail = email.trim().toLowerCase();
+  
+  // Regex base per validazione email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  
+  if (!emailRegex.test(normalizedEmail)) {
+    throw new Error('Formato email non valido');
+  }
+  
+  return normalizedEmail;
+}
+
 // Esporta per uso nei test
 export const { DEMO_USER, USER_A, USER_B, AGENT_USER } = TEST_CREDENTIALS;

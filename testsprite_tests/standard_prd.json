@@ -1,0 +1,237 @@
+{
+  "meta": {
+    "project": "App Vendita Mobile",
+    "date": "2025-07-30",
+    "prepared_by": "Software Development Manager"
+  },
+  "product_overview": "App Vendita Mobile is a comprehensive sales and calendar management application designed for enterprise use. It features advanced calendar and entry management, seamless Firebase integration for authentication and storage, and robust performance optimizations to support large-scale data handling and user interaction.",
+  "core_goals": [
+    "Provide secure and role-based Firebase authentication with auto-login capabilities.",
+    "Enable advanced calendar views with efficient virtualization for large data sets.",
+    "Support full CRUD operations for calendar entries including image upload and focus references.",
+    "Offer advanced photo management with compression and permission controls.",
+    "Implement smart filtering and search functionalities across agents, clients, and sales points.",
+    "Facilitate import and export of Excel data with validation and error handling.",
+    "Deliver real-time progressive sales data calculations with optimized updates.",
+    "Maintain global state management optimized for performance using Zustand.",
+    "Ensure a clean architecture using repository pattern and dependency injection.",
+    "Provide enterprise-grade reusable UI components with unified design and error handling.",
+    "Optimize application performance through memoization, lazy loading, and virtualization.",
+    "Enable multi-platform navigation with React Navigation supporting deep linking.",
+    "Build a comprehensive testing infrastructure integrating Jest and React Testing Library."
+  ],
+  "key_features": [
+    "Firebase-based authentication system with auto-login and role-based access control.",
+    "Advanced calendar management supporting week and month views with virtualization.",
+    "Entry management system enabling create, read, update, and delete functionalities with image attachments and focus references.",
+    "Photo management with capture, compression, upload, and retrieval integrated with permission handling.",
+    "Sophisticated data filtering and search by agents, categories, and sales points with reset and performance optimization.",
+    "Excel data import/export utility with built-in validation and error handling mechanisms.",
+    "Progressive calculation system delivering batched real-time sales data computations.",
+    "Global state management powered by Zustand with batched updates to improve performance.",
+    "Clean architecture implementation following repository pattern and dependency injection for modularity.",
+    "Reusable enterprise-grade UI components with consistency and error boundary integration.",
+    "Performance optimizations including memoization, virtualization, and lazy loading to enhance UX.",
+    "Robust logging and monitoring system capturing structured logs with environment awareness.",
+    "Multi-platform, tab-based navigation system with React Navigation and deep linking support.",
+    "Comprehensive testing setup using Jest and React Native Testing Library integrated with TestSprite."
+  ],
+  "user_flow_summary": [
+    "User Authentication Flow: Users log in via Firebase authentication and are auto-logged in on subsequent sessions. Access control is enforced based on roles.",
+    "Calendar Interaction Flow: Users can view calendars in week or month views with smooth navigation and responsive updates.",
+    "Entry Management Flow: Users create, edit, and delete calendar entries, attach images, and manage focus references with confirmation modals.",
+    "Photo Handling Flow: Users capture photos through the app, with automatic compression and upload to Firebase storage respecting permissions.",
+    "Filtering and Search Flow: Users apply complex filters and search criteria with options to reset filters for sales data viewing.",
+    "Excel Data Management Flow: Users import/export Excel files for clients, agents, and other references with validation and error feedback.",
+    "Progressive Calculation Flow: The system performs real-time sales calculations with batched updates ensuring timely data presentation.",
+    "State Management Flow: Global state changes propagate through optimized updates maintaining performance and UI responsiveness.",
+    "Navigation Flow: Users navigate across different app sections using a tab-based navigation with deep links supported.",
+    "Error Handling Flow: Centralized error boundary captures and logs errors, presenting fallback UI when necessary."
+  ],
+  "validation_criteria": [
+    "Authentication securely verifies users with Firebase and supports role-based access control.",
+    "Calendar views are responsive and maintain performance with virtualization in rendering large date sets.",
+    "All CRUD operations on entries function correctly including image attachments and focus reference management.",
+    "Photo capture and upload processes handle permissions properly and maintain image quality with compression.",
+    "Filtering and search allow accurate and performant data retrieval with reset capabilities.",
+    "Excel import/export operations validate data and handle errors gracefully without data loss.",
+    "Progressive calculations update sales data in real time without noticeable delays or performance degradation.",
+    "State management updates propagate efficiently without causing unnecessary rerenders.",
+    "Navigation system supports multi-platform routing and deep linking correctly across all screens.",
+    "UI components consistently match design specifications and handle errors with graceful fallback displays.",
+    "Performance benchmarks meet targets for responsiveness, loading times, and resource usage.",
+    "Logging captures sufficient detail in various environments with proper throttling and level differentiation.",
+    "Automated tests cover relevant units, integration points, and UI components ensuring stability and regression prevention."
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "TypeScript",
+      "React Native",
+      "Expo",
+      "Firebase",
+      "Zustand",
+      "React Navigation",
+      "React Hook Form",
+      "Jest"
+    ],
+    "features": [
+      {
+        "name": "Authentication System",
+        "description": "Firebase authentication with auto-login for TestSprite, role-based access control and secure credential management",
+        "files": [
+          "app_vendita/src/core/services/firebaseAuth.ts",
+          "app_vendita/src/presentation/components/LoginModal.tsx",
+          "app_vendita/src/utils/testCredentials.ts",
+          "app_vendita/src/presentation/pages/LoginPage.tsx"
+        ]
+      },
+      {
+        "name": "Calendar Management",
+        "description": "Advanced calendar system with week/month views, virtualization, progressive calculations and entry management",
+        "files": [
+          "app_vendita/src/presentation/pages/MainCalendarPage.tsx",
+          "app_vendita/src/presentation/components/WeekCalendar.tsx",
+          "app_vendita/src/presentation/components/MonthCalendar.tsx",
+          "app_vendita/src/presentation/components/VirtualizedMonthCalendar.tsx",
+          "app_vendita/src/presentation/components/optimized/MemoizedWeekCalendar.tsx",
+          "app_vendita/src/presentation/components/CustomCalendarCell.tsx",
+          "app_vendita/src/presentation/components/calendar/CalendarUI.tsx"
+        ]
+      },
+      {
+        "name": "Entry Management System",
+        "description": "Complete CRUD operations for calendar entries with focus references, image attachments and delete confirmations",
+        "files": [
+          "app_vendita/src/presentation/components/EntryFormModal.tsx",
+          "app_vendita/src/presentation/components/TooltipModal.tsx",
+          "app_vendita/src/presentation/components/FocusReferencesForm.tsx",
+          "app_vendita/src/presentation/components/FocusReferencesModal.tsx",
+          "app_vendita/src/presentation/containers/EntryManagementContainer.tsx"
+        ]
+      },
+      {
+        "name": "Photo Management",
+        "description": "Advanced photo capture, compression, upload and retrieval with TestSprite-aware permissions",
+        "files": [
+          "app_vendita/src/services/PhotoService.ts",
+          "app_vendita/src/services/ImageCompressionService.ts",
+          "app_vendita/src/services/FirebasePhotoService.ts",
+          "app_vendita/src/hooks/usePhotoManager.ts",
+          "app_vendita/src/utils/cameraConfig.ts"
+        ]
+      },
+      {
+        "name": "Data Filtering and Search",
+        "description": "Smart filtering system by agents, sales points, categories with reset functionality and optimized performance",
+        "files": [
+          "app_vendita/src/presentation/components/FilterComponents.tsx",
+          "app_vendita/src/presentation/components/SmartFilterComponents.tsx",
+          "app_vendita/src/presentation/containers/FilterManagementContainer.tsx",
+          "app_vendita/src/hooks/useAdvancedFilters.ts"
+        ]
+      },
+      {
+        "name": "Excel Data Management",
+        "description": "Import/export Excel data for sales agents, clients and references with validation and error handling",
+        "files": [
+          "app_vendita/src/hooks/useFirebaseExcelData.ts",
+          "app_vendita/src/hooks/useExcelData.ts",
+          "app_vendita/src/stores/staticDataStore.ts",
+          "app_vendita/src/utils/excelUtils.ts"
+        ]
+      },
+      {
+        "name": "Progressive Calculation System",
+        "description": "Real-time progressive calculations for sales data with batched updates and performance optimization",
+        "files": [
+          "app_vendita/src/services/ProgressiveCalculationService.ts",
+          "app_vendita/src/hooks/useProgressiveCalculation.ts",
+          "app_vendita/src/hooks/useProgressiveIntegration.ts",
+          "app_vendita/src/presentation/providers/CalendarContext.tsx"
+        ]
+      },
+      {
+        "name": "State Management",
+        "description": "Global state management with Zustand, batched updates and performance monitoring",
+        "files": [
+          "app_vendita/src/stores/calendarStore.ts",
+          "app_vendita/src/stores/filterStore.ts",
+          "app_vendita/src/stores/staticDataStore.ts",
+          "app_vendita/src/hooks/useBatchedState.ts",
+          "app_vendita/src/utils/performanceMonitor.ts"
+        ]
+      },
+      {
+        "name": "Repository Pattern & DI",
+        "description": "Clean architecture with repository pattern, dependency injection and adapter pattern for data access",
+        "files": [
+          "app_vendita/src/data/repositories/CalendarRepository.ts",
+          "app_vendita/src/data/repositories/FirebaseCalendarRepository.ts",
+          "app_vendita/src/data/repositories/AsyncStorageCalendarRepository.ts",
+          "app_vendita/src/infrastructure/container.ts",
+          "app_vendita/src/infrastructure/serviceSetup.ts",
+          "app_vendita/src/hooks/useRepository.ts"
+        ]
+      },
+      {
+        "name": "Firebase Integration",
+        "description": "Complete Firebase integration for authentication, Firestore database and cloud storage",
+        "files": [
+          "app_vendita/src/services/FirebaseCalendarService.ts",
+          "app_vendita/src/services/FirebasePhotoService.ts",
+          "app_vendita/src/stores/focusReferencesStore.ts",
+          "app_vendita/src/hooks/useFirebaseCalendar.ts"
+        ]
+      },
+      {
+        "name": "UI Components Library",
+        "description": "Reusable enterprise-grade UI components with consistent design system and error boundaries",
+        "files": [
+          "app_vendita/src/presentation/components/common/InputField.tsx",
+          "app_vendita/src/presentation/components/common/Tag.tsx",
+          "app_vendita/src/presentation/components/common/TagSelector.tsx",
+          "app_vendita/src/presentation/components/common/SafeTouchableOpacity.tsx",
+          "app_vendita/src/presentation/components/ErrorBoundary.tsx"
+        ]
+      },
+      {
+        "name": "Performance Optimization",
+        "description": "Enterprise-level performance optimizations with memoization, virtualization and lazy loading",
+        "files": [
+          "app_vendita/src/presentation/components/LazyComponents.tsx",
+          "app_vendita/src/hooks/useBatchedState.ts",
+          "app_vendita/src/utils/performanceMonitor.ts",
+          "app_vendita/src/utils/optimizedLogging.ts"
+        ]
+      },
+      {
+        "name": "Logging and Monitoring",
+        "description": "Enterprise logging system with structured levels, throttling and environment-specific configurations",
+        "files": [
+          "app_vendita/src/utils/logger.ts",
+          "app_vendita/src/utils/optimizedLogging.ts",
+          "app_vendita/src/presentation/components/FirebaseSyncIndicator.tsx"
+        ]
+      },
+      {
+        "name": "Navigation System",
+        "description": "Multi-platform navigation with React Navigation, tab-based routing and deep linking support",
+        "files": [
+          "app_vendita/src/presentation/navigation/AppNavigator.tsx",
+          "app_vendita/src/presentation/pages/AccountPage.tsx",
+          "app_vendita/src/presentation/pages/SettingsPage.tsx"
+        ]
+      },
+      {
+        "name": "Testing Infrastructure",
+        "description": "Comprehensive testing setup with Jest, React Native Testing Library and TestSprite integration",
+        "files": [
+          "app_vendita/src/__tests__/refactoring/logger.test.ts",
+          "app_vendita/src/__tests__/refactoring/dependency-injection.test.ts",
+          "app_vendita/src/__tests__/performance/optimization.test.tsx",
+          "app_vendita/src/__tests__/services/PhotoService.test.ts"
+        ]
+      }
+    ]
+  }
+}

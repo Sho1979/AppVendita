@@ -169,7 +169,7 @@ export const useFocusReferencesStore = create<FocusReferencesState>((set, get) =
   loadFocusReferencesFromFirestore: async () => {
     try {
       set({ isLoading: true, error: null });
-      console.log('📥 FocusReferencesStore: Caricamento referenze focus da Firestore...');
+      if (__DEV__) { console.log('📥 FocusReferencesStore: Caricamento referenze focus da Firestore...'); }
 
       const db = getFirestore();
       const focusRef = doc(db, 'app_settings', 'focus_references');
@@ -186,10 +186,10 @@ export const useFocusReferencesStore = create<FocusReferencesState>((set, get) =
           isLoading: false 
         });
 
-        console.log(`✅ FocusReferencesStore: Caricate ${references.length} referenze focus da Firestore`);
-        console.log(`💰 FocusReferencesStore: Caricati ${Object.keys(netPrices).length} prezzi netti da Firestore`);
+        if (__DEV__) { console.log(`✅ FocusReferencesStore: Caricate ${references.length} referenze focus da Firestore`); }
+        if (__DEV__) { console.log(`💰 FocusReferencesStore: Caricati ${Object.keys(netPrices).length} prezzi netti da Firestore`); }
       } else {
-        console.log('📝 FocusReferencesStore: Nessuna configurazione focus trovata su Firestore, usando valori di default');
+        if (__DEV__) { console.log('📝 FocusReferencesStore: Nessuna configurazione focus trovata su Firestore, usando valori di default'); }
         set({ isLoading: false });
       }
     } catch (error) {
@@ -205,10 +205,10 @@ export const useFocusReferencesStore = create<FocusReferencesState>((set, get) =
   saveFocusReferencesToFirestore: async () => {
     try {
       const state = get();
-      console.log('💾 FocusReferencesStore: Salvataggio referenze focus su Firestore...', {
+      if (__DEV__) { console.log('💾 FocusReferencesStore: Salvataggio referenze focus su Firestore...', {
         focusReferences: state.focusReferences.length,
         netPrices: Object.keys(state.netPrices).length
-      });
+      }); }
 
       const db = getFirestore();
       const focusRef = doc(db, 'app_settings', 'focus_references');
@@ -220,7 +220,7 @@ export const useFocusReferencesStore = create<FocusReferencesState>((set, get) =
         updatedBy: 'admin' // In futuro potrebbe essere l'ID dell'utente titolare
       });
 
-      console.log('✅ FocusReferencesStore: Referenze focus salvate su Firestore con successo');
+      if (__DEV__) { console.log('✅ FocusReferencesStore: Referenze focus salvate su Firestore con successo'); }
     } catch (error) {
       console.error('❌ FocusReferencesStore: Errore salvataggio su Firestore:', error);
       set({ 
@@ -233,7 +233,7 @@ export const useFocusReferencesStore = create<FocusReferencesState>((set, get) =
   // Carica i prezzi netti da Firestore (globale per tutti gli utenti)
   loadNetPricesFromFirestore: async () => {
     try {
-      console.log('📥 FocusReferencesStore: Caricamento prezzi netti da Firestore...');
+      if (__DEV__) { console.log('📥 FocusReferencesStore: Caricamento prezzi netti da Firestore...'); }
 
       const db = getFirestore();
       const focusRef = doc(db, 'app_settings', 'focus_references');
@@ -245,9 +245,9 @@ export const useFocusReferencesStore = create<FocusReferencesState>((set, get) =
 
         set({ netPrices });
 
-        console.log(`💰 FocusReferencesStore: Caricati ${Object.keys(netPrices).length} prezzi netti da Firestore`);
+        if (__DEV__) { console.log(`💰 FocusReferencesStore: Caricati ${Object.keys(netPrices).length} prezzi netti da Firestore`); }
       } else {
-        console.log('📝 FocusReferencesStore: Nessun prezzo netto trovato su Firestore, usando valori di default');
+        if (__DEV__) { console.log('📝 FocusReferencesStore: Nessun prezzo netto trovato su Firestore, usando valori di default'); }
       }
     } catch (error) {
       console.error('❌ FocusReferencesStore: Errore caricamento prezzi netti da Firestore:', error);
@@ -261,9 +261,9 @@ export const useFocusReferencesStore = create<FocusReferencesState>((set, get) =
   saveNetPricesToFirestore: async () => {
     try {
       const state = get();
-      console.log('💾 FocusReferencesStore: Salvataggio prezzi netti su Firestore...', {
+      if (__DEV__) { console.log('💾 FocusReferencesStore: Salvataggio prezzi netti su Firestore...', {
         netPrices: Object.keys(state.netPrices).length
-      });
+      }); }
 
       const db = getFirestore();
       const focusRef = doc(db, 'app_settings', 'focus_references');
@@ -275,7 +275,7 @@ export const useFocusReferencesStore = create<FocusReferencesState>((set, get) =
         updatedBy: 'admin' // In futuro potrebbe essere l'ID dell'utente titolare
       });
 
-      console.log('✅ FocusReferencesStore: Prezzi netti salvati su Firestore con successo');
+      if (__DEV__) { console.log('✅ FocusReferencesStore: Prezzi netti salvati su Firestore con successo'); }
     } catch (error) {
       console.error('❌ FocusReferencesStore: Errore salvataggio prezzi netti su Firestore:', error);
       set({ 

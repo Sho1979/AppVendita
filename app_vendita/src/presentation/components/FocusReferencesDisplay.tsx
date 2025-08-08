@@ -204,12 +204,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   focusReferenceItem: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 4,
+    backgroundColor: '#FAFAFB',
+    borderRadius: 6,
     padding: 3,
     marginBottom: 2,
-    borderWidth: 2,
-    borderColor: '#E5E5EA',
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
     width: '48%', // Metà larghezza per 2 colonne
     minHeight: 40,
   },

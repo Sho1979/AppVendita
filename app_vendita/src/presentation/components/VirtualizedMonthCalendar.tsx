@@ -1,5 +1,5 @@
-import React, { useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, Dimensions } from 'react-native';
+import React, { useMemo, useCallback, useState } from 'react';
+import { View, StyleSheet, FlatList, Dimensions } from 'react-native';
 import CustomCalendarCell from './CustomCalendarCell';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { Colors } from '../../constants/Colors';
@@ -15,13 +15,12 @@ interface VirtualizedMonthCalendarProps {
 }
 
 // Ottieni dimensioni schermo per calcolare altezza celle
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const CELL_WIDTH = width / 7;
-const CELL_HEIGHT = 80; // Altezza fissa per uniformità
 
 interface WeekData {
   weekIndex: number;
-  dates: Date[];
+  dates: Array<Date | null>;
 }
 
 export default function VirtualizedMonthCalendar({
@@ -32,7 +31,26 @@ export default function VirtualizedMonthCalendar({
   onDayPress,
   onTooltipPress,
 }: VirtualizedMonthCalendarProps) {
-  
+  // Misura dinamica: altezza contenitore e altezza header per calcolo preciso delle celle
+  const [containerHeight, setContainerHeight] = useState<number>(0);
+
+  const onContainerLayout = useCallback((evt: any) => {
+    const h = evt?.nativeEvent?.layout?.height || 0;
+    if (h && Math.abs(h - containerHeight) > 2) {
+      setContainerHeight(h);
+    }
+  }, [containerHeight]);
+
+  const rowsCount = monthData?.weeks?.length || 6;
+  const cellHeight = useMemo(() => {
+    // Fallback iniziale se non misurato
+    if (!containerHeight) {
+      return Math.max(64, Math.floor((height - 320) / rowsCount));
+    }
+    const available = Math.max(0, containerHeight);
+    return Math.max(64, Math.floor(available / rowsCount));
+  }, [containerHeight, rowsCount]);
+
   // Memoizza la generazione delle date del mese
   const monthData = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -40,42 +58,37 @@ export default function VirtualizedMonthCalendar({
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
 
-    // Trova il primo giorno della settimana (domenica = 0)
-    const startDate = new Date(firstDay);
-    startDate.setDate(firstDay.getDate() - firstDay.getDay());
-
-    const dates: Date[] = [];
-    const currentDateTemp = new Date(startDate);
-
-    // Calcola il numero di settimane necessarie
+    // Calcola il numero di settimane effettivamente necessarie per il mese
     const daysInMonth = lastDay.getDate();
-    const firstDayOfWeek = firstDay.getDay();
+    const firstDayOfWeek = firstDay.getDay(); // 0 = Dom ... 6 = Sab
     const totalCells = firstDayOfWeek + daysInMonth;
     const weeksNeeded = Math.ceil(totalCells / 7);
-    const finalWeeks = Math.max(4, weeksNeeded);
 
-    // Genera le settimane necessarie
-    for (let week = 0; week < finalWeeks; week++) {
-      for (let day = 0; day < 7; day++) {
-        dates.push(new Date(currentDateTemp));
-        currentDateTemp.setDate(currentDateTemp.getDate() + 1);
-      }
-    }
-
-    // Organizza per settimane
+    // Genera settimane contenenti SOLO i giorni del mese corrente.
     const weeks: WeekData[] = [];
-    for (let i = 0; i < dates.length; i += 7) {
-      weeks.push({
-        weekIndex: Math.floor(i / 7),
-        dates: dates.slice(i, i + 7)
-      });
+    let dayCounter = 1;
+    for (let w = 0; w < weeksNeeded; w++) {
+      const days: Array<Date | null> = [];
+      for (let d = 0; d < 7; d++) {
+        const isFirstWeekPadding = w === 0 && d < firstDayOfWeek;
+        if (isFirstWeekPadding || dayCounter > daysInMonth) {
+          days.push(null); // placeholder fuori mese
+        } else {
+          days.push(new Date(year, month, dayCounter));
+          dayCounter += 1;
+        }
+      }
+      weeks.push({ weekIndex: w, dates: days });
     }
 
+    // Flatten solo per eventuali conteggi rapidi
+    const dates: Array<Date | null> = weeks.flatMap(w => w.dates);
     return { dates, weeks };
   }, [currentDate]);
 
   // Memoizza la funzione per trovare entries
-  const getEntryForDate = useCallback((date: Date): CalendarEntry | undefined => {
+  const getEntryForDate = useCallback((date: Date | null): CalendarEntry | undefined => {
+    if (!date) return undefined;
     const dateStr = date.toISOString().split('T')[0];
     
     // Trova tutti gli entries per questa data
@@ -124,52 +137,20 @@ export default function VirtualizedMonthCalendar({
     return dateStr === selectedDate;
   }, [selectedDate]);
 
-  // Header giorni settimana con indicatori
-  const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
-  
-  const renderHeader = useMemo(() => {
-    // Calcola indicatori per ogni colonna
-    const columnIndicators = dayNames.map((dayName, index) => {
-      const weekEntries = monthData.dates
-        .filter((_, dayIndex) => dayIndex % 7 === index)
-        .map(date => getEntryForDate(date))
-        .filter(entry => !!entry);
-      
-      return {
-        dayName,
-        hasData: weekEntries.length > 0,
-        count: weekEntries.length
-      };
-    });
-
-    return (
-      <View style={styles.weekHeader}>
-        {columnIndicators.map((col, index) => (
-          <View key={index} style={styles.dayHeader}>
-            <Text style={styles.dayHeaderText}>{col.dayName}</Text>
-            {col.hasData && (
-              <View style={styles.dayHeaderIndicator}>
-                <Text style={styles.dayHeaderIndicatorText}>{col.count}</Text>
-              </View>
-            )}
-          </View>
-        ))}
-      </View>
-    );
-  }, [monthData.dates, getEntryForDate]);
+  // Header rimosso: i giorni della settimana sono mostrati dentro ogni cella
 
   // Renderizza una settimana
   const renderWeek = useCallback(({ item }: { item: WeekData }) => {
     return (
-      <View style={styles.weekRow}>
-        {item.dates.map((date) => {
+      <View style={[styles.weekRow, { height: cellHeight }]}>
+        {item.dates.map((date, idx) => {
+          if (!date) {
+            return <View key={`empty-${item.weekIndex}-${idx}`} style={[styles.cellContainer, { height: cellHeight }]} />;
+          }
           const entry = getEntryForDate(date);
           const dateStr = date.toISOString().split('T')[0];
-
-          if (!dateStr || !selectedSalesPointId) return null;
-
           return (
-            <View key={dateStr} style={styles.cellContainer}>
+            <View key={dateStr} style={[styles.cellContainer, { height: cellHeight }]}>
               <CustomCalendarCell
                 date={dateStr}
                 entry={entry}
@@ -179,37 +160,37 @@ export default function VirtualizedMonthCalendar({
                 onPress={() => onDayPress(dateStr)}
                 isWeekView={false}
                 onTooltipPress={onTooltipPress}
-
               />
             </View>
           );
         })}
       </View>
     );
-  }, [getEntryForDate, isSelected, isToday, onDayPress, onTooltipPress]);
+  }, [getEntryForDate, isSelected, isToday, onDayPress, onTooltipPress, cellHeight, selectedSalesPointId]);
 
   // Ottimizzazioni FlatList
   const getItemLayout = useCallback((_: any, index: number) => ({
-    length: CELL_HEIGHT,
-    offset: CELL_HEIGHT * index,
+    length: cellHeight,
+    offset: cellHeight * index,
     index,
-  }), []);
+  }), [cellHeight]);
 
   const keyExtractor = useCallback((item: WeekData) => `week-${item.weekIndex}`, []);
 
   return (
-    <View style={styles.container}>
-      {renderHeader}
+    <View style={styles.container} onLayout={onContainerLayout}>
       <FlatList
         data={monthData.weeks}
         renderItem={renderWeek}
         keyExtractor={keyExtractor}
         getItemLayout={getItemLayout}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 0 }}
         initialNumToRender={4}
         maxToRenderPerBatch={2}
         windowSize={5}
         removeClippedSubviews={true}
         showsVerticalScrollIndicator={false}
+        ListFooterComponent={<View style={{ height: 0 }} />}
       />
     </View>
   );
@@ -221,40 +202,34 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.warmBackground,
   },
   weekHeader: {
-    flexDirection: 'row',
-    backgroundColor: Colors.warmSurface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.warmBorder,
-    paddingVertical: 2,
+    display: 'none',
   },
   dayHeader: {
     flex: 1,
     alignItems: 'center',
   },
   dayHeaderText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: Colors.warmText,
+    display: 'none',
   },
   dayHeaderIndicator: {
-    backgroundColor: Colors.primary,
-    borderRadius: 6,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    marginTop: 2,
+    display: 'none',
   },
   dayHeaderIndicatorText: {
-    fontSize: 8,
-    color: 'white',
-    fontWeight: 'bold',
+    display: 'none',
   },
   weekRow: {
     flexDirection: 'row',
-    height: CELL_HEIGHT,
+    height: undefined,
+    minHeight: 64,
   },
   cellContainer: {
     flex: 1,
     width: CELL_WIDTH,
-    height: CELL_HEIGHT,
+    height: undefined,
+    minHeight: 64,
+    backgroundColor: Colors.warmBackground,
+  },
+  otherMonthCell: {
+    backgroundColor: '#F2F2F2',
   },
 });

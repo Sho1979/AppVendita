@@ -112,7 +112,9 @@ export class FirebaseCalendarRepository {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
-      console.log('✅ FirebaseCalendarRepository: Entry aggiunta con ID:', docRef.id);
+      if (__DEV__) {
+        console.log('✅ FirebaseCalendarRepository: Entry aggiunta con ID:', docRef.id);
+      }
       return docRef.id;
     } catch (error) {
       console.error('❌ FirebaseCalendarRepository: Errore nell\'aggiunta entry:', error);
@@ -140,7 +142,9 @@ export class FirebaseCalendarRepository {
         ...cleanEntry,
         updatedAt: serverTimestamp()
       });
-      console.log('✅ FirebaseCalendarRepository: Entry aggiornata:', entry.id);
+      if (__DEV__) {
+        console.log('✅ FirebaseCalendarRepository: Entry aggiornata:', entry.id);
+      }
     } catch (error) {
       console.error('❌ FirebaseCalendarRepository: Errore nell\'aggiornamento entry:', error);
       throw error;
@@ -150,7 +154,9 @@ export class FirebaseCalendarRepository {
   async deleteEntry(id: string): Promise<void> {
     try {
       await deleteDoc(doc(db, this.COLLECTIONS.CALENDAR_ENTRIES, id));
-      console.log('✅ FirebaseCalendarRepository: Entry eliminata:', id);
+      if (__DEV__) {
+        console.log('✅ FirebaseCalendarRepository: Entry eliminata:', id);
+      }
     } catch (error) {
       console.error('❌ FirebaseCalendarRepository: Errore nell\'eliminazione entry:', error);
       throw error;
@@ -272,7 +278,7 @@ export class FirebaseCalendarRepository {
       q = query(q, where('userId', '==', filters.userId));
     }
     
-    return onSnapshot(q, (snapshot) => {
+      return onSnapshot(q, (snapshot) => {
       const entries = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
@@ -281,7 +287,7 @@ export class FirebaseCalendarRepository {
         date: doc.data().date?.toDate()
       })) as CalendarEntry[];
       
-      callback(entries);
+        callback(entries);
     });
   }
 
@@ -300,7 +306,9 @@ export class FirebaseCalendarRepository {
       });
       
       await batch.commit();
-      console.log('✅ FirebaseCalendarRepository: Batch update completato per', entries.length, 'entries');
+      if (__DEV__) {
+        console.log('✅ FirebaseCalendarRepository: Batch update completato per', entries.length, 'entries');
+      }
     } catch (error) {
       console.error('❌ FirebaseCalendarRepository: Errore nel batch update:', error);
       throw error;

@@ -31,6 +31,7 @@ export const WeekTooltipButtons: React.FC<WeekTooltipButtonsProps> = React.memo(
   return (
     <View style={styles.tooltipSection}>
       <View style={styles.tooltipContainer}>
+        {/* Stock: sempre visibile; indicatore blu solo se hasStockContent() */}
         <SafeTouchableOpacity
           style={[
             styles.tooltipButton,
@@ -53,7 +54,8 @@ export const WeekTooltipButtons: React.FC<WeekTooltipButtonsProps> = React.memo(
             )}
           </View>
         </SafeTouchableOpacity>
-        
+
+        {/* Note: sempre visibile; badge numerico solo se presenti chatNotes/notes */}
         <SafeTouchableOpacity
           style={[
             styles.tooltipButton,
@@ -70,8 +72,7 @@ export const WeekTooltipButtons: React.FC<WeekTooltipButtonsProps> = React.memo(
           <View style={styles.tooltipButtonContent}>
             <Text style={styles.tooltipText}>📝</Text>
             {selectedSalesPointId && selectedSalesPointId !== 'default' && selectedSalesPointId !== '' &&
-             ((entry?.notes && entry.notes.trim() !== '') || 
-              (entry?.chatNotes && entry.chatNotes.length > 0)) && (
+             ((entry?.notes && entry.notes.trim() !== '') || (entry?.chatNotes && entry.chatNotes.length > 0)) && (
               <View style={styles.messageCountBadge}>
                 <Text style={styles.messageCountText}>
                   {entry?.chatNotes && entry.chatNotes.length > 99 ? '99+' : (entry?.chatNotes?.length || 1)}
@@ -80,7 +81,8 @@ export const WeekTooltipButtons: React.FC<WeekTooltipButtonsProps> = React.memo(
             )}
           </View>
         </SafeTouchableOpacity>
-        
+
+        {/* Info (Agente): sempre visibile; pallino sempre mostrato quando filtro attivo (hasInfoContent) */}
         <SafeTouchableOpacity
           style={[
             styles.tooltipButton,
@@ -103,7 +105,8 @@ export const WeekTooltipButtons: React.FC<WeekTooltipButtonsProps> = React.memo(
             )}
           </View>
         </SafeTouchableOpacity>
-        
+
+        {/* Immagini: sempre visibile; badge numerico solo se presenti foto */}
         <SafeTouchableOpacity
           style={[
             styles.tooltipButton,

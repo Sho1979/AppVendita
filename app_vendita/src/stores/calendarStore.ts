@@ -5,12 +5,7 @@ import { User } from '../data/models/User';
 import { SalesPoint } from '../data/models/SalesPoint';
 import { createStorageAdapter } from '../utils/storageAdapter';
 
-// Utility per logging condizionale
-const devLog = (message: string, ...args: any[]) => {
-  if (__DEV__) {
-    console.log(message, ...args);
-  }
-};
+// Utility per logging condizionale (placeholder per futuri debug)
 
 // Tipi per i filtri attivi
 export interface ActiveFilters {
@@ -60,6 +55,10 @@ interface CalendarState {
   getEntryById: (id: string) => CalendarEntry | undefined;
   getEntriesByDate: (date: string) => CalendarEntry[];
   getFilteredEntries: (filters: Partial<ActiveFilters>) => CalendarEntry[];
+  getEntriesForFilters: (userId?: string, salesPointId?: string) => CalendarEntry[];
+  // Aggregati per cliente/filtri
+  getTotalsForFilters: (userId?: string, salesPointId?: string) => { sellIn: number; actions: number };
+  getMonthlyTotalsForSalesPoint: (salesPointId: string, year: number, month: number) => { sellIn: number; actions: number };
   getEntriesCount: () => number;
   getUsersCount: () => number;
   getSalesPointsCount: () => number;
@@ -177,6 +176,62 @@ export const useCalendarStore = create<CalendarState>()(
           }
           return true;
         });
+      },
+
+      // Selettore specializzato per il caso più frequente in UI (priorità salesPointId)
+      getEntriesForFilters: (userId, salesPointId) => {
+        const { entries } = get();
+        if (salesPointId && salesPointId !== 'default') {
+          return entries.filter(e => e.salesPointId === salesPointId);
+        }
+        if (userId) {
+          return entries.filter(e => e.userId === userId);
+        }
+        return entries;
+      },
+
+      // Totali su entries filtrate (sell-in, azioni)
+      getTotalsForFilters: (userId, salesPointId) => {
+        const list = (get() as CalendarState).getEntriesForFilters(userId, salesPointId);
+        const computeSellIn = (e: CalendarEntry): number => {
+          // 1) Se presenti vendite esplicite, usa quelle
+          const explicit = e.sales?.reduce((s, sale) => s + (sale?.value || 0), 0) || 0;
+          if (explicit > 0) return explicit;
+          // 2) Fallback: calcola da focusReferencesData (soldPieces * netPrice)
+          const focus = e.focusReferencesData?.reduce((s, ref) => {
+            const ordered = parseFloat(String(ref.orderedPieces || '0')) || 0;
+            const price = parseFloat(String(ref.netPrice || '0')) || 0;
+            return s + ordered * price;
+          }, 0) || 0;
+          return focus;
+        };
+        const sellIn = list.reduce((sum, e) => sum + computeSellIn(e), 0);
+        const actions = list.reduce((sum, e) => sum + (e.actions?.reduce((s, a) => s + (a?.count || 0), 0) || 0), 0);
+        return { sellIn, actions };
+      },
+
+      // Totali mensili per salesPointId nel mese specificato
+      getMonthlyTotalsForSalesPoint: (salesPointId, year, month) => {
+        const { entries } = get();
+        const monthEntries = entries.filter(e => {
+          if (!salesPointId || salesPointId === 'default') return false;
+          if (e.salesPointId !== salesPointId) return false;
+          const d = e.date instanceof Date ? e.date : new Date(e.date);
+          return d.getFullYear() === year && (d.getMonth() + 1) === month;
+        });
+        const computeSellIn = (e: CalendarEntry): number => {
+          const explicit = e.sales?.reduce((s, sale) => s + (sale?.value || 0), 0) || 0;
+          if (explicit > 0) return explicit;
+          const focus = e.focusReferencesData?.reduce((s, ref) => {
+            const ordered = parseFloat(String(ref.orderedPieces || '0')) || 0;
+            const price = parseFloat(String(ref.netPrice || '0')) || 0;
+            return s + ordered * price;
+          }, 0) || 0;
+          return focus;
+        };
+        const sellIn = monthEntries.reduce((sum, e) => sum + computeSellIn(e), 0);
+        const actions = monthEntries.reduce((sum, e) => sum + (e.actions?.reduce((s, a) => s + (a?.count || 0), 0) || 0), 0);
+        return { sellIn, actions };
       },
       
       getEntriesCount: () => {

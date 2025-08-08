@@ -24,8 +24,9 @@ import { useFirebaseExcelData } from '../../hooks/useFirebaseExcelData';
 
 import { Colors } from '../../constants/Colors';
 import { Spacing } from '../../constants/Spacing';
-import { getTagById } from '../../constants/Tags';
+// import { getTagById } from '../../constants/Tags';
 import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
+import { useCalendarStore } from '../../stores/calendarStore';
 import { logger } from '../../utils/logger';
 import { useRepository } from '../../hooks/useRepository';
 
@@ -44,7 +45,8 @@ export default function MainCalendarPage({
   const { state, dispatch, progressiveSystem } = useCalendar();
   const focusReferencesStore = useFocusReferencesStore();
   
-  const getFocusReferenceById = (id: string) => {
+  // Helpers focus references (manteniamo per compatibilità futura, disabilitati per linter)
+  /* const getFocusReferenceById = (id: string) => {
     return focusReferencesStore.getAllReferences().find(ref => ref.id === id);
   };
   
@@ -52,7 +54,7 @@ export default function MainCalendarPage({
     const netPrices = focusReferencesStore.getNetPrices();
     const netPrice = netPrices[referenceId];
     return netPrice || '0';
-  };
+  }; */
   if (__DEV__) {
     // Rimuoviamo questo log che causa re-render continui
     // console.log('✅ MainCalendarPage: useCalendar hook eseguito con successo');
@@ -64,35 +66,36 @@ export default function MainCalendarPage({
   const [currentDate, setCurrentDate] = useState(new Date());
   
   // Filtri con Zustand
-  const {
-    selectedDate,
-    selectedUserId,
-    selectedSalesPointId,
-    selectedAMCode,
-    selectedNAMCode,
-    selectedLine,
-    selectedFilterItems,
-    showFilters,
-    agents,
-    setSelectedDate,
-    setSelectedUserId,
-    setSelectedSalesPointId,
-    setSelectedAMCode,
-    setSelectedNAMCode,
-    setSelectedLine,
-    setSelectedItems: setSelectedFilterItems,
-    setShowFilters,
-    setAgents,
-  } = useFiltersStore();
+  // Selettori atomici dal negozio (evita oggetto aggregato senza equality → re-render a cascata)
+  const selectedDate = useFiltersStore(state => state.selectedDate);
+  const selectedUserId = useFiltersStore(state => state.selectedUserId);
+  const selectedSalesPointId = useFiltersStore(state => state.selectedSalesPointId);
+  const selectedAMCode = useFiltersStore(state => state.selectedAMCode);
+  const selectedNAMCode = useFiltersStore(state => state.selectedNAMCode);
+  const selectedLine = useFiltersStore(state => state.selectedLine);
+  const selectedFilterItems = useFiltersStore(state => state.selectedFilterItems);
+  const showFilters = useFiltersStore(state => state.showFilters);
+  const agents = useFiltersStore(state => state.agents);
+  const setSelectedDate = useFiltersStore(state => state.setSelectedDate);
+  const setSelectedUserId = useFiltersStore(state => state.setSelectedUserId);
+  const setSelectedSalesPointId = useFiltersStore(state => state.setSelectedSalesPointId);
+  const setSelectedAMCode = useFiltersStore(state => state.setSelectedAMCode);
+  const setSelectedNAMCode = useFiltersStore(state => state.setSelectedNAMCode);
+  const setSelectedLine = useFiltersStore(state => state.setSelectedLine);
+  const setSelectedFilterItems = useFiltersStore(state => state.setSelectedItems);
+  const setShowFilters = useFiltersStore(state => state.setShowFilters);
+  const setAgents = useFiltersStore(state => state.setAgents);
 
   // Dati Excel da Firebase
   const { excelData: excelRows, isLoading: excelDataLoading, reloadData: reloadExcelData } = useFirebaseExcelData();
   
   // Debug: log dei dati caricati
   useEffect(() => {
-    console.log('📊 MainCalendarPage: Excel data caricati:', excelRows.length);
-    console.log('📊 MainCalendarPage: Calendar entries:', state.entries.length);
-    console.log('📊 MainCalendarPage: Excel loading:', excelDataLoading);
+    if (__DEV__) {
+      console.log('📊 MainCalendarPage: Excel data caricati:', excelRows.length);
+      console.log('📊 MainCalendarPage: Calendar entries:', state.entries.length);
+      console.log('📊 MainCalendarPage: Excel loading:', excelDataLoading);
+    }
   }, [excelRows.length, state.entries.length, excelDataLoading]);
   const [showEntryModal, setShowEntryModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<CalendarEntry | undefined>();
@@ -109,65 +112,56 @@ export default function MainCalendarPage({
 
 
   // Funzione per filtrare le entries in base ai filtri attivi
-  const getFilteredEntries = useCallback(() => {
+  /* const getFilteredEntries = useCallback(() => {
     const filtersState = useFiltersStore.getState();
     return state.entries.filter(entry => {
       if (filtersState.selectedSalesPointId && entry.salesPointId !== filtersState.selectedSalesPointId) return false;
       if (filtersState.selectedUserId && entry.userId !== filtersState.selectedUserId) return false;
       if (filtersState.selectedDate) {
-        // Gestisci il caso in cui entry.date potrebbe essere una stringa
         let entryDate: Date;
-        if (entry.date instanceof Date) {
-          entryDate = entry.date;
-        } else if (typeof entry.date === 'string') {
-          entryDate = new Date(entry.date);
-        } else {
-          // Se non è né Date né stringa, salta questa entry
-          return false;
-        }
-        
+        if (entry.date instanceof Date) entryDate = entry.date; else if (typeof entry.date === 'string') entryDate = new Date(entry.date); else return false;
         const entryDateString = entryDate.toISOString().split('T')[0];
         if (entryDateString !== filtersState.selectedDate) return false;
       }
       return true;
     });
-  }, [state.entries]);
+  }, [state.entries]); */
 
   // Memoizzo le entries filtrate per evitare ricalcoli inutili
+  const getEntriesForFilters = useCalendarStore(state => state.getEntriesForFilters);
+  const getTotalsForFilters = useCalendarStore(state => state.getTotalsForFilters);
+  const getMonthlyTotalsForSalesPoint = useCalendarStore(state => state.getMonthlyTotalsForSalesPoint);
   const filteredCalendarEntries = useMemo(() => {
-    const filtersState = useFiltersStore.getState();
-    
-    // SOLUZIONE SEMPLICE: Se c'è un punto vendita selezionato, usa SOLO quello
-    // Ignora completamente tutti gli altri filtri (userId, AM, NAM, etc.)
-    if (filtersState.selectedSalesPointId && filtersState.selectedSalesPointId !== 'default') {
-      const filteredEntries = state.entries.filter(entry => {
-        return entry.salesPointId === filtersState.selectedSalesPointId;
-      });
-      
-      // Log rimosso per performance - decommentare solo per debug
-      // console.log('🎯 getCalendarEntries: SOLO PUNTO VENDITA:', {
-      //   selectedSalesPointId: filtersState.selectedSalesPointId,
-      //   filteredEntries: filteredEntries.length,
-      // });
-      
-      return filteredEntries;
+    // Business rule: senza cliente selezionato non si mostrano dati
+    if (!selectedSalesPointId || selectedSalesPointId === 'default') {
+      return [] as CalendarEntry[];
     }
-    
-    // Se NON c'è punto vendita, usa la logica originale
-    const filteredEntries = state.entries.filter(entry => {
-      if (filtersState.selectedUserId && entry.userId !== filtersState.selectedUserId) {
-        return false;
+    return getEntriesForFilters(undefined, selectedSalesPointId);
+  }, [getEntriesForFilters, selectedSalesPointId]);
+
+  // Calcoli memoizzati: totali per filtri correnti e totali mensili (mese corrente)
+  const calendarTotals = useMemo(() => {
+    if (!selectedSalesPointId || selectedSalesPointId === 'default') {
+      return { filtered: { sellInTotal: 0, sellInMonth: 0, actionsTotal: 0, actionsMonth: 0 } };
+    }
+    const { sellIn, actions } = getTotalsForFilters(undefined, selectedSalesPointId);
+    const sellInMonth = getMonthlyTotalsForSalesPoint(
+      selectedSalesPointId,
+      currentDate.getFullYear(),
+      currentDate.getMonth() + 1
+    ).sellIn;
+    return {
+      filtered: {
+        sellInTotal: sellIn,
+        sellInMonth,
+        actionsTotal: actions,
+        actionsMonth: 0
       }
-      return true;
-    });
-    
-    return filteredEntries;
-  }, [state.entries, selectedSalesPointId, selectedUserId]);
+    };
+  }, [getTotalsForFilters, getMonthlyTotalsForSalesPoint, selectedSalesPointId, currentDate]);
 
   // Funzione per ottenere tutte le entries per le viste calendario (senza filtro data)
-  const getCalendarEntries = useCallback(() => {
-    return filteredCalendarEntries;
-  }, [filteredCalendarEntries]);
+  /* const getCalendarEntries = useCallback(() => filteredCalendarEntries, [filteredCalendarEntries]); */
   
 
 
@@ -196,10 +190,18 @@ export default function MainCalendarPage({
     // Ricarica i dati Excel quando l'utente torna alla pagina
     // Ricarica i dati Excel quando il componente diventa attivo
     useEffect(() => {
+      const lastExcelReloadRef = { current: 0 } as { current: number };
       if (navigation?.addListener) {
         const unsubscribe = navigation.addListener('focus', () => {
-          logger.ui('Pagina attiva, ricaricamento dati Excel');
-          reloadExcelData();
+          const now = Date.now();
+          // Evita reload troppo ravvicinati (< 30s)
+          if (now - lastExcelReloadRef.current > 30000) {
+            logger.ui('Pagina attiva, ricaricamento dati Excel (throttled)');
+            reloadExcelData();
+            lastExcelReloadRef.current = now;
+          } else if (__DEV__) {
+            console.log('⏭️ Skip reload Excel: troppo ravvicinato');
+          }
         });
 
         return unsubscribe;
@@ -218,10 +220,9 @@ export default function MainCalendarPage({
 
         logger.data('Caricamento punti vendita...');
         const salesPoints = await repository.getSalesPoints();
-        console.log(
-          '✅ MainCalendarPage: Punti vendita caricati:',
-          salesPoints.length
-        );
+        if (__DEV__) {
+          console.log('✅ MainCalendarPage: Punti vendita caricati:', salesPoints.length);
+        }
 
         dispatch({ type: 'SET_USERS', payload: users });
         dispatch({ type: 'SET_SALES_POINTS', payload: salesPoints });
@@ -278,38 +279,50 @@ export default function MainCalendarPage({
           });
 
         setAgents(agentsData);
-        console.log('✅ MainCalendarPage: Agents estratti:', agentsData.length);
+        if (__DEV__) {
+          console.log('✅ MainCalendarPage: Agents estratti:', agentsData.length);
+        }
 
         // Dati Excel ora caricati automaticamente dal hook useFirebaseExcelData
-        console.log('📊 MainCalendarPage: Dati Excel disponibili:', excelRows.length, 'righe');
+        if (__DEV__) {
+          console.log('📊 MainCalendarPage: Dati Excel disponibili:', excelRows.length, 'righe');
+        }
         
         // Carica le referenze focus (statiche + configurazioni globali)
-        console.log('🔍 MainCalendarPage: Caricamento referenze focus...');
+        if (__DEV__) {
+          console.log('🔍 MainCalendarPage: Caricamento referenze focus...');
+        }
         focusReferencesStore.loadAllReferences();
         await focusReferencesStore.loadFocusReferencesFromFirestore();
-        console.log('✅ MainCalendarPage: Referenze focus caricate');
+        if (__DEV__) {
+          console.log('✅ MainCalendarPage: Referenze focus caricate');
+        }
 
         // Carica entries del periodo corrente (esteso per includere più giorni)
         const now = new Date();
         const startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1); // Dal mese precedente
         const endDate = new Date(now.getFullYear(), now.getMonth() + 2, 0); // Al mese successivo
 
-        console.log(
-          '📅 MainCalendarPage: Caricamento entries dal',
-          startDate.toISOString(),
-          'al',
-          endDate.toISOString(),
-          'con filtri:',
-          {
-            userId: selectedUserId || 'tutti',
-            salesPointId: selectedSalesPointId || 'tutti'
-          }
-        );
+        if (__DEV__) {
+          console.log(
+            '📅 MainCalendarPage: Caricamento entries dal',
+            startDate.toISOString(),
+            'al',
+            endDate.toISOString(),
+            'con filtri:',
+            {
+              userId: selectedUserId || 'tutti',
+              salesPointId: selectedSalesPointId || 'tutti'
+            }
+          );
+        }
         
         // LOGICA PRIORITARIA: Se c'è punto vendita, ignora userId (come nella vista calendario)
         let entries;
         if (selectedSalesPointId && selectedSalesPointId !== 'default') {
-          console.log('🎯 MainCalendarPage: Caricamento SOLO per punto vendita:', selectedSalesPointId);
+          if (__DEV__) {
+            console.log('🎯 MainCalendarPage: Caricamento SOLO per punto vendita:', selectedSalesPointId);
+          }
           entries = await repository.getCalendarEntries(
             startDate, 
             endDate, 
@@ -317,7 +330,9 @@ export default function MainCalendarPage({
             selectedSalesPointId
           );
         } else {
-          console.log('🔍 MainCalendarPage: Caricamento con filtri normali');
+          if (__DEV__) {
+            console.log('🔍 MainCalendarPage: Caricamento con filtri normali');
+          }
           entries = await repository.getCalendarEntries(
             startDate, 
             endDate, 
@@ -325,20 +340,22 @@ export default function MainCalendarPage({
             undefined  // No salesPointId se non selezionato
           );
         }
-        console.log('✅ MainCalendarPage: Entries caricati:', entries.length);
-        console.log('✅ MainCalendarPage: Dettagli entries:', entries.map(entry => ({
+        if (__DEV__) {
+          console.log('✅ MainCalendarPage: Entries caricati:', entries.length);
+          console.log('✅ MainCalendarPage: Dettagli entries:', entries.map(entry => ({
           id: entry.id,
           date: entry.date,
           focusReferencesData: entry.focusReferencesData,
           focusReferencesCount: entry.focusReferencesData?.length || 0,
           focusReferencesDataRaw: JSON.stringify(entry.focusReferencesData),
-        })));
+          })));
+        }
 
         dispatch({ type: 'SET_ENTRIES', payload: entries });
 
-        console.log(
-          '🎉 MainCalendarPage: Caricamento dati completato con successo'
-        );
+        if (__DEV__) {
+          console.log('🎉 MainCalendarPage: Caricamento dati completato con successo');
+        }
       } catch (error) {
         console.error(
           '❌ MainCalendarPage: Errore nel caricamento dei dati:',
@@ -351,7 +368,9 @@ export default function MainCalendarPage({
       } finally {
         setIsLoading(false);
         dispatch({ type: 'SET_LOADING', payload: false });
-        console.log('🏁 MainCalendarPage: Caricamento dati terminato');
+        if (__DEV__) {
+          console.log('🏁 MainCalendarPage: Caricamento dati terminato');
+        }
       }
     };
 
@@ -406,12 +425,10 @@ export default function MainCalendarPage({
     }, [calendarView, state.entries, setSelectedDate, dispatch, showEditEntryModal, showAddEntryModal]);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const showDayDetails = (entries: CalendarEntry[]) => {
-      console.log(
-        '📋 MainCalendarPage: Mostrando dettagli per',
-        entries.length,
-        'entries'
-      );
+    /* const showDayDetails = (entries: CalendarEntry[]) => {
+      if (__DEV__) {
+        console.log('📋 MainCalendarPage: Mostrando dettagli per', entries.length, 'entries');
+      }
       Alert.alert(
         `Dettagli ${selectedDate}`,
         `Trovati ${entries.length} record per questa data`,
@@ -424,7 +441,7 @@ export default function MainCalendarPage({
           { text: 'Chiudi', style: 'cancel' },
         ]
       );
-    };
+    }; */
 
     // Le funzioni sono già definite sopra con useCallback
 
@@ -492,7 +509,9 @@ export default function MainCalendarPage({
     }, [editingEntry, selectedUserId, selectedSalesPointId, dispatch, repository]);
 
     const handleDeleteEntry = async (entryId: string) => {
-      console.log('🗑️ MainCalendarPage: Richiesta eliminazione entry:', entryId);
+      if (__DEV__) {
+        console.log('🗑️ MainCalendarPage: Richiesta eliminazione entry:', entryId);
+      }
       
       // Trova l'entry per mostrare il titolo nella conferma
       const entryToDelete = state.entries.find(e => e.id === entryId);
@@ -506,13 +525,13 @@ export default function MainCalendarPage({
           {
             text: 'Annulla',
             style: 'cancel',
-            onPress: () => console.log('🚫 MainCalendarPage: Eliminazione annullata')
+            onPress: () => { if (__DEV__) { console.log('🚫 MainCalendarPage: Eliminazione annullata'); } }
           },
           {
             text: 'Elimina',
             style: 'destructive',
             onPress: async () => {
-              console.log('🗑️ MainCalendarPage: Confermata eliminazione entry:', entryId);
+              if (__DEV__) { console.log('🗑️ MainCalendarPage: Confermata eliminazione entry:', entryId); }
               try {
                 await repository.deleteCalendarEntry(entryId);
                 dispatch({ type: 'DELETE_ENTRY', payload: entryId });
@@ -532,29 +551,28 @@ export default function MainCalendarPage({
     };
 
     const handleCancelEntry = () => {
-      console.log('❌ MainCalendarPage: Annullamento modal entry - FUNZIONE CHIAMATA');
+      if (__DEV__) { console.log('❌ MainCalendarPage: Annullamento modal entry - FUNZIONE CHIAMATA'); }
       setShowEntryModal(false);
       setEditingEntry(undefined);
-      console.log('✅ MainCalendarPage: Modal chiuso con successo');
+      if (__DEV__) { console.log('✅ MainCalendarPage: Modal chiuso con successo'); }
     };
 
-    const navigateWeek = (direction: 'prev' | 'next') => {
-      console.log('⏮️ MainCalendarPage: Navigazione settimana', direction);
+    const navigateWeek = useCallback((direction: 'prev' | 'next') => {
+      if (__DEV__) { console.log('⏮️ MainCalendarPage: Navigazione settimana', direction); }
       const newDate = new Date(currentDate);
       if (direction === 'prev') {
-        newDate.setDate(newDate.getDate() - 7);
+        newDate.setDate(newDate.getDate() - 3);
       } else {
-        newDate.setDate(newDate.getDate() + 7);
+        newDate.setDate(newDate.getDate() + 3);
       }
       setCurrentDate(newDate);
-      console.log(
-        '📅 MainCalendarPage: Nuova data settimana:',
-        newDate.toISOString()
-      );
-    };
+      if (__DEV__) {
+        console.log('📅 MainCalendarPage: Nuova data settimana:', newDate.toISOString());
+      }
+    }, [currentDate]);
 
-    const navigateMonth = (direction: 'prev' | 'next') => {
-      console.log('⏮️ MainCalendarPage: Navigazione mese', direction);
+    const navigateMonth = useCallback((direction: 'prev' | 'next') => {
+      if (__DEV__) { console.log('⏮️ MainCalendarPage: Navigazione mese', direction); }
       const newDate = new Date(currentDate);
       if (direction === 'prev') {
         newDate.setMonth(newDate.getMonth() - 1);
@@ -562,11 +580,10 @@ export default function MainCalendarPage({
         newDate.setMonth(newDate.getMonth() + 1);
       }
       setCurrentDate(newDate);
-      console.log(
-        '📅 MainCalendarPage: Nuova data mese:',
-        newDate.toISOString()
-      );
-    };
+      if (__DEV__) {
+        console.log('📅 MainCalendarPage: Nuova data mese:', newDate.toISOString());
+      }
+    }, [currentDate]);
 
 
 
@@ -691,39 +708,38 @@ export default function MainCalendarPage({
     }, [repository, dispatch, selectedSalesPointId, state.salesPoints, state.entries, dailySellIn]);
 
     const handleUserChange = (userId: string) => {
-      console.log('👤 MainCalendarPage: Cambio utente:', userId);
+      if (__DEV__) { console.log('👤 MainCalendarPage: Cambio utente:', userId); }
       setSelectedUserId(userId);
     };
 
       const handleSalesPointChange = (salesPointId: string) => {
-    console.log('🏪 MainCalendarPage: Cambio punto vendita:', salesPointId);
+    if (__DEV__) { console.log('🏪 MainCalendarPage: Cambio punto vendita:', salesPointId); }
     setSelectedSalesPointId(salesPointId);
   };
 
   const handleAMCodeChange = (amCode: string) => {
-    console.log('👨‍💼 MainCalendarPage: Cambio AM Code:', amCode);
+    if (__DEV__) { console.log('👨‍💼 MainCalendarPage: Cambio AM Code:', amCode); }
     setSelectedAMCode(amCode);
   };
 
   const handleNAMCodeChange = (namCode: string) => {
-    console.log('👩‍💼 MainCalendarPage: Cambio NAM Code:', namCode);
+    if (__DEV__) { console.log('👩‍💼 MainCalendarPage: Cambio NAM Code:', namCode); }
     setSelectedNAMCode(namCode);
   };
 
   const handleLineChange = (line: string) => {
-    console.log('📊 MainCalendarPage: Cambio Linea:', line);
+    if (__DEV__) { console.log('📊 MainCalendarPage: Cambio Linea:', line); }
     setSelectedLine(line);
   };
 
   // Gestione filtri progressivi
   const handleMultipleSelectionChange = (items: string[]) => {
-    console.log('🔍 MainCalendarPage: Cambio selezione multipla:', items);
+    if (__DEV__) { console.log('🔍 MainCalendarPage: Cambio selezione multipla:', items); }
     
     // RESET IMMEDIATO E DRAMMATICO
-    console.log('💥 MainCalendarPage: RESET DRAMMATICO - Cambio filtro rilevato');
+    if (__DEV__) { console.log('💥 MainCalendarPage: RESET DRAMMATICO - Cambio filtro rilevato'); }
     
-    // 1. Reset immediato dello stato
-    dispatch({ type: 'SET_ENTRIES', payload: [] });
+    // 1. Evita wipe immediato delle entries per ridurre jank (si ricaricheranno se serve)
     
     // 2. Reset focusReferencesStore
     focusReferencesStore.clearFocusReferences();
@@ -746,8 +762,9 @@ export default function MainCalendarPage({
     
     // 5. Pulisci TUTTA la cache
     if (typeof localStorage !== 'undefined') {
-      localStorage.clear(); // Pulisci TUTTO
-      console.log('🧹 MainCalendarPage: Cache completamente pulita');
+      // Pulisci solo chiavi rilevanti per evitare cache thrash
+      localStorage.removeItem('calendar_entries');
+      if (__DEV__) { console.log('🧹 MainCalendarPage: Cache entries pulita'); }
     }
     
     // 6. Aggiorna i filtri
@@ -758,20 +775,11 @@ export default function MainCalendarPage({
       setSelectedSalesPointId('default');
     }
     
-    // 8. Ricarica i dati se c'è un punto vendita selezionato
+    // 8. Ricarica i dati se c'è un punto vendita selezionato (senza delay)
     if (selectedSalesPointId && selectedSalesPointId !== 'default') {
-      setTimeout(() => {
-        console.log('🔄 MainCalendarPage: Ricaricamento dati dopo reset drammatico');
-        loadInitialData();
-      }, 200);
+      if (__DEV__) { console.log('🔄 MainCalendarPage: Ricaricamento dati immediato dopo cambio filtri'); }
+      loadInitialData();
     }
-    
-    // 9. Forza re-render
-    setTimeout(() => {
-      console.log('🔄 MainCalendarPage: Forzando re-render dopo reset');
-      // Forza un re-render
-      setCurrentDate(new Date(currentDate));
-    }, 100);
   };
 
   // Funzione per ottenere i dati filtrati in base ai filtri progressivi
@@ -789,8 +797,8 @@ export default function MainCalendarPage({
     // Rimuovo log verboso per performance in produzione
     
     // Filtra i dati Excel in base alle selezioni
-    const filteredExcelRows = excelRows.filter(row => {
-      const matches = selectedFilterItems.every(selectedItem => {
+    const filteredExcelRows = excelRows.filter((row: any) => {
+      const matches = selectedFilterItems.every((selectedItem: string) => {
         // Exact match
         let itemMatch = (
           row.linea === selectedItem ||
@@ -810,42 +818,7 @@ export default function MainCalendarPage({
           itemMatch = row['namCode']?.startsWith('NAM ') || false;
         }
         
-        // Sistema di logging ottimizzato con cleanup automatico cache
-        if (!itemMatch && __DEV__) {
-          const mismatchKey = `${selectedItem}_${row['amCode']}_${row['namCode']}_${row['agenteCode']}`;
-          
-          // Inizializza cache con cleanup automatico
-          if (!(global as any).loggedMismatches) {
-            (global as any).loggedMismatches = new Set();
-            (global as any).mismatchCacheCreated = Date.now();
-            
-            // Cleanup automatico ogni 10 minuti per prevenire memory leaks
-            setInterval(() => {
-              if ((global as any).loggedMismatches) {
-                const oldSize = (global as any).loggedMismatches.size;
-                (global as any).loggedMismatches.clear();
-                logger.debug('AgentMatcher', 'Cache cleaned up', { 
-                  oldSize, 
-                  runtime: `${(Date.now() - (global as any).mismatchCacheCreated) / 1000}s` 
-                });
-              }
-            }, 600000); // 10 minuti
-          }
-          
-          // Log con throttling intelligente - max 5 mismatch per tipo
-          const baseKey = selectedItem;
-          const existingForType = Array.from((global as any).loggedMismatches as Set<string>)
-            .filter((key: string) => key.startsWith(baseKey)).length;
-          
-          if (!((global as any).loggedMismatches).has(mismatchKey) && existingForType < 5) {
-            ((global as any).loggedMismatches).add(mismatchKey);
-            logger.warn('AgentMatcher', `Mismatch: ${selectedItem}`, { 
-              disponibili: [...new Set([row['amCode'], row['namCode'], row['agenteCode']].filter(Boolean))],
-              mismatchCount: existingForType + 1,
-              cacheSize: ((global as any).loggedMismatches).size
-            });
-          }
-        }
+        // Logging mismatch disattivato per stabilità (evita setInterval e Set globali)
         
         return itemMatch;
       });
@@ -854,7 +827,7 @@ export default function MainCalendarPage({
     });
 
     // Estrai agenti e punti vendita dai dati filtrati
-    const filteredAgents = agents.filter(agent => {
+    const filteredAgents = agents.filter((agent: any) => {
       return filteredExcelRows?.some(row => 
         row['agenteCode'] === agent.code ||
         row['amCode'] === agent.amCode ||
@@ -876,7 +849,7 @@ export default function MainCalendarPage({
     let autoDetectedSalesPoint = null;
 
     // Se abbiamo selezionato un punto vendita (tramite filtri o selectedSalesPointId), trova l'agente associato
-    const selectedSalesPoint = selectedFilterItems.find(item => {
+    const selectedSalesPoint = selectedFilterItems.find((item: string) => {
       return filteredExcelRows?.some(row => 
         row['insegnaCliente'] === item ||
         row.codiceCliente === item ||
@@ -891,8 +864,8 @@ export default function MainCalendarPage({
     // Cerca nei selectedFilterItems qualcosa che potrebbe essere un punto vendita
     if (!effectiveSalesPoint && selectedFilterItems && selectedFilterItems.length > 0) {
       // Prova l'ultimo item selezionato (spesso è il punto vendita)
-      const lastItem = selectedFilterItems[selectedFilterItems.length - 1];
-      const matchingRow = excelRows.find(row => 
+       const lastItem = selectedFilterItems[selectedFilterItems.length - 1];
+       const matchingRow = excelRows.find((row: any) => 
         row.cliente === lastItem || 
         row['insegnaCliente'] === lastItem ||
         row.codiceCliente === lastItem
@@ -956,8 +929,8 @@ export default function MainCalendarPage({
     };
   }, [selectedFilterItems, agents, state.salesPoints, excelRows]);
 
-  // Ottieni i dati filtrati
-      const { filteredAgents, filteredSalesPoints, autoDetectedAgent, autoDetectedSalesPoint } = getFilteredData;
+  // Ottieni i dati filtrati (usa solo ciò che serve per evitare re-render inutili)
+      const { autoDetectedAgent } = getFilteredData;
 
       // LOGICA SEMPLICE: Cerca sempre un punto vendita e agente nei filtri selezionati
   useEffect(() => {
@@ -1007,10 +980,9 @@ export default function MainCalendarPage({
 
   // Ricarica i dati quando cambia il punto vendita selezionato
   useEffect(() => {
-    console.log('🔄 MainCalendarPage: Cambio punto vendita, selectedSalesPointId:', selectedSalesPointId);
+    if (__DEV__) { console.log('🔄 MainCalendarPage: Cambio punto vendita, selectedSalesPointId:', selectedSalesPointId); }
     
-    // Reset immediato dello stato locale
-    dispatch({ type: 'SET_ENTRIES', payload: [] });
+    // Evita wipe immediato delle entries; verranno sovrascritte al termine del caricamento
     
     // Reset del focusReferencesStore
     focusReferencesStore.clearFocusReferences();
@@ -1026,7 +998,7 @@ export default function MainCalendarPage({
         // Pulisci solo le entries dal localStorage
         if (typeof localStorage !== 'undefined') {
           localStorage.removeItem('calendar_entries');
-          console.log('🧹 MainCalendarPage: Cache locale pulita');
+          if (__DEV__) { console.log('🧹 MainCalendarPage: Cache locale pulita'); }
         }
       } catch (error) {
         console.warn('⚠️ MainCalendarPage: Errore pulizia cache:', error);
@@ -1042,11 +1014,11 @@ export default function MainCalendarPage({
   }, [selectedSalesPointId]);
 
     // Gestione tooltip
-    const handleTooltipPress = (type: 'stock' | 'notes' | 'info' | 'images', date: string, entry?: CalendarEntry) => {
-      console.log('🔧 MainCalendarPage: Apertura tooltip:', type, 'per data:', date);
+    /* const handleTooltipPress = (type: 'stock' | 'notes' | 'info' | 'images', date: string, entry?: CalendarEntry) => {
+      if (__DEV__) { console.log('🔧 MainCalendarPage: Apertura tooltip:', type, 'per data:', date); }
       
       // Prova prima con l'entry originale
-      console.log('🔧 MainCalendarPage: Entry originale:', entry?.id, 'chatNotes:', entry?.chatNotes?.length || 0);
+      if (__DEV__) { console.log('🔧 MainCalendarPage: Entry originale:', entry?.id, 'chatNotes:', entry?.chatNotes?.length || 0); }
       
       // Recupera l'entry corretta dalle entries filtrate usando la data
       const correctEntry = filteredCalendarEntries.find(e => {
@@ -1054,7 +1026,7 @@ export default function MainCalendarPage({
         return entryDate.toISOString().split('T')[0] === date;
       });
       
-      console.log('🔧 MainCalendarPage: Entry filtrata:', correctEntry?.id, 'chatNotes:', correctEntry?.chatNotes?.length || 0);
+      if (__DEV__) { console.log('🔧 MainCalendarPage: Entry filtrata:', correctEntry?.id, 'chatNotes:', correctEntry?.chatNotes?.length || 0); }
       
       // Prova anche con tutte le entries non filtrate dal calendario context
       const allEntries = state.entries;
@@ -1064,27 +1036,27 @@ export default function MainCalendarPage({
                e.salesPointId === selectedSalesPointId;
       });
       
-      console.log('🔧 MainCalendarPage: Entry dal context:', entryFromContext?.id, 'chatNotes:', entryFromContext?.chatNotes?.length || 0);
+      if (__DEV__) { console.log('🔧 MainCalendarPage: Entry dal context:', entryFromContext?.id, 'chatNotes:', entryFromContext?.chatNotes?.length || 0); }
       
       // Usa l'entry che ha più dati (priorità: context > filtrata > originale)
       const finalEntry = entryFromContext || correctEntry || entry;
-      console.log('🔧 MainCalendarPage: Entry finale scelta:', finalEntry?.id, 'chatNotes:', finalEntry?.chatNotes?.length || 0);
+      if (__DEV__) { console.log('🔧 MainCalendarPage: Entry finale scelta:', finalEntry?.id, 'chatNotes:', finalEntry?.chatNotes?.length || 0); }
       
       setTooltipType(type);
       setTooltipDate(date);
       setTooltipEntry(finalEntry);
       setShowTooltipModal(true);
-    };
+    }; */
 
-    const handleSellInChange = (date: string, sellIn: number) => {
+    /* const handleSellInChange = (date: string, sellIn: number) => {
       setDailySellIn(prev => ({
         ...prev,
         [date]: sellIn
       }));
-    };
+    }; */
 
     const handleTooltipClose = () => {
-      console.log('🔧 MainCalendarPage: Chiusura tooltip');
+      if (__DEV__) { console.log('🔧 MainCalendarPage: Chiusura tooltip'); }
       setShowTooltipModal(false);
       setTooltipType('stock');
       setTooltipDate('');
@@ -1093,7 +1065,7 @@ export default function MainCalendarPage({
 
     const handleTooltipUpdateEntry = async (updatedEntry: CalendarEntry) => {
       try {
-        console.log('💬 MainCalendarPage: Aggiornamento entry dal tooltip:', updatedEntry.id);
+        if (__DEV__) { console.log('💬 MainCalendarPage: Aggiornamento entry dal tooltip:', updatedEntry.id); }
         
         // Prepara i dati per l'aggiornamento
         const updateData = {
@@ -1133,8 +1105,8 @@ export default function MainCalendarPage({
         return entryDate === sourceDate;
       });
 
-      if (sourceEntry && sourceEntry.tags && sourceEntry.tags.length > 0) {
-        console.log('📋 MainCalendarPage: Copiando tag da', sourceDate, ':', sourceEntry.tags);
+        if (sourceEntry && sourceEntry.tags && sourceEntry.tags.length > 0) {
+        if (__DEV__) { console.log('📋 MainCalendarPage: Copiando tag da', sourceDate, ':', sourceEntry.tags); }
         return sourceEntry.tags;
       }
 
@@ -1154,7 +1126,7 @@ export default function MainCalendarPage({
 
 
     if (isLoading) {
-      console.log('⏳ MainCalendarPage: Mostrando loading screen');
+      if (__DEV__) { console.log('⏳ MainCalendarPage: Mostrando loading screen'); }
       return (
         <SafeAreaView style={styles.loadingContainer}>
           <StatusBar
@@ -1173,7 +1145,7 @@ export default function MainCalendarPage({
     // console.log('✅ MainCalendarPage: Rendering componente principale');
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+        <StatusBar barStyle="light-content" backgroundColor="rgba(0,0,0,0.1)" translucent={true} />
 
 
 
@@ -1181,22 +1153,14 @@ export default function MainCalendarPage({
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View style={styles.headerLeft}>
-              <Text style={styles.title}>
-                📅 Calendario Vendite
-              </Text>
-              <Text style={styles.subtitle}>
-                {calendarView === 'week' 
-                  ? 'Vista Settimanale - Gestione Dettagliata' 
-                  : 'Vista Mensile - Riepilogo Organizzazione'
-                }
-              </Text>
+              <Text style={styles.title}>📅 Calendario Vendite</Text>
             </View>
             <View style={styles.headerControls}>
               
               <TouchableOpacity
                 style={[
-                  styles.viewButton,
-                  calendarView === 'week' && styles.activeViewButton,
+                  styles.viewButtonPastel,
+                  calendarView === 'week' && styles.viewButtonPastelActive,
                 ]}
                 onPress={() => {
                   console.log('📅 MainCalendarPage: Cambio vista a settimana');
@@ -1205,19 +1169,14 @@ export default function MainCalendarPage({
                 accessibilityLabel="Vista Settimanale"
                 accessibilityHint="Passa alla vista settimanale per gestione dettagliata"
               >
-                <Text
-                  style={[
-                    styles.viewButtonText,
-                    calendarView === 'week' && styles.activeViewButtonText,
-                  ]}
-                >
+                <Text style={styles.viewButtonPastelText}>
                   📅
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
-                  styles.viewButton,
-                  calendarView === 'month' && styles.activeViewButton,
+                  styles.viewButtonPastel,
+                  calendarView === 'month' && styles.viewButtonPastelActive,
                 ]}
                 onPress={() => {
                   console.log('📆 MainCalendarPage: Cambio vista a mese');
@@ -1226,18 +1185,13 @@ export default function MainCalendarPage({
                 accessibilityLabel="Vista Mensile"
                 accessibilityHint="Passa alla vista mensile per riepilogo organizzazione"
               >
-                <Text
-                  style={[
-                    styles.viewButtonText,
-                    calendarView === 'month' && styles.activeViewButtonText,
-                  ]}
-                >
+                <Text style={styles.viewButtonPastelText}>
                   📆
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.filterButton}
+                style={styles.filterButtonPastel}
                 onPress={async () => {
                   console.log('🔍 MainCalendarPage: Apertura filtri');
                   // Ricarica i dati Excel prima di aprire i filtri
@@ -1247,7 +1201,7 @@ export default function MainCalendarPage({
                 accessibilityLabel="Filtri"
                 accessibilityHint="Apri i filtri per personalizzare la vista"
               >
-                <Text style={styles.filterButtonText}>🔍</Text>
+                <Text style={styles.filterButtonPastelText}>🔍</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1271,12 +1225,6 @@ export default function MainCalendarPage({
                   year: 'numeric',
                 })}
               </Text>
-              <Text style={styles.navSubtitle}>
-                {calendarView === 'week'
-                  ? `Settimana ${currentDate.getDate()}-${new Date(currentDate.getTime() + 6 * 24 * 60 * 60 * 1000).getDate()}`
-                  : `${currentDate.getFullYear()}`
-                }
-              </Text>
             </View>
             <TouchableOpacity
               style={styles.navButton}
@@ -1288,6 +1236,16 @@ export default function MainCalendarPage({
             >
               <Text style={styles.navButtonText}>▶</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.todayPill}
+              onPress={() => {
+                setCurrentDate(new Date());
+              }}
+              accessibilityLabel="Oggi"
+              accessibilityHint="Torna rapidamente alla data odierna"
+            >
+              <Text style={styles.todayPillText}>Oggi</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -1297,6 +1255,13 @@ export default function MainCalendarPage({
             <View style={styles.activeFiltersHeader}>
               <Text style={styles.activeFiltersTitle}>🔍 Filtri Attivi</Text>
               <Text style={styles.activeFiltersCount}>({selectedFilterItems?.length || 0} selezioni)</Text>
+              <TouchableOpacity
+                onPress={handleResetFilters}
+                accessibilityLabel="Pulisci filtri"
+                style={styles.clearFiltersButton}
+              >
+                <Text style={styles.clearFiltersButtonText}>Pulisci</Text>
+              </TouchableOpacity>
             </View>
             <View style={styles.activeFiltersContent}>
               <View style={styles.filteredDataInfo}>
@@ -1306,7 +1271,7 @@ export default function MainCalendarPage({
 
               </View>
               <View style={styles.selectedFiltersList}>
-                {selectedFilterItems.map((item, index) => (
+                {selectedFilterItems.map((item: string, index: number) => (
                   <View key={index} style={styles.selectedFilterItem}>
                     <Text style={styles.selectedFilterText}>{item}</Text>
                   </View>
@@ -1316,7 +1281,7 @@ export default function MainCalendarPage({
           </View>
         )}
 
-        {/* CALENDARIO - 90% DELLO SCHERMO */}
+        {/* CALENDARIO - OCCUPA TUTTO LO SPAZIO DISPONIBILE TRA HEADER E FOOTER */}
         <View style={styles.calendarContainer}>
           {calendarView === 'week' ? (
             <WeekCalendar
@@ -1325,18 +1290,26 @@ export default function MainCalendarPage({
               selectedDate={selectedDate}
               selectedSalesPointId={selectedSalesPointId}
               onDayPress={onDayPress}
-              onTooltipPress={handleTooltipPress}
-
+              onTooltipPress={(type, date, entry) => {
+                setTooltipType(type);
+                setTooltipDate(date);
+                setTooltipEntry(entry);
+                setShowTooltipModal(true);
+              }}
             />
           ) : (
-                          <VirtualizedMonthCalendar
+            <VirtualizedMonthCalendar
               currentDate={currentDate}
               entries={filteredCalendarEntries}
               selectedDate={selectedDate}
               selectedSalesPointId={selectedSalesPointId}
               onDayPress={onDayPress}
-              onTooltipPress={handleTooltipPress}
-
+              onTooltipPress={(type, date, entry) => {
+                setTooltipType(type);
+                setTooltipDate(date);
+                setTooltipEntry(entry);
+                setShowTooltipModal(true);
+              }}
             />
           )}
         </View>
@@ -1352,40 +1325,22 @@ export default function MainCalendarPage({
         {/* FOOTER MIGLIORATO - STATISTICHE E AZIONI */}
         <View style={styles.footer}>
           <View style={styles.footerStats}>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>📊 Entries</Text>
-                              <Text style={styles.statValue}>{filteredCalendarEntries.length}</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>💰 Sell-In</Text>
-              <Text style={styles.statValue}>
-                €{progressiveSystem.isInitialized ? progressiveSystem.getTotalSellIn() : 0}
-              </Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>📅 Sell-In Mensile</Text>
-                              <Text style={styles.statValue}>
-                €{(() => {
-                  const year = currentDate.getFullYear();
-                  const month = currentDate.getMonth() + 1;
-                  const monthlySellIn = progressiveSystem.isInitialized ? progressiveSystem.getMonthlySellIn(year, month) : 0;
-
-                  return monthlySellIn;
-                })()}
-              </Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>⚡ Azioni</Text>
-              <Text style={styles.statValue}>
-                {filteredCalendarEntries.reduce((sum, entry) => {
-                  const actionTags = entry.tags?.filter(tagId => {
-                    const tag = getTagById(tagId);
-                    return tag?.type === 'action';
-                  }) || [];
-                  return sum + actionTags.length;
-                }, 0)}
-              </Text>
-            </View>
+            <TouchableOpacity style={styles.kpiCard} onPress={() => Alert.alert('Dettaglio', `Entries: ${filteredCalendarEntries.length}`)}>
+              <Text style={styles.kpiTitle}>Entries</Text>
+              <Text style={styles.kpiValue}>{filteredCalendarEntries.length}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.kpiCard} onPress={() => Alert.alert('Dettaglio', `Sell-In cliente: €${Math.round(calendarTotals.filtered.sellInTotal)}`)}>
+              <Text style={styles.kpiTitle}>Sell-In</Text>
+              <Text style={styles.kpiValue}>€{Math.round(calendarTotals.filtered.sellInTotal)}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.kpiCard} onPress={() => Alert.alert('Dettaglio', `Sell-In mese: €${Math.round(calendarTotals.filtered.sellInMonth)}`)}>
+              <Text style={styles.kpiTitle}>Sell-In Mese</Text>
+              <Text style={styles.kpiValue}>€{Math.round(calendarTotals.filtered.sellInMonth)}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.kpiCard} onPress={() => Alert.alert('Dettaglio', `Azioni totali: ${calendarTotals.filtered.actionsTotal}`)}>
+              <Text style={styles.kpiTitle}>Azioni</Text>
+              <Text style={styles.kpiValue}>{calendarTotals.filtered.actionsTotal}</Text>
+            </TouchableOpacity>
           </View>
           <View style={styles.footerActions}>
             <TouchableOpacity
@@ -1480,6 +1435,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 8 : 8,
   },
   loadingContainer: {
     flex: 1,
@@ -1522,66 +1478,63 @@ const styles = StyleSheet.create({
     color: Colors.warmBackground,
     marginBottom: 2,
   },
-  subtitle: {
-    fontSize: 13, // Aumentato leggermente
-    color: Colors.warmBackground,
-    opacity: 0.9,
-  },
+  // subtitle rimosso
   headerControls: {
     flexDirection: 'row',
     gap: Spacing.small,
     alignItems: 'center',
   },
-  viewButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    width: 40, // Leggermente aumentato per le icone
-    height: 40, // Leggermente aumentato per le icone
+  viewButtonPastel: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    width: 40,
+    height: 40,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 6, // Padding interno per le icone
+    padding: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)'
   },
-  activeViewButton: {
+  viewButtonPastelActive: {
     backgroundColor: Colors.warmBackground,
   },
-  viewButtonText: {
-    color: Colors.warmBackground,
-    fontWeight: 'bold',
-    fontSize: 16, // Aumentato per le icone
+  viewButtonPastelText: {
+    color: Colors.warmPrimary,
+    fontWeight: '700',
+    fontSize: 16,
     textAlign: 'center',
   },
-  activeViewButtonText: {
-    color: Colors.warmPrimary,
-  },
-  filterButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    width: 40, // Leggermente aumentato per le icone
-    height: 40, // Leggermente aumentato per le icone
+  filterButtonPastel: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    width: 40,
+    height: 40,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 6, // Padding interno per le icone
+    padding: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)'
   },
-  filterButtonText: {
-    color: Colors.warmBackground,
-    fontWeight: 'bold',
-    fontSize: 16, // Aumentato per le icone
+  filterButtonPastelText: {
+    color: Colors.warmPrimary,
+    fontWeight: '700',
+    fontSize: 16,
     textAlign: 'center',
   },
   navigation: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 30, // Altezza minima per evitare tagli
+    minHeight: 36,
   },
   navButton: {
     backgroundColor: Colors.warmBackground,
-    width: 32, // Aumentato per evitare tagli
-    height: 32, // Aumentato per evitare tagli
+    width: 32,
+    height: 32,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 4, // Padding interno per le icone
+    padding: 4,
   },
   navButtonText: {
     color: Colors.warmPrimary,
@@ -1601,11 +1554,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   navSubtitle: {
-    fontSize: 11, // Aumentato leggermente
+    fontSize: 11,
     color: Colors.warmBackground,
     opacity: 0.8,
     marginTop: 2,
     textAlign: 'center',
+  },
+  todayPill: {
+    marginLeft: Spacing.small,
+    backgroundColor: Colors.warmBackground,
+    borderRadius: 14,
+    paddingHorizontal: Spacing.small,
+    paddingVertical: 4,
+  },
+  todayPillText: {
+    color: Colors.warmPrimary,
+    fontWeight: '700',
+    fontSize: 12,
   },
   calendarContainer: {
     flex: 1, // OCCUPA TUTTO LO SPAZIO DISPONIBILE
@@ -1616,7 +1581,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.warmSurface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.warmBorder,
-    padding: Spacing.small,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.small,
   },
   activeFiltersHeader: {
     flexDirection: 'row',
@@ -1632,6 +1598,18 @@ const styles = StyleSheet.create({
   activeFiltersCount: {
     fontSize: 12,
     color: Colors.warmTextSecondary,
+  },
+  clearFiltersButton: {
+    backgroundColor: Colors.warmBackground,
+    borderRadius: 12,
+    paddingHorizontal: Spacing.small,
+    paddingVertical: 4,
+    marginLeft: Spacing.small,
+  },
+  clearFiltersButtonText: {
+    color: Colors.warmPrimary,
+    fontSize: 12,
+    fontWeight: '700',
   },
   activeFiltersContent: {
     flexDirection: 'row',
@@ -1672,11 +1650,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: Spacing.small,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.small,
     backgroundColor: Colors.warmSurface,
     borderTopWidth: 1,
     borderTopColor: Colors.warmBorder,
-    height: 50, // Altezza fissa minima
+    minHeight: 54,
   },
   resetButton: {
     backgroundColor: Colors.warmError,
@@ -1754,21 +1733,29 @@ const styles = StyleSheet.create({
   },
   footerStats: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    flex: 1,
-    maxHeight: 20, // Dimezza l'altezza massima
-  },
-  statItem: {
+    justifyContent: 'space-between',
     alignItems: 'center',
+    flex: 1,
+    gap: Spacing.small,
   },
-  statLabel: {
-    fontSize: 8, // Riduce la dimensione del font
+  kpiCard: {
+    flex: 1,
+    backgroundColor: Colors.warmBackground,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.xs,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.warmBorder,
+  },
+  kpiTitle: {
+    fontSize: 10,
     color: Colors.warmTextSecondary,
-    marginTop: 1, // Riduce il margin
+    fontWeight: '600',
   },
-  statValue: {
-    fontSize: 12, // Riduce la dimensione del font
-    fontWeight: 'bold',
+  kpiValue: {
+    fontSize: 14,
+    fontWeight: '800',
     color: Colors.warmPrimary,
   },
   footerActions: {

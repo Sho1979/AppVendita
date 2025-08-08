@@ -22,7 +22,7 @@ export const Tag: React.FC<TagProps> = ({
   const isAction = tag.type === 'action';
   
   const sizeConfig = {
-    tiny: { width: 18, height: 18, fontSize: 8 },
+    tiny: { width: 8, height: 8, fontSize: 0 },
     small: { width: 24, height: 24, fontSize: 10 },
     medium: { width: 32, height: 32, fontSize: 12 },
     large: { width: 40, height: 40, fontSize: 14 }
@@ -38,8 +38,8 @@ export const Tag: React.FC<TagProps> = ({
       borderRadius: isPerson ? config.width / 2 : 6, // Cerchio per persone, quadrato arrotondato per azioni
       backgroundColor: selected ? '#007AFF' : tag.backgroundColor,
       opacity: disabled ? 0.5 : 1,
-      borderWidth: selected ? 2 : 1.5, // Contorno più marcato
-      borderColor: selected ? '#FFFFFF' : '#333333' // Contorno scuro per tutti i tag
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.12)'
     }
   ];
 
@@ -47,14 +47,14 @@ export const Tag: React.FC<TagProps> = ({
     styles.text,
     {
       fontSize: config.fontSize,
-      color: selected ? '#FFFFFF' : tag.color,
-      fontWeight: selected ? 'bold' : 'normal'
+      color: '#FFFFFF',
+      fontWeight: '700'
     }
   ];
 
   const TagContent = (
     <View style={containerStyle}>
-      <Text style={textStyle}>{tag.acronym}</Text>
+      {config.fontSize > 0 && <Text style={textStyle}>{tag.acronym}</Text>}
     </View>
   );
 

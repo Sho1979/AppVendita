@@ -26,7 +26,9 @@ export class FirebaseCalendarService {
    */
   async syncCalendarData(userId: string): Promise<void> {
     try {
-      console.log('🔄 FirebaseCalendarService: Inizio sincronizzazione per utente:', userId);
+      if (__DEV__) {
+        console.log('🔄 FirebaseCalendarService: Inizio sincronizzazione per utente:', userId);
+      }
       
       // Recupera entries dal repository Firebase
       const entries = await this.repository.getEntries({ userId });
@@ -41,11 +43,13 @@ export class FirebaseCalendarService {
       store.setLastSyncTimestamp(Date.now());
       store.setError(null);
 
-      console.log('✅ FirebaseCalendarService: Sincronizzazione completata:', {
-        entries: entries.length,
-        users: users.length,
-        salesPoints: salesPoints.length
-      });
+      if (__DEV__) {
+        console.log('✅ FirebaseCalendarService: Sincronizzazione completata:', {
+          entries: entries.length,
+          users: users.length,
+          salesPoints: salesPoints.length
+        });
+      }
     } catch (error) {
       console.error('❌ FirebaseCalendarService: Errore sincronizzazione:', error);
       useCalendarStore.getState().setError('Errore di sincronizzazione con Firebase');
@@ -60,7 +64,9 @@ export class FirebaseCalendarService {
    */
   async addEntry(entry: Omit<CalendarEntry, 'id'>): Promise<string> {
     try {
-      console.log('➕ FirebaseCalendarService: Aggiunta entry:', entry);
+      if (__DEV__) {
+        console.log('➕ FirebaseCalendarService: Aggiunta entry:', entry);
+      }
       
       const entryId = await NetworkErrorHandler.withRetry(
         () => this.repository.addEntry(entry),
@@ -75,7 +81,9 @@ export class FirebaseCalendarService {
       };
       useCalendarStore.getState().addEntry(newEntry);
       
-      console.log('✅ FirebaseCalendarService: Entry aggiunta con ID:', entryId);
+      if (__DEV__) {
+        console.log('✅ FirebaseCalendarService: Entry aggiunta con ID:', entryId);
+      }
       return entryId;
     } catch (error) {
       const userMessage = NetworkErrorHandler.getUserFriendlyMessage(error);
@@ -102,14 +110,18 @@ export class FirebaseCalendarService {
    */
   async updateEntry(entry: CalendarEntry): Promise<void> {
     try {
-      console.log('✏️ FirebaseCalendarService: Aggiornamento entry:', entry.id);
+      if (__DEV__) {
+        console.log('✏️ FirebaseCalendarService: Aggiornamento entry:', entry.id);
+      }
       
       await this.repository.updateEntry(entry);
       
       // Aggiorna lo store locale
       useCalendarStore.getState().updateEntry(entry);
       
-      console.log('✅ FirebaseCalendarService: Entry aggiornata:', entry.id);
+      if (__DEV__) {
+        console.log('✅ FirebaseCalendarService: Entry aggiornata:', entry.id);
+      }
     } catch (error) {
       console.error('❌ FirebaseCalendarService: Errore aggiornamento entry:', error);
       useCalendarStore.getState().setError('Errore nell\'aggiornamento dell\'entry');
@@ -122,14 +134,18 @@ export class FirebaseCalendarService {
    */
   async deleteEntry(entryId: string): Promise<void> {
     try {
-      console.log('🗑️ FirebaseCalendarService: Eliminazione entry:', entryId);
+      if (__DEV__) {
+        console.log('🗑️ FirebaseCalendarService: Eliminazione entry:', entryId);
+      }
       
       await this.repository.deleteEntry(entryId);
       
       // Aggiorna lo store locale
       useCalendarStore.getState().deleteEntry(entryId);
       
-      console.log('✅ FirebaseCalendarService: Entry eliminata:', entryId);
+      if (__DEV__) {
+        console.log('✅ FirebaseCalendarService: Entry eliminata:', entryId);
+      }
     } catch (error) {
       console.error('❌ FirebaseCalendarService: Errore eliminazione entry:', error);
       useCalendarStore.getState().setError('Errore nell\'eliminazione dell\'entry');
@@ -144,7 +160,9 @@ export class FirebaseCalendarService {
    */
   subscribeToEntries(userId: string): void {
     try {
-      console.log('👂 FirebaseCalendarService: Attivazione listener real-time per utente:', userId);
+      if (__DEV__) {
+        console.log('👂 FirebaseCalendarService: Attivazione listener real-time per utente:', userId);
+      }
       
       // Disattiva listener precedente se presente
       if (this.unsubscribe) {
@@ -153,11 +171,15 @@ export class FirebaseCalendarService {
 
       // Attiva nuovo listener
       this.unsubscribe = this.repository.subscribeToEntries((entries) => {
-        console.log('📡 FirebaseCalendarService: Ricevuti aggiornamenti real-time:', entries.length);
+        if (__DEV__) {
+          console.log('📡 FirebaseCalendarService: Ricevuti aggiornamenti real-time:', entries.length);
+        }
         useCalendarStore.getState().setEntries(entries);
       }, { userId });
 
-      console.log('✅ FirebaseCalendarService: Listener real-time attivato');
+      if (__DEV__) {
+        console.log('✅ FirebaseCalendarService: Listener real-time attivato');
+      }
     } catch (error) {
       console.error('❌ FirebaseCalendarService: Errore attivazione listener:', error);
       useCalendarStore.getState().setError('Errore nell\'attivazione del listener real-time');
@@ -169,7 +191,9 @@ export class FirebaseCalendarService {
    */
   unsubscribeFromEntries(): void {
     if (this.unsubscribe) {
-      console.log('🔇 FirebaseCalendarService: Disattivazione listener real-time');
+      if (__DEV__) {
+        console.log('🔇 FirebaseCalendarService: Disattivazione listener real-time');
+      }
       this.unsubscribe();
       this.unsubscribe = null;
     }
@@ -182,7 +206,9 @@ export class FirebaseCalendarService {
    */
   async batchUpdateEntries(entries: CalendarEntry[]): Promise<void> {
     try {
-      console.log('📦 FirebaseCalendarService: Batch update per', entries.length, 'entries');
+      if (__DEV__) {
+        console.log('📦 FirebaseCalendarService: Batch update per', entries.length, 'entries');
+      }
       
       await this.repository.batchUpdateEntries(entries);
       
@@ -191,7 +217,9 @@ export class FirebaseCalendarService {
         useCalendarStore.getState().updateEntry(entry);
       });
       
-      console.log('✅ FirebaseCalendarService: Batch update completato');
+      if (__DEV__) {
+        console.log('✅ FirebaseCalendarService: Batch update completato');
+      }
     } catch (error) {
       console.error('❌ FirebaseCalendarService: Errore batch update:', error);
       useCalendarStore.getState().setError('Errore nell\'aggiornamento batch');

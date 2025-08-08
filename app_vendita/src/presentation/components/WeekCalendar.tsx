@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Platform, ScrollView } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, StyleSheet, Platform } from 'react-native';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import SafeTouchableOpacity from './common/SafeTouchableOpacity';
+// import SafeTouchableOpacity from './common/SafeTouchableOpacity';
 import CustomCalendarCell from './CustomCalendarCell';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { Colors } from '../../constants/Colors';
@@ -43,12 +43,12 @@ export default function WeekCalendar({
   };
 
   const weekDates = getWeekDates(currentDate);
-  const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+  // const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 
   // Per mobile: mostra solo 3 giorni alla volta
   const isMobile = Platform.OS !== 'web';
   const daysPerPage = isMobile ? 3 : 7;
-  const totalPages = isMobile ? Math.ceil(7 / daysPerPage) : 1;
+  // const totalPages = isMobile ? Math.ceil(7 / daysPerPage) : 1;
 
   // Calcola le date da mostrare per la pagina corrente
   const visibleDates = useMemo(() => {
@@ -60,14 +60,29 @@ export default function WeekCalendar({
     return weekDates.slice(startIndex, startIndex + daysPerPage);
   }, [weekDates, currentPage, isMobile]);
 
-  const visibleDayNames = useMemo(() => {
-    if (!isMobile) {
-      return dayNames;
+  // Allinea pagina visibile quando cambia currentDate (es. tap su "Oggi")
+  useEffect(() => {
+    if (!isMobile) return;
+    const todayStr = currentDate.toDateString();
+    const index = weekDates.findIndex(d => d.toDateString() === todayStr);
+    if (index >= 0) {
+      const pageIndex = Math.floor(index / daysPerPage);
+      if (pageIndex !== currentPage) {
+        setCurrentPage(pageIndex);
+      }
+    } else if (currentPage !== 0) {
+      // fallback sicuro
+      setCurrentPage(0);
     }
-    
-    const startIndex = currentPage * daysPerPage;
-    return dayNames.slice(startIndex, startIndex + daysPerPage);
-  }, [dayNames, currentPage, isMobile]);
+  }, [currentDate, weekDates, daysPerPage, isMobile]);
+
+  // const visibleDayNames = useMemo(() => {
+  //   if (!isMobile) {
+  //     return dayNames;
+  //   }
+  //   const startIndex = currentPage * daysPerPage;
+  //   return dayNames.slice(startIndex, startIndex + daysPerPage);
+  // }, [dayNames, currentPage, isMobile]);
 
   const getEntryForDate = (date: Date): CalendarEntry | undefined => {
     const dateStr = date.toISOString().split('T')[0];
@@ -90,71 +105,24 @@ export default function WeekCalendar({
     return dateStr === selectedDate;
   };
 
-  const handleNextPage = () => {
-    if (currentPage < totalPages - 1) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
+  // const handleNextPage = () => {
+  //   if (currentPage < totalPages - 1) {
+  //     setCurrentPage(currentPage + 1);
+  //   }
+  // };
 
-  const handlePrevPage = () => {
-    if (currentPage > 0) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
+  // const handlePrevPage = () => {
+  //   if (currentPage > 0) {
+  //     setCurrentPage(currentPage - 1);
+  //   }
+  // };
 
-  const resetToCurrentWeek = () => {
-    setCurrentPage(0);
-  };
+  // const resetToCurrentWeek = () => {
+  //   setCurrentPage(0);
+  // };
 
   return (
     <View style={styles.container}>
-      {/* Header giorni della settimana con indicatori */}
-      <View style={styles.weekHeader}>
-        {visibleDayNames.map((dayName, index) => {
-          const date = visibleDates[index];
-          const entry = date ? getEntryForDate(date) : undefined;
-          const hasData = !!entry;
-          
-          return (
-            <View key={index} style={styles.dayHeader}>
-              <Text style={styles.dayHeaderText}>{dayName}</Text>
-              {hasData && (
-                <View style={styles.dayHeaderIndicator}>
-                  <Text style={styles.dayHeaderIndicatorText}>●</Text>
-                </View>
-              )}
-            </View>
-          );
-        })}
-      </View>
-
-      {/* Controlli di navigazione per mobile */}
-      {isMobile && totalPages > 1 && (
-        <View style={styles.navigationContainer}>
-          <SafeTouchableOpacity
-            style={[styles.navButton, currentPage === 0 && styles.navButtonDisabled]}
-            onPress={handlePrevPage}
-            disabled={currentPage === 0}
-          >
-            <Text style={styles.navButtonText}>‹</Text>
-          </SafeTouchableOpacity>
-          
-          <View style={styles.pageIndicator}>
-            <Text style={styles.pageIndicatorText}>
-              {currentPage + 1} / {totalPages}
-            </Text>
-          </View>
-          
-          <SafeTouchableOpacity
-            style={[styles.navButton, currentPage === totalPages - 1 && styles.navButtonDisabled]}
-            onPress={handleNextPage}
-            disabled={currentPage === totalPages - 1}
-          >
-            <Text style={styles.navButtonText}>›</Text>
-          </SafeTouchableOpacity>
-        </View>
-      )}
-
       {/* Griglia settimanale orizzontale */}
       <View style={[styles.weekGrid, isMobile && styles.mobileWeekGrid]}>
         {visibleDates.map((date) => {
@@ -168,7 +136,7 @@ export default function WeekCalendar({
               entry={entry}
               isSelected={isSelected(date)}
               isToday={isToday(date)}
-              selectedSalesPointId={selectedSalesPointId}
+              selectedSalesPointId={selectedSalesPointId || 'default'}
               onPress={() => {
                 onDayPress(dateStr || '');
               }}
@@ -178,18 +146,6 @@ export default function WeekCalendar({
           );
         })}
       </View>
-
-      {/* Reset button per mobile */}
-      {isMobile && currentPage !== 0 && (
-        <View style={styles.resetContainer}>
-          <SafeTouchableOpacity
-            style={styles.resetButton}
-            onPress={resetToCurrentWeek}
-          >
-            <Text style={styles.resetButtonText}>🔙 Inizio Settimana</Text>
-          </SafeTouchableOpacity>
-        </View>
-      )}
     </View>
   );
 }

@@ -1,0 +1,474 @@
+[
+  {
+    "id": "TC001",
+    "title": "Firebase Authentication Success with Role-based Access",
+    "description": "Verify that users can log in successfully using valid Firebase credentials and appropriate role-based access permissions are enforced.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page."
+      },
+      {
+        "type": "action",
+        "description": "Enter a valid email and password registered in Firebase."
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that the user is logged in successfully and redirected to the home screen."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that the user's role-based permissions are correctly applied restricting or allowing access to specific resources."
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Firebase Authentication Failure with Invalid Credentials",
+    "description": "Confirm that login fails when invalid credentials are provided and appropriate error messages are displayed.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page."
+      },
+      {
+        "type": "action",
+        "description": "Enter an invalid or unregistered email and/or password."
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that login is denied and an error message indicating invalid credentials is shown."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that no user data or sensitive information is exposed."
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Auto-login Persistence Across Sessions",
+    "description": "Ensure that once a user logs in, subsequent app launches auto-login the user without requiring manual credential entry.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in with valid credentials."
+      },
+      {
+        "type": "action",
+        "description": "Close the application completely."
+      },
+      {
+        "type": "action",
+        "description": "Reopen the application."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that the user is automatically logged in and the main dashboard is displayed."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user role and access rights remain consistent."
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Calendar Month View Rendering with Virtualization",
+    "description": "Verify that the month calendar view renders correctly and efficiently with virtualization for large datasets.",
+    "category": "performance",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the calendar month view."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that calendar cells load and display the correct dates."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify smooth scrolling and that only visible cells are rendered (virtualization effectiveness)."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no performance degradations or frame drops occur with large numbers of entries."
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Week View Dynamic Interaction and Navigation",
+    "description": "Ensure the calendar week view allows smooth navigation between weeks and dynamic updates reflect correctly on the UI.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the calendar week view."
+      },
+      {
+        "type": "action",
+        "description": "Scroll or swipe through multiple weeks."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify correct weeks are displayed upon navigation."
+      },
+      {
+        "type": "action",
+        "description": "Add or edit entries in the current week."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify calendar updates reflect entry changes in real-time."
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "CRUD Operations on Calendar Entries with Image Attachments",
+    "description": "Verify that users can create, read, update, and delete calendar entries including attaching, displaying, and removing images.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Create a new calendar entry with mandatory fields filled."
+      },
+      {
+        "type": "action",
+        "description": "Attach an image to the entry."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the entry is created and image is successfully uploaded and displayed."
+      },
+      {
+        "type": "action",
+        "description": "Read and view the entry details with image displayed correctly."
+      },
+      {
+        "type": "action",
+        "description": "Update the entry's metadata and replace the image with another photo."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify updates are saved and updated image is shown."
+      },
+      {
+        "type": "action",
+        "description": "Delete the entry with confirmation modal."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the entry is deleted and no longer shown in calendar."
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Photo Capture, Compression, Permission Handling and Upload",
+    "description": "Test photo capture flow including permissions, automatic compression, and successful upload to Firebase storage.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open photo capture interface in the app."
+      },
+      {
+        "type": "action",
+        "description": "Grant camera and storage permissions when requested."
+      },
+      {
+        "type": "action",
+        "description": "Capture photo using in-app camera."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify photo is compressed automatically without significant loss of quality."
+      },
+      {
+        "type": "action",
+        "description": "Upload photo to Firebase storage."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify photo upload completes successfully and URL is retrievable."
+      },
+      {
+        "type": "action",
+        "description": "Deny camera permissions and attempt to capture photo."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify appropriate error messages or fallback UI are displayed."
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Advanced Filtering and Search Functionality",
+    "description": "Ensure filtering and search features by agents, categories, and sales points function correctly and efficiently with reset capability.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to sales data filtering interface."
+      },
+      {
+        "type": "action",
+        "description": "Apply a combination of multiple filters (agent, category, sales point)."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify filtered sales data matches the applied criteria accurately."
+      },
+      {
+        "type": "action",
+        "description": "Perform a search query within filtered data."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify search results are relevant and performant with no delays."
+      },
+      {
+        "type": "action",
+        "description": "Reset all filters using reset option."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify filter selections clear and full dataset is restored in the UI."
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Excel Data Import with Validation and Error Handling",
+    "description": "Test importing Excel files containing sales agents, clients, and references with data validation and proper error notifications.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the Excel import interface."
+      },
+      {
+        "type": "action",
+        "description": "Select a well-formed Excel file with valid sales data."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify data is imported successfully and reflected correctly in the application."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to import an Excel file with invalid or corrupted data."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify proper validation catches errors and displays meaningful error messages without data loss."
+      },
+      {
+        "type": "action",
+        "description": "Cancel an import operation during validation process."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the import process halts cleanly with no partial updates."
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Excel Data Export Functionality",
+    "description": "Verify that users can export sales data to Excel files with accurate data and proper formatting.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the Excel export interface."
+      },
+      {
+        "type": "action",
+        "description": "Trigger export of current sales data."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an Excel file is generated with accurate and complete data."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the exported file can be opened and read by standard spreadsheet software."
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Real-time Progressive Sales Data Calculations",
+    "description": "Ensure that progressive batched sales calculations are computed in real-time and updated on the UI without performance degradation.",
+    "category": "performance",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Simulate incoming sales data updates."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify progressive calculations are triggered and batch updates are processed efficiently."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify sales data on the UI updates in real-time without noticeable lag."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no data inconsistency or calculation errors occur during the update."
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Global State Management Efficiency with Zustand",
+    "description": "Verify that global state updates using Zustand propagate efficiently without causing unnecessary rerenders or affecting UI responsiveness.",
+    "category": "performance",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Trigger a global state update affecting multiple components."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify only components subscribed to the changed state rerender."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI responsiveness remains smooth during and after the update."
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Reusable UI Component Design and Error Boundary",
+    "description": "Test that reusable UI components match the design specifications and gracefully handle runtime errors using error boundaries.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Render all major reusable UI components with valid props."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify visual appearance matches the unified design system."
+      },
+      {
+        "type": "action",
+        "description": "Induce a runtime error inside a component (simulate invalid prop or exception)."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that the error boundary captures the error and presents fallback UI."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the rest of the application remains functional despite the error."
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Multi-platform Navigation and Deep Linking",
+    "description": "Ensure that tab-based navigation functions correctly on all supported platforms and deep linking routes users to the correct screens.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open the app on different platforms (iOS, Android)."
+      },
+      {
+        "type": "action",
+        "description": "Use tab-based navigation to switch between main screens."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify navigation updates the UI and maintains state correctly."
+      },
+      {
+        "type": "action",
+        "description": "Use a deep link URL to open a specific calendar entry or page."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the app navigates directly to the requested page with correct data displayed."
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Application Logging and Monitoring",
+    "description": "Verify that logging captures structured logs with correct severity levels, environment detection, and throttling across app flows.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Perform various app operations triggering info, warning, and error logs."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify logs include structured metadata like timestamps, environment, and user context."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify error logs trigger alerts or are flagged for monitoring."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify throttling mechanisms prevent log flooding under repeated events."
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Comprehensive Automated Tests Coverage Verification",
+    "description": "Validate the automated testing framework covers unit, integration, and UI components adequately, and that tests run successfully.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Run the full Jest test suite covering core features."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all tests pass without failures or errors."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify test coverage reports meet or exceed defined thresholds for critical modules."
+      }
+    ]
+  }
+]

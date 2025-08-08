@@ -48,11 +48,11 @@ export const CalendarCellTags: React.FC<CalendarCellTagsProps> = React.memo(({
   }
   
   return (
-    <View style={isWeekView ? styles.tagsSection : [styles.tagsContainer, styles.monthTagsContainer]}>
+    <View style={isWeekView ? [styles.tagsSection, styles.weekTagsContainer] : [styles.tagsContainer, styles.monthTagsContainer]}>
       <CellTags 
         tagIds={tagIds} 
-        size="tiny" 
-        maxVisible={isWeekView ? tagIds.length : Math.min(tagIds.length, 5)}
+        size={isWeekView ? 'small' : 'tiny'}
+        maxVisible={isWeekView ? Math.min(tagIds.length, 8) : Math.min(tagIds.length, 8)}
         layout={isWeekView ? 'vertical' : 'horizontal'}
       />
     </View>
@@ -64,6 +64,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
+  weekTagsContainer: {
+    maxHeight: 40,
+    justifyContent: 'flex-start',
+    width: '100%'
+  },
   tagsContainer: {
     marginTop: 1,
     marginBottom: 2,
@@ -72,8 +77,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   monthTagsContainer: {
-    maxHeight: 20,
-    justifyContent: 'center',
+    maxHeight: 40, // due righe
+    justifyContent: 'flex-start',
   },
 });
 

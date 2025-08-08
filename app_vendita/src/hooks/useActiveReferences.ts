@@ -12,12 +12,12 @@ export const useActiveReferences = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🎯 useActiveReferences: Caricamento referenze attive da Firebase...');
+      if (__DEV__) { console.log('🎯 useActiveReferences: Caricamento referenze attive da Firebase...'); }
       
       const references = await firebaseCalendarService.getActiveReferences();
       setActiveReferences(references);
       
-      console.log('✅ useActiveReferences: Referenze attive caricate:', references.length);
+      if (__DEV__) { console.log('✅ useActiveReferences: Referenze attive caricate:', references.length); }
     } catch (error) {
       console.error('❌ useActiveReferences: Errore nel caricamento:', error);
       setError('Errore nel caricamento delle referenze attive');
@@ -31,7 +31,7 @@ export const useActiveReferences = () => {
       setLoading(true);
       setError(null);
       
-      console.log('➕ useActiveReferences: Aggiunta referenza attiva:', reference);
+      if (__DEV__) { console.log('➕ useActiveReferences: Aggiunta referenza attiva:', reference); }
       
       const referenceId = await firebaseCalendarService.saveActiveReference(reference);
       
@@ -45,7 +45,7 @@ export const useActiveReferences = () => {
       
       setActiveReferences(prev => [...prev, newReference]);
       
-      console.log('✅ useActiveReferences: Referenza attiva aggiunta con ID:', referenceId);
+      if (__DEV__) { console.log('✅ useActiveReferences: Referenza attiva aggiunta con ID:', referenceId); }
     } catch (error) {
       console.error('❌ useActiveReferences: Errore nell\'aggiunta referenza:', error);
       setError('Errore nell\'aggiunta della referenza attiva');
@@ -60,7 +60,7 @@ export const useActiveReferences = () => {
       setLoading(true);
       setError(null);
       
-      console.log('✏️ useActiveReferences: Aggiornamento referenza attiva:', id);
+      if (__DEV__) { console.log('✏️ useActiveReferences: Aggiornamento referenza attiva:', id); }
       
       await firebaseCalendarService.updateActiveReference(id, updates);
       
@@ -73,7 +73,7 @@ export const useActiveReferences = () => {
         )
       );
       
-      console.log('✅ useActiveReferences: Referenza attiva aggiornata:', id);
+      if (__DEV__) { console.log('✅ useActiveReferences: Referenza attiva aggiornata:', id); }
     } catch (error) {
       console.error('❌ useActiveReferences: Errore nell\'aggiornamento referenza:', error);
       setError('Errore nell\'aggiornamento della referenza attiva');
@@ -88,14 +88,14 @@ export const useActiveReferences = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🗑️ useActiveReferences: Eliminazione referenza attiva:', id);
+      if (__DEV__) { console.log('🗑️ useActiveReferences: Eliminazione referenza attiva:', id); }
       
       await firebaseCalendarService.deleteActiveReference(id);
       
       // Rimuovi la referenza dallo stato locale
       setActiveReferences(prev => prev.filter(ref => ref.id !== id));
       
-      console.log('✅ useActiveReferences: Referenza attiva eliminata:', id);
+      if (__DEV__) { console.log('✅ useActiveReferences: Referenza attiva eliminata:', id); }
     } catch (error) {
       console.error('❌ useActiveReferences: Errore nell\'eliminazione referenza:', error);
       setError('Errore nell\'eliminazione della referenza attiva');

@@ -56,10 +56,13 @@ function CustomCalendarCell({
   // Ottieni filtri correnti per photo manager
   const { selectedUserId } = useFiltersStore();
 
-  // Photo manager per conteggio foto - Logica prioritaria per punto vendita
-  // Se c'è un punto vendita selezionato, mostra sempre i dati (priorità al punto vendita)
-  // Se NON c'è punto vendita, usa la logica entry-based
-  const shouldShowPhotos = selectedSalesPointId ? true : (entry !== undefined);
+  // Photo manager per conteggio foto
+  // Ottimizzazione: evita inizializzazioni massive nella vista mensile
+  // - In vista settimanale consenti se c'è un punto vendita selezionato o un entry
+  // - In vista mensile consenti solo se esiste un entry per la cella
+  const shouldShowPhotos = isWeekView
+    ? (!!selectedSalesPointId && selectedSalesPointId !== 'default') || (entry !== undefined)
+    : (entry !== undefined);
   
   // Ottimizzazione: usa photoManager solo se necessario
   // Nella vista mensile questo evita 42 chiamate simultanee
@@ -81,34 +84,54 @@ function CustomCalendarCell({
     }
   }, [entry?.focusReferencesData, date, loadFocusReferencesData]);
   
-  const dayNumber = new Date(date).getDate();
+  const dayDate = new Date(date);
+  const dayNumber = dayDate.getDate();
+  const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+  const dayName = dayNames[dayDate.getDay()];
   const hasProblem = entry?.hasProblem || false;
 
   
 
   
   // Stabilizza la chiamata a getDisplayDataForDate per evitare re-render continui
+  const lastUpdated = getLastUpdated();
   const displayData = useMemo(() => {
     return getDisplayDataForDate(date, entry, isInitialized);
-  }, [date, entry, isInitialized, getDisplayDataForDate, selectedSalesPointId, getLastUpdated()]);
+  }, [date, entry, isInitialized, getDisplayDataForDate, selectedSalesPointId, lastUpdated]);
   
 
 
   // Funzioni per determinare se i tooltip hanno contenuto
   const hasStockContent = () => {
-
-    
-    // Non mostrare l'icona stock se non c'è un punto vendita selezionato valido
+    // Non mostrare l'indicatore se non c'è un punto vendita selezionato valido
     if (!selectedSalesPointId || selectedSalesPointId === 'default' || selectedSalesPointId === '') {
       return false;
     }
-    
-    if (displayData.useOriginalData) {
-      return entry?.focusReferencesData && entry.focusReferencesData.length > 0;
+
+    // Caso 1: dati originali dell'entry
+    if (entry?.focusReferencesData && entry.focusReferencesData.length > 0) {
+      const hasPositive = entry.focusReferencesData.some((ref) => {
+        const ordered = parseFloat(ref.orderedPieces || '0');
+        const sold = parseFloat(ref.soldPieces || '0');
+        const stock = parseFloat(ref.stockPieces || '0');
+        return ordered > 0 || sold > 0 || stock > 0;
+      });
+      return hasPositive;
     }
-    
-    return displayData.progressiveData?.displayData.progressiveEntries && 
-           displayData.progressiveData.displayData.progressiveEntries.length > 0;
+
+    // Caso 2: dati progressivi calcolati
+    const progressiveEntries: any[] | undefined = (displayData as any)?.progressiveData?.displayData?.progressiveEntries;
+    if (Array.isArray(progressiveEntries) && progressiveEntries.length > 0) {
+      const hasPositive = progressiveEntries.some((e: any) => {
+        const ordered = parseFloat(String(e?.orderedPieces ?? e?.ordered ?? '0'));
+        const sold = parseFloat(String(e?.soldPieces ?? e?.sold ?? '0'));
+        const stock = parseFloat(String(e?.stockPieces ?? e?.stock ?? '0'));
+        return ordered > 0 || sold > 0 || stock > 0;
+      });
+      return hasPositive;
+    }
+
+    return false;
   };
 
   const hasInfoContent = () => {
@@ -162,6 +185,8 @@ function CustomCalendarCell({
   };
 
   const handleCellPress = () => {
+    // Mini-sheet riassuntivo: per ora utilizziamo il tooltip esistente come preview leggera
+    // Se serve full form, l'utente preme il + o tiene premuto
     onPress();
   };
 
@@ -181,17 +206,22 @@ function CustomCalendarCell({
       {/* Vista Settimanale - Struttura a 4 parti */}
       {isWeekView ? (
         <View style={styles.weekStructure}>
-          {/* PARTE 1: Numero del giorno + Pulsante + */}
+          {/* PARTE 1: Giorno settimana + numero + Pulsante + */}
           <View style={styles.dayNumberSection}>
-            <Text
-              style={[
-                styles.dayNumber,
-                isSelected && styles.selectedText,
-                isToday && styles.todayText,
-              ]}
-            >
-              {dayNumber}
-            </Text>
+            <View style={styles.dayHeaderInline}>
+              <Text style={[styles.dayWeekAcronym, isSelected && styles.selectedText, isToday && styles.todayText]}>
+                {dayName}
+              </Text>
+              <Text
+                style={[
+                  styles.dayNumber,
+                  isSelected && styles.selectedText,
+                  isToday && styles.todayText,
+                ]}
+              >
+                {dayNumber}
+              </Text>
+            </View>
             <TouchableOpacity
               style={styles.addButton}
               onPress={(e) => {
@@ -205,8 +235,10 @@ function CustomCalendarCell({
             </TouchableOpacity>
           </View>
 
-          {/* PARTE 2: Tag su 2 righe */}
-          <CalendarCellTags entry={entry} isWeekView={true} />
+          {/* PARTE 2: Tag più in alto */}
+          <View style={{ marginTop: 2 }}>
+            <CalendarCellTags entry={entry} isWeekView={true} />
+          </View>
 
           {/* PARTE 3: Sezione numeri (vendite e azioni) */}
           <SalesAndActionsDisplay entry={entry} isWeekView={true} />
@@ -243,37 +275,46 @@ function CustomCalendarCell({
           />
         </View>
       ) : (
-        /* Vista Mensile - Struttura originale */
+        /* Vista Mensile - Struttura con giorno settimana inline */
         <>
-          {/* Header con numero del giorno e tooltip in alto a destra */}
+          {/* Header: acronimo giorno + numero (inline) */}
           <View style={styles.dayHeader}>
-            <Text
-              style={[
-                styles.dayNumber,
-                isSelected && styles.selectedText,
-                isToday && styles.todayText,
-              ]}
-            >
-              {dayNumber}
-            </Text>
-            
-            {/* Tooltip in alto a destra per vista mensile */}
-            <MonthTooltipButtons
-              handleTooltipPress={handleTooltipPress}
-              entry={entry}
-              shouldShowPhotos={shouldShowPhotos}
-              photoManager={photoManager}
-              selectedSalesPointId={selectedSalesPointId}
-            />
+            <View style={styles.dayHeaderInline}>
+              <Text style={[styles.dayWeekAcronym, isSelected && styles.selectedText, isToday && styles.todayText]}>
+                {dayName}
+              </Text>
+              <Text
+                style={[
+                  styles.dayNumber,
+                  isSelected && styles.selectedText,
+                  isToday && styles.todayText,
+                ]}
+              >
+                {dayNumber}
+              </Text>
+            </View>
           </View>
 
-          {/* Tag direttamente sotto il numero del giorno */}
-          <CalendarCellTags entry={entry} isWeekView={false} />
+          {/* Riga superiore: solo tag in unica riga per lasciare spazio ai tooltip in basso */}
+          <View style={{ alignItems: 'center', marginTop: 2 }}>
+            <CalendarCellTags entry={entry} isWeekView={false} />
+          </View>
 
           {/* Contenuto per vista mensile (riassunto) */}
           <View style={styles.monthContent}>
             <SalesAndActionsDisplay entry={entry} isWeekView={false} />
           </View>
+
+          {/* Tooltip in basso nella cella, dimensione maggiore per mensile */}
+          <MonthTooltipButtons
+            handleTooltipPress={handleTooltipPress}
+            entry={entry}
+            shouldShowPhotos={shouldShowPhotos}
+            photoManager={photoManager}
+            selectedSalesPointId={selectedSalesPointId}
+            inline={false}
+            buttonSize={'large'}
+          />
         </>
       )}
     </TouchableOpacity>
@@ -338,11 +379,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 2,
   },
+  dayHeaderInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   dayNumber: {
     fontSize: Platform.OS === 'web' ? 16 : 14,
     fontWeight: 'bold',
     color: '#2d4150',
     textAlign: 'center',
+  },
+  dayWeekAcronym: {
+    fontSize: Platform.OS === 'web' ? 10 : 10,
+    color: '#607D8B',
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   selectedText: {
     color: '#ffffff',
