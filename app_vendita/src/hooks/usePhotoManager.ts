@@ -37,6 +37,24 @@ interface UsePhotoManagerReturn {
 
 // Cache globale per evitare ricaricamenti multipli per la stessa data/salespoint
 const photoCache = new Map<string, { photos: PhotoData[], timestamp: number }>();
+type InvalidationListener = (payload: { dates?: string[]; salesPointId?: string }) => void;
+const photoCacheListeners = new Set<InvalidationListener>();
+
+export function subscribePhotoCacheInvalidation(listener: InvalidationListener) {
+  photoCacheListeners.add(listener);
+  return () => photoCacheListeners.delete(listener);
+}
+
+export function invalidatePhotoCacheForDates(salesPointId: string, dates: string[]) {
+  try {
+    dates.forEach(dateStr => {
+      const cacheKey = `${dateStr}_${salesPointId}`;
+      photoCache.delete(cacheKey);
+    });
+  } finally {
+    photoCacheListeners.forEach(l => l({ dates, salesPointId }));
+  }
+}
 const CACHE_DURATION = 60000; // 1 minuto
 
 /**
@@ -99,6 +117,16 @@ export function usePhotoManager({
       setIsLoading(false);
     }
   }, [calendarDate, salesPointId]);
+
+  useEffect(() => {
+    const unsubscribe = subscribePhotoCacheInvalidation(({ dates, salesPointId: sp }) => {
+      if (sp && sp !== salesPointId) return;
+      if (!dates || dates.includes(calendarDate)) {
+        loadPhotos();
+      }
+    });
+    return unsubscribe;
+  }, [calendarDate, salesPointId, loadPhotos]);
 
   /**
    * Processa e salva una foto su Firestore
