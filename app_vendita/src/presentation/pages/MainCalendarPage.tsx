@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   StatusBar,
   SafeAreaView,
   Platform,
+  PanResponder,
 } from 'react-native';
 import { useCalendar } from '../providers/CalendarContext';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
@@ -155,6 +156,8 @@ export default function MainCalendarPage({
     const end = new Date(base.getFullYear(), base.getMonth() + 1, 0, 23, 59, 59, 999);
     return { start, end };
   }, [calendarView, currentDate]);
+
+  // Swipe gesture: definita più in basso dopo le funzioni di navigazione
 
   // Utilità locale: chiave data in timezone locale (YYYY-MM-DD) per confronti robusti
   const getLocalDateKey = (value: Date | string) => {
@@ -757,6 +760,37 @@ export default function MainCalendarPage({
         console.log('📅 MainCalendarPage: Nuova data mese:', newDate.toISOString());
       }
     }, [currentDate]);
+
+    // Swipe gesture minimalista con soglie conservative
+    const isSwipingRef = useRef(false);
+    const lastDxRef = useRef(0);
+    const swipeThreshold = 30; // pixel orizzontali per considerare swipe
+    const verticalTolerance = 15; // max movimento verticale
+    const panResponder = useMemo(() => PanResponder.create({
+      onMoveShouldSetPanResponder: (_e, g) => {
+        const should = Math.abs(g.dx) > 10 && Math.abs(g.dy) < verticalTolerance;
+        if (!should) isSwipingRef.current = false;
+        return should;
+      },
+      onPanResponderMove: (_e, g) => {
+        lastDxRef.current = g.dx;
+        if (Math.abs(g.dx) > swipeThreshold && Math.abs(g.dy) < verticalTolerance) {
+          isSwipingRef.current = true;
+        }
+      },
+      onPanResponderRelease: () => {
+        if (!isSwipingRef.current) return;
+        const dx = lastDxRef.current;
+        if (dx > swipeThreshold) {
+          calendarView === 'week' ? navigateWeek('prev') : navigateMonth('prev');
+        } else if (dx < -swipeThreshold) {
+          calendarView === 'week' ? navigateWeek('next') : navigateMonth('next');
+        }
+        isSwipingRef.current = false;
+        lastDxRef.current = 0;
+      },
+      onPanResponderTerminationRequest: () => true,
+    }), [calendarView, navigateWeek, navigateMonth]);
 
 
 
@@ -1469,14 +1503,14 @@ export default function MainCalendarPage({
         )}
 
         {/* CALENDARIO - OCCUPA TUTTO LO SPAZIO DISPONIBILE TRA HEADER E FOOTER */}
-        <View style={styles.calendarContainer}>
+        <View style={styles.calendarContainer} {...panResponder.panHandlers}>
           {calendarView === 'week' ? (
             <WeekCalendar
               currentDate={currentDate}
               entries={filteredCalendarEntries}
               selectedDate={selectedDate}
               selectedSalesPointId={selectedSalesPointId}
-              onDayPress={onDayPress}
+              onDayPress={(d) => { if (!isSwipingRef.current) onDayPress(d); }}
               onTooltipPress={(type, date, entry) => {
                 setTooltipType(type);
                 setTooltipDate(date);
@@ -1490,7 +1524,7 @@ export default function MainCalendarPage({
               entries={filteredCalendarEntries}
               selectedDate={selectedDate}
               selectedSalesPointId={selectedSalesPointId}
-              onDayPress={onDayPress}
+              onDayPress={(d) => { if (!isSwipingRef.current) onDayPress(d); }}
               onTooltipPress={(type, date, entry) => {
                 setTooltipType(type);
                 setTooltipDate(date);
