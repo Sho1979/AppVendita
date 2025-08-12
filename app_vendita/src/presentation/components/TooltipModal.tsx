@@ -302,7 +302,7 @@ export default function TooltipModal({
               return null;
             })()}
             
-            {entry?.chatNotes && entry.chatNotes.length > 0 ? (
+              {entry?.chatNotes && entry.chatNotes.length > 0 ? (
               <ScrollView 
                 ref={scrollViewRef}
                 style={{ 
@@ -382,7 +382,7 @@ export default function TooltipModal({
                         )}
                         
                         {/* Container messaggio con long press */}
-                        <TouchableOpacity
+                          <TouchableOpacity
                           style={{ maxWidth: '75%' }}
                           onLongPress={() => {
                             Alert.alert(
@@ -392,26 +392,25 @@ export default function TooltipModal({
                                 { text: '👍', onPress: () => handleReaction(note.id, '👍') },
                                 { text: '❤️', onPress: () => handleReaction(note.id, '❤️') },
                                 { text: '😂', onPress: () => handleReaction(note.id, '😂') },
+                                { text: '🗑️ Elimina', style: 'destructive', onPress: () => {
+                                    if (!onUpdateEntry) return;
+                                    try {
+                                      const updated = {
+                                        ...entry,
+                                        chatNotes: (entry.chatNotes || []).filter(n => n.id !== note.id),
+                                        updatedAt: new Date()
+                                      } as CalendarEntry;
+                                      onUpdateEntry(updated);
+                                    } catch (e) {}
+                                  } 
+                                },
                                 { text: '💬 Rispondi', onPress: () => handleReply(note.id, note.userName || 'Utente', note.message) },
                                 { text: 'Annulla', style: 'cancel' }
                               ],
                               { cancelable: true }
                             );
                           }}
-                          onPress={() => {
-                            // Doppio tap veloce per aprire il menu
-                            setTimeout(() => {
-                              Alert.alert(
-                                'Menu Messaggio',
-                                'Seleziona un\'azione:',
-                                [
-                                  { text: '👍 Mi piace', onPress: () => handleReaction(note.id, '👍') },
-                                  { text: '💬 Rispondi', onPress: () => handleReply(note.id, note.userName || 'Utente', note.message) },
-                                  { text: 'Annulla', style: 'cancel' }
-                                ]
-                              );
-                            }, 300);
-                          }}
+                           onPress={() => { /* tap semplice: nessuna azione */ }}
                           activeOpacity={0.8}
                           delayLongPress={800}
                         >

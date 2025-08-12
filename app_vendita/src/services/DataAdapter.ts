@@ -58,17 +58,26 @@ export class DataAdapter {
    * Ottiene la data in formato stringa per il sistema progressivo
    */
   static getDateString(entry: CalendarEntry): string {
-    // Gestisce sia Date che stringhe
+    // Normalizza in chiave DATA LOCALE (YYYY-MM-DD), coerente con WeekCalendar/CustomCalendarCell
+    const toLocalKey = (d: Date): string => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
     if (entry.date instanceof Date) {
-      return entry.date.toISOString().split('T')[0];
-    } else if (typeof entry.date === 'string') {
-      // Se è già una stringa, prova a estrarre la parte data
-      return entry.date.split('T')[0];
-    } else {
-      // Fallback: usa la data corrente
-      console.warn('⚠️ Data non riconosciuta, uso data corrente:', entry.date);
-      return new Date().toISOString().split('T')[0];
+      return toLocalKey(entry.date);
     }
+    if (typeof entry.date === 'string') {
+      // Se è già in formato YYYY-MM-DD restituisci com'è; altrimenti prova a parse locale
+      if (/^\d{4}-\d{2}-\d{2}$/.test(entry.date)) return entry.date;
+      const parsed = new Date(entry.date);
+      if (!isNaN(parsed.getTime())) return toLocalKey(parsed);
+    }
+    // Fallback sicuro: data corrente locale
+    console.warn('⚠️ Data non riconosciuta, uso data locale corrente:', entry.date);
+    return toLocalKey(new Date());
   }
 
   /**

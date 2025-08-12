@@ -169,32 +169,45 @@ export function usePhotoManager({
       setUploadProgress(50);
 
       // Salva su Firestore
-      const firestoreId = await FirebasePhotoService.savePhoto(metadata);
+      let firestoreId = '';
+      try {
+        firestoreId = await FirebasePhotoService.savePhoto(metadata);
+      } catch (e) {
+        console.error('❌ usePhotoManager: Errore durante savePhoto, eseguo fallback sicuro:', e);
+        // Fallback offline-safe: mantieni comunque la foto localmente e notifica
+        Alert.alert('Avviso', 'Foto salvata localmente. Verrà sincronizzata quando la connessione sarà disponibile.');
+      }
 
       setUploadProgress(100);
 
       // Aggiorna lista locale
       const newPhoto: PhotoData = {
         ...metadata,
-        firestoreId,
+        firestoreId: firestoreId || `local_${Date.now()}`,
       };
 
       setPhotos(prev => [newPhoto, ...prev]);
       
-      // Invalida cache per forzare reload
+      // Invalida cache per forzare reload e notifichiamo i listener (celle)
       const cacheKey = `${calendarDate}_${salesPointId}`;
       photoCache.delete(cacheKey);
+      try { invalidatePhotoCacheForDates(salesPointId, [calendarDate]); } catch {}
       
-      Alert.alert(
-        'Successo!', 
-        IS_MOBILE && metadata.location 
-          ? `Foto salvata con posizione: ${metadata.location.address || 'Coordinate disponibili'}`
-          : 'Foto salvata con successo'
-      );
+      // Notifica non bloccante (evita crash per Alert in alcuni device durante modali)
+      setTimeout(() => {
+        try {
+          Alert.alert(
+            'Successo!', 
+            IS_MOBILE && metadata.location 
+              ? `Foto salvata con posizione: ${metadata.location.address || 'Coordinate disponibili'}`
+              : 'Foto salvata con successo'
+          );
+        } catch {}
+      }, 50);
 
     } catch (error) {
       console.error('❌ usePhotoManager: Errore salvataggio:', error);
-      Alert.alert('Errore', 'Impossibile salvare la foto');
+      setTimeout(() => { try { Alert.alert('Errore', 'Impossibile salvare la foto'); } catch {} }, 10);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -271,9 +284,10 @@ export function usePhotoManager({
               await FirebasePhotoService.deletePhoto(firestoreId);
               setPhotos(prev => prev.filter(p => p.firestoreId !== firestoreId));
               
-              // Invalida cache per forzare reload
+              // Invalida cache per forzare reload e notifichiamo i listener (celle)
               const cacheKey = `${calendarDate}_${salesPointId}`;
               photoCache.delete(cacheKey);
+              try { invalidatePhotoCacheForDates(salesPointId, [calendarDate]); } catch {}
               
               Alert.alert('Successo', 'Foto eliminata');
             } catch (error) {

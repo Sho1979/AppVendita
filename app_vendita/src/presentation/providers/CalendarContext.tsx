@@ -183,7 +183,11 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
     logger.debug('CalendarProvider', 'Sincronizzazione entries progressive (scoped)', { count: entriesToSync.length });
     entriesToSync.forEach(entry => {
       try {
-        updateEntryWithProgressiveSync(entry);
+        // Normalizza la data a chiave locale coerente con DataAdapter
+        updateEntryWithProgressiveSync({
+          ...entry,
+          date: new Date(entry.date),
+        } as any);
         const ts = new Date(entry.updatedAt || entry.createdAt).getTime();
         syncedMapRef.current.set(entry.id, ts);
       } catch (error) {

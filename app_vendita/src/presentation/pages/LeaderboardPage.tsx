@@ -16,6 +16,7 @@ interface LeaderboardRow {
 export default function LeaderboardPage() {
   const entries = useCalendarStore((s) => s.entries);
   const refreshToken = useCalendarStore((s) => s.leaderboardRefreshToken);
+  const lastSync = useCalendarStore((s) => s.lastSyncTimestamp);
   const salesPoints = useCalendarStore((s) => s.salesPoints);
   const { excelData: excelRows } = useFirebaseExcelData();
   const repository = useRepository();
@@ -83,7 +84,7 @@ export default function LeaderboardPage() {
     };
     load();
     return () => { mounted = false; };
-  }, [repository, currentYear, currentMonth, metric, salesPoints, excelRows, refreshToken]);
+  }, [repository, currentYear, currentMonth, metric, salesPoints, excelRows, refreshToken, lastSync]);
 
   const rows = useMemo<LeaderboardRow[]>(() => {
     // Se non abbiamo ancora caricato dal repository, mostra fallback locale (se coerente)

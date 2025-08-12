@@ -50,9 +50,23 @@ export const useProgressiveIntegration = (sharedService?: ProgressiveCalculation
   const getDisplayDataForDate = useCallback((date: string, originalEntry?: CalendarEntry, contextIsInitialized?: boolean) => {
     // Usa isInitialized dal context se fornito, altrimenti usa quello locale
     const effectiveIsInitialized = contextIsInitialized !== undefined ? contextIsInitialized : isInitialized;
-    
-    // Se il sistema non è inizializzato, usa i dati originali
+
+    // Fallback intelligente: se non inizializzato, ma il servizio ha già dati per questa data
+    // (perché caricati via cella o sync), mostra comunque la vista progressiva.
     if (!effectiveIsInitialized) {
+      const probe = getCellDisplayData(date);
+      const hasProgress = (probe?.displayData?.progressiveEntries?.length || 0) > 0 ||
+        (probe?.progressiveTotals?.venditeTotali || 0) > 0 ||
+        (probe?.progressiveTotals?.ordinatiTotali || 0) > 0 ||
+        (probe?.progressiveTotals?.scorteTotali || 0) > 0 ||
+        (probe?.sellInProgressivo || 0) > 0;
+      if (hasProgress) {
+        return {
+          useOriginalData: false,
+          originalEntry,
+          progressiveData: probe
+        };
+      }
       return {
         useOriginalData: true,
         originalEntry,

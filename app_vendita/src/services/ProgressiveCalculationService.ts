@@ -89,31 +89,29 @@ export class ProgressiveCalculationService {
     dailyTotals: DailyTotals,
     previousDayTotals?: DailyTotals
   ): DailyTotals {
+    // Se non esistono totali precedenti, il progressivo del primo giorno
+    // è dato da vendite/ordinati del giorno e lo stock iniziale calcolato
+    // come (ordinati - vendite) del giorno
     if (!previousDayTotals) {
-      return dailyTotals;
+      return {
+        venditeTotali: dailyTotals.venditeTotali,
+        ordinatiTotali: dailyTotals.ordinatiTotali,
+        scorteTotali: dailyTotals.ordinatiTotali - dailyTotals.venditeTotali,
+        sellIn: dailyTotals.sellIn
+      };
     }
 
+    // Progressivo: somma vendite e ordinati; lo stock è quello del giorno
+    // precedente più (ordinati - vendite) del giorno corrente
     return {
       venditeTotali: previousDayTotals.venditeTotali + dailyTotals.venditeTotali,
-      scorteTotali: previousDayTotals.scorteTotali + dailyTotals.scorteTotali,
       ordinatiTotali: previousDayTotals.ordinatiTotali + dailyTotals.ordinatiTotali,
+      scorteTotali: previousDayTotals.scorteTotali + (dailyTotals.ordinatiTotali - dailyTotals.venditeTotali),
       sellIn: previousDayTotals.sellIn + dailyTotals.sellIn
     };
   }
 
-  /**
-   * Ottiene i totali del giorno precedente (legacy - non usato)
-   */
-  private getPreviousDayTotals(date: string): DailyTotals | undefined {
-    const currentDate = new Date(date);
-    const previousDate = new Date(currentDate);
-    previousDate.setDate(currentDate.getDate() - 1);
-    
-    const previousDateString = previousDate.toISOString().split('T')[0];
-    if (!previousDateString) return undefined;
-    
-    return this.state.progressiveTotals.get(previousDateString);
-  }
+  // Rimosso helper legacy getPreviousDayTotals: non utilizzato nell'algoritmo attuale
 
   /**
    * Aggiorna una cella e ricalcola TUTTO dal primo giorno con dati
@@ -266,6 +264,7 @@ export class ProgressiveCalculationService {
     console.log(`🔬 CHIRURGIA: Processando ${datesToProcess.length}/${sortedDates.length - startIndex} date`);
     
     for (const date of datesToProcess) {
+      
       const entry = this.state.entries.get(date);
       if (entry) {
         // 🎯 OTTIMIZZAZIONE 4: Check cache prima di calcolare
@@ -543,7 +542,11 @@ export class ProgressiveCalculationService {
     });
 
     // Salva i dati nel sistema progressivo
-    this.saveCellData(date, productEntries);
+    // Normalizza la chiave data a YYYY-MM-DD locale (evita offset di timezone)
+    const d = new Date(date);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+    this.saveCellData(key, productEntries);
     
     // Aggiorna il primo giorno con dati
     this.updateFirstDateWithData();
@@ -553,6 +556,9 @@ export class ProgressiveCalculationService {
     if (firstDateWithData) {
       this.recalculateFromDate(firstDateWithData);
     }
+
+    // Aggiorna il timestamp per notificare la UI e forzare il refresh live
+    this.state.lastUpdated = new Date().toISOString();
   }
 
   /**
@@ -626,7 +632,7 @@ export class ProgressiveCalculationService {
     const firstDate = this.findFirstDateWithData();
     if (!firstDate) return [];
 
-    // Limita l'accumulo al mese corrente (Mese-To-Date) per evitare trascinamenti storici
+    // Limita l'accumulo al mese corrente (Mese-To-Date)
     const target = new Date(date);
     const monthStart = new Date(target.getFullYear(), target.getMonth(), 1);
     const startKey = (monthStart.toISOString().split('T')[0]) || date;
@@ -635,28 +641,42 @@ export class ProgressiveCalculationService {
       .filter(d => d >= startKey && d <= date)
       .sort();
 
-    // Raccoglie tutti i prodotti da tutte le date
-    const allProducts = new Map<string, ProductEntry>();
+    // Stato progressivo per prodotto
+    type Agg = { vendite: number; ordinati: number; scorte: number; prezzoNetto: number; product: ProductEntry };
+    const byProduct = new Map<string, Agg>();
 
     for (const d of dates) {
       const entry = this.state.entries.get(d);
-      if (entry) {
-        for (const product of entry.entries) {
-          const existing = allProducts.get(product.productId);
-          if (existing) {
-            // Accumula i valori
-            existing.vendite += product.vendite;
-            existing.scorte += product.scorte;
-            existing.ordinati += product.ordinati;
-          } else {
-            // Prima volta che vediamo questo prodotto
-            allProducts.set(product.productId, { ...product });
-          }
-        }
+      if (!entry) continue;
+      for (const p of entry.entries) {
+        const cur = byProduct.get(p.productId) || {
+          vendite: 0,
+          ordinati: 0,
+          scorte: 0,
+          prezzoNetto: p.prezzoNetto,
+          product: { ...p }
+        };
+        cur.vendite += p.vendite;
+        cur.ordinati += p.ordinati;
+        // stock progressivo: scorta_precedente + ordinati - vendite
+        cur.scorte = cur.scorte + p.ordinati - p.vendite;
+        cur.prezzoNetto = p.prezzoNetto || cur.prezzoNetto;
+        cur.product = { ...p };
+        byProduct.set(p.productId, cur);
       }
     }
 
-    return Array.from(allProducts.values());
+    // Converte in ProductEntry per la visualizzazione progressiva del giorno target
+    return Array.from(byProduct.entries()).map(([productId, a]) => ({
+      productId,
+      categoria: a.product.categoria,
+      colore: a.product.colore,
+      vendite: a.vendite,
+      ordinati: a.ordinati,
+      scorte: a.scorte < 0 ? 0 : a.scorte,
+      prezzoNetto: a.prezzoNetto,
+      ...(a.product.tooltip ? { tooltip: a.product.tooltip } : {})
+    }));
   }
 
   /**

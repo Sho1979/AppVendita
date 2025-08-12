@@ -30,7 +30,7 @@ import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
 import { useCalendarStore } from '../../stores/calendarStore';
 import { logger } from '../../utils/logger';
 import { useRepository } from '../../hooks/useRepository';
-import LoadingOverlay from '../components/LoadingOverlay';
+// import LoadingOverlay from '../components/LoadingOverlay';
 
 interface MainCalendarPageProps {
   navigation?: any;
@@ -66,7 +66,7 @@ export default function MainCalendarPage({
   const [isLoading, setIsLoading] = useState(false);
   const [calendarView, setCalendarView] = useState<'week' | 'month'>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [filterReloading, setFilterReloading] = useState(false);
+  // const [filterReloading, setFilterReloading] = useState(false);
 
   // Swipe minimale: isolato dai tap
   const isSwipingRef = useRef(false);
@@ -328,9 +328,7 @@ export default function MainCalendarPage({
     const loadInitialData = async (options?: { showOverlayOnly?: boolean }) => {
       logger.business('Inizio caricamento dati iniziali');
       try {
-        if (options?.showOverlayOnly) {
-          setFilterReloading(true);
-        } else {
+          if (!options?.showOverlayOnly) {
           setIsLoading(true);
         }
         dispatch({ type: 'SET_LOADING', payload: true });
@@ -487,9 +485,7 @@ export default function MainCalendarPage({
           payload: 'Errore nel caricamento dei dati',
         });
       } finally {
-        if (options?.showOverlayOnly) {
-          setFilterReloading(false);
-        } else {
+        if (!options?.showOverlayOnly) {
           setIsLoading(false);
         }
         dispatch({ type: 'SET_LOADING', payload: false });
@@ -922,9 +918,13 @@ export default function MainCalendarPage({
       setSelectedUserId(userId);
     };
 
-      const handleSalesPointChange = (salesPointId: string) => {
+  const handleSalesPointChange = (salesPointId: string) => {
     if (__DEV__) { console.log('🏪 MainCalendarPage: Cambio punto vendita:', salesPointId); }
     setSelectedSalesPointId(salesPointId);
+    // Mantieni sincronizzato anche il calendarStore (usato dal CalendarProvider per il progressivo)
+    try {
+      dispatch({ type: 'UPDATE_FILTERS', payload: { salesPointId: salesPointId || 'default' } });
+    } catch {}
   };
 
   const handleAMCodeChange = (amCode: string) => {
@@ -1201,6 +1201,8 @@ export default function MainCalendarPage({
     if (progressiveSystem.resetSystem) {
       progressiveSystem.resetSystem();
     }
+    // Sincronizza anche i filtri del CalendarProvider (Zustand) per permettere l'init del progressivo
+    dispatch({ type: 'UPDATE_FILTERS', payload: { salesPointId: selectedSalesPointId || 'default' } });
     
     // Pulisci la cache locale prima di ricaricare
     const clearLocalCache = async () => {
@@ -1644,7 +1646,7 @@ export default function MainCalendarPage({
           salesPointName={getSalesPointName(selectedSalesPointId)}
         />
 
-        <LoadingOverlay visible={filterReloading} message="Aggiornamento dati..." />
+        {/* Overlay rimosso per evitare di bloccare i tap. Riattivare solo dopo test. */}
       </SafeAreaView>
     );
 }

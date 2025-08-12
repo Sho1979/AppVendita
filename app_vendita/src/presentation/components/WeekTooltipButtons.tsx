@@ -122,7 +122,7 @@ export const WeekTooltipButtons: React.FC<WeekTooltipButtonsProps> = React.memo(
         >
           <View style={styles.tooltipButtonContent}>
             <Text style={styles.tooltipText}>📷</Text>
-            {shouldShowPhotos && photoManager.photos && photoManager.photos.length > 0 && (
+            {shouldShowPhotos && Array.isArray(photoManager.photos) && photoManager.photos.length > 0 && (
               <View style={styles.messageCountBadge}>
                 <Text style={styles.messageCountText}>
                   {photoManager.photos.length > 99 ? '99+' : photoManager.photos.length}

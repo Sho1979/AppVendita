@@ -99,7 +99,9 @@ function CustomCalendarCell({
   const lastUpdated = getLastUpdated();
   const displayData = useMemo(() => {
     return getDisplayDataForDate(date, entry, isInitialized);
-  }, [date, entry, isInitialized, getDisplayDataForDate, selectedSalesPointId, lastUpdated]);
+  }, [date, // cambia al cambio giorno
+      entry?.id, entry?.updatedAt, // re-render su entry aggiornata
+      isInitialized, getDisplayDataForDate, selectedSalesPointId, lastUpdated]);
   
 
 
@@ -137,9 +139,16 @@ function CustomCalendarCell({
   };
 
   const hasInfoContent = () => {
-    // Il tooltip info ha contenuto solo se ci sono filtri attivi
-    // Per ora restituiamo false perché non ci sono filtri selezionati
-    return false;
+    // Attiva il puntino info quando ci sono filtri rilevanti attivi
+    // (agente, punto vendita o altri codici)
+    const hasAgent = !!(useFiltersStore.getState().selectedUserId);
+    const spId = useFiltersStore.getState().selectedSalesPointId;
+    const hasSalesPoint = !!(spId && spId !== 'default');
+    const hasCodes = !!(useFiltersStore.getState().selectedAMCode ||
+                        useFiltersStore.getState().selectedNAMCode ||
+                        useFiltersStore.getState().selectedLine);
+    const hasMulti = (useFiltersStore.getState().selectedFilterItems || []).length > 0;
+    return hasAgent || hasSalesPoint || hasCodes || hasMulti;
   };
 
 
