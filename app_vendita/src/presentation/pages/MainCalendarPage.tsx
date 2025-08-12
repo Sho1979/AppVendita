@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   StatusBar,
   SafeAreaView,
   Platform,
+  PanResponder,
 } from 'react-native';
 import { useCalendar } from '../providers/CalendarContext';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
@@ -66,6 +67,38 @@ export default function MainCalendarPage({
   const [calendarView, setCalendarView] = useState<'week' | 'month'>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filterReloading, setFilterReloading] = useState(false);
+
+  // Swipe minimale: isolato dai tap
+  const isSwipingRef = useRef(false);
+  const lastDxRef = useRef(0);
+  const swipeThreshold = 30;
+  const verticalTolerance = 15;
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_e, g) => {
+      const should = Math.abs(g.dx) > 10 && Math.abs(g.dy) < verticalTolerance;
+      if (!should) isSwipingRef.current = false;
+      return should;
+    },
+    onPanResponderMove: (_e, g) => {
+      lastDxRef.current = g.dx;
+      if (Math.abs(g.dx) > swipeThreshold && Math.abs(g.dy) < verticalTolerance) {
+        isSwipingRef.current = true;
+      }
+    },
+    onPanResponderRelease: () => {
+      if (!isSwipingRef.current) return;
+      const dx = lastDxRef.current;
+      if (dx > swipeThreshold) {
+        calendarView === 'week' ? navigateWeek('prev') : navigateMonth('prev');
+      } else if (dx < -swipeThreshold) {
+        calendarView === 'week' ? navigateWeek('next') : navigateMonth('next');
+      }
+      isSwipingRef.current = false;
+      lastDxRef.current = 0;
+    },
+    onPanResponderTerminationRequest: () => true,
+  }), [calendarView]);
   
   // Filtri con Zustand
   // Selettori atomici dal negozio (evita oggetto aggregato senza equality → re-render a cascata)
@@ -731,32 +764,24 @@ export default function MainCalendarPage({
     };
 
     const navigateWeek = useCallback((direction: 'prev' | 'next') => {
-      if (__DEV__) { console.log('⏮️ MainCalendarPage: Navigazione settimana', direction); }
-      const newDate = new Date(currentDate);
-      if (direction === 'prev') {
-        newDate.setDate(newDate.getDate() - 3);
-      } else {
-        newDate.setDate(newDate.getDate() + 3);
-      }
-      setCurrentDate(newDate);
-      if (__DEV__) {
-        console.log('📅 MainCalendarPage: Nuova data settimana:', newDate.toISOString());
-      }
-    }, [currentDate]);
+      const delta = direction === 'prev' ? -3 : 3;
+      setCurrentDate(prev => {
+        const next = new Date(prev);
+        next.setDate(prev.getDate() + delta);
+        if (__DEV__) { console.log('📅 MainCalendarPage: Nuova data settimana:', next.toISOString()); }
+        return next;
+      });
+    }, []);
 
     const navigateMonth = useCallback((direction: 'prev' | 'next') => {
-      if (__DEV__) { console.log('⏮️ MainCalendarPage: Navigazione mese', direction); }
-      const newDate = new Date(currentDate);
-      if (direction === 'prev') {
-        newDate.setMonth(newDate.getMonth() - 1);
-      } else {
-        newDate.setMonth(newDate.getMonth() + 1);
-      }
-      setCurrentDate(newDate);
-      if (__DEV__) {
-        console.log('📅 MainCalendarPage: Nuova data mese:', newDate.toISOString());
-      }
-    }, [currentDate]);
+      const delta = direction === 'prev' ? -1 : 1;
+      setCurrentDate(prev => {
+        const next = new Date(prev);
+        next.setMonth(prev.getMonth() + delta);
+        if (__DEV__) { console.log('📅 MainCalendarPage: Nuova data mese:', next.toISOString()); }
+        return next;
+      });
+    }, []);
 
 
 
@@ -1471,12 +1496,13 @@ export default function MainCalendarPage({
         {/* CALENDARIO - OCCUPA TUTTO LO SPAZIO DISPONIBILE TRA HEADER E FOOTER */}
         <View style={styles.calendarContainer}>
           {calendarView === 'week' ? (
+            <View style={{ flex: 1 }} {...panResponder.panHandlers}>
             <WeekCalendar
               currentDate={currentDate}
               entries={filteredCalendarEntries}
               selectedDate={selectedDate}
               selectedSalesPointId={selectedSalesPointId}
-              onDayPress={onDayPress}
+              onDayPress={(d) => { if (!isSwipingRef.current) onDayPress(d); }}
               onTooltipPress={(type, date, entry) => {
                 setTooltipType(type);
                 setTooltipDate(date);
@@ -1484,13 +1510,15 @@ export default function MainCalendarPage({
                 setShowTooltipModal(true);
               }}
             />
+            </View>
           ) : (
+            <View style={{ flex: 1 }} {...panResponder.panHandlers}>
             <VirtualizedMonthCalendar
               currentDate={currentDate}
               entries={filteredCalendarEntries}
               selectedDate={selectedDate}
               selectedSalesPointId={selectedSalesPointId}
-              onDayPress={onDayPress}
+              onDayPress={(d) => { if (!isSwipingRef.current) onDayPress(d); }}
               onTooltipPress={(type, date, entry) => {
                 setTooltipType(type);
                 setTooltipDate(date);
@@ -1498,6 +1526,7 @@ export default function MainCalendarPage({
                 setShowTooltipModal(true);
               }}
             />
+            </View>
           )}
         </View>
 

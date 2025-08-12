@@ -22,6 +22,7 @@ interface CustomCalendarCellProps {
   onPress: () => void;
   isWeekView: boolean;
   onTooltipPress?: ((type: 'stock' | 'notes' | 'info' | 'images', date: string, entry?: CalendarEntry) => void) | undefined;
+  disabled?: boolean;
 
 }
 
@@ -34,6 +35,7 @@ function CustomCalendarCell({
   onPress,
   isWeekView,
   onTooltipPress,
+  disabled = false,
 }: CustomCalendarCellProps) {
   
   const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
@@ -198,8 +200,9 @@ function CustomCalendarCell({
         isToday && styles.today,
         hasProblem && styles.problem,
         isWeekView ? styles.weekCell : styles.monthCell,
+        disabled && styles.disabled,
       ]}
-      onPress={handleCellPress}
+      onPress={() => { if (!disabled) handleCellPress(); }}
       activeOpacity={0.7}
       accessibilityLabel={isWeekView ? getWeekTooltip() : getMonthTooltip()}
     >
@@ -226,7 +229,7 @@ function CustomCalendarCell({
               style={styles.addButton}
               onPress={(e) => {
                 e.stopPropagation();
-                onPress();
+                if (!disabled) onPress();
               }}
               activeOpacity={0.7}
               hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
@@ -331,6 +334,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: '#e0e0e0',
+  },
+  disabled: {
+    opacity: 0.5,
   },
   weekCell: {
     minHeight: Platform.OS === 'web' ? 120 : 100, // Più compatto su mobile

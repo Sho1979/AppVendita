@@ -52,13 +52,33 @@ export default function WeekCalendar({
 
   // Calcola le date da mostrare per la pagina corrente
   const visibleDates = useMemo(() => {
+    // WEB/Desktop: mantieni la settimana intera (7 giorni)
     if (!isMobile) {
       return weekDates;
     }
-    
-    const startIndex = currentPage * daysPerPage;
-    return weekDates.slice(startIndex, startIndex + daysPerPage);
-  }, [weekDates, currentPage, isMobile]);
+
+    // MOBILE: finestra di 3 giorni
+    // Regola speciale a inizio mese: se currentDate è il giorno 1, 2 o 3,
+    // la finestra parte dall'ultimo giorno del mese precedente per mostrare
+    // [ultimo_prev, 1, 2] oppure [1,2,3] coerentemente con il mese in header.
+    const start = new Date(currentDate);
+    start.setHours(0, 0, 0, 0);
+    const dom = start.getDate();
+    if (dom <= 3) {
+      const prevMonthLast = new Date(start.getFullYear(), start.getMonth(), 0);
+      start.setFullYear(prevMonthLast.getFullYear());
+      start.setMonth(prevMonthLast.getMonth());
+      start.setDate(prevMonthLast.getDate());
+    }
+
+    const days: Date[] = [];
+    for (let i = 0; i < daysPerPage; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }, [weekDates, isMobile, currentDate, daysPerPage]);
 
   // Allinea pagina visibile quando cambia currentDate (es. tap su "Oggi")
   useEffect(() => {
@@ -84,12 +104,21 @@ export default function WeekCalendar({
   //   return dayNames.slice(startIndex, startIndex + daysPerPage);
   // }, [dayNames, currentPage, isMobile]);
 
+  // Chiave data locale (YYYY-MM-DD) per evitare shift timezone con ISO
+  const toLocalDateKey = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
   const getEntryForDate = (date: Date): CalendarEntry | undefined => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateKey = toLocalDateKey(date);
     
     const entry = entries.find(entry => {
-      const entryDate = new Date(entry.date).toISOString().split('T')[0];
-      return entryDate === dateStr;
+      const ed = entry.date instanceof Date ? entry.date : new Date(entry.date);
+      const entryKey = toLocalDateKey(ed);
+      return entryKey === dateKey;
     });
 
     return entry;
@@ -127,7 +156,8 @@ export default function WeekCalendar({
       <View style={[styles.weekGrid, isMobile && styles.mobileWeekGrid]}>
         {visibleDates.map((date) => {
           const entry = getEntryForDate(date);
-          const dateStr = date.toISOString().split('T')[0];
+          const dateStr = toLocalDateKey(date);
+          const disabled = date.getMonth() !== currentDate.getMonth();
 
           return (
             <CustomCalendarCell
@@ -138,9 +168,12 @@ export default function WeekCalendar({
               isToday={isToday(date)}
               selectedSalesPointId={selectedSalesPointId || 'default'}
               onPress={() => {
-                onDayPress(dateStr || '');
+                if (!disabled) {
+                  onDayPress(dateStr || '');
+                }
               }}
               isWeekView={true}
+              disabled={disabled}
               onTooltipPress={onTooltipPress || undefined}
             />
           );
