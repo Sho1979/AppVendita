@@ -28,6 +28,13 @@ export const WeekTooltipButtons: React.FC<WeekTooltipButtonsProps> = React.memo(
   photoManager,
   selectedSalesPointId,
 }) => {
+  // Calcolo robusto del badge per le note: conta chatNotes, usa 1 se esiste nota standard
+  const notesBadgeCount = (() => {
+    // Badge conteggia SOLO le chat; la nota standard non influisce
+    const chatCount = Array.isArray((entry as any)?.chatNotes) ? (entry as any).chatNotes.length : 0;
+    return chatCount > 0 ? Math.min(chatCount, 99) : 0;
+  })();
+
   return (
     <View style={styles.tooltipSection}>
       <View style={styles.tooltipContainer}>
@@ -72,10 +79,10 @@ export const WeekTooltipButtons: React.FC<WeekTooltipButtonsProps> = React.memo(
           <View style={styles.tooltipButtonContent}>
             <Text style={styles.tooltipText}>📝</Text>
             {selectedSalesPointId && selectedSalesPointId !== 'default' && selectedSalesPointId !== '' &&
-             ((entry?.notes && entry.notes.trim() !== '') || (entry?.chatNotes && entry.chatNotes.length > 0)) && (
+             notesBadgeCount > 0 && (
               <View style={styles.messageCountBadge}>
                 <Text style={styles.messageCountText}>
-                  {entry?.chatNotes && entry.chatNotes.length > 99 ? '99+' : (entry?.chatNotes?.length || 1)}
+                  {notesBadgeCount > 99 ? '99+' : notesBadgeCount}
                 </Text>
               </View>
             )}

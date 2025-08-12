@@ -1286,11 +1286,13 @@ export default function MainCalendarPage({
         };
         
         await repository.updateCalendarEntry(updatedEntry.id, updateData);
-        dispatch({ type: 'UPDATE_ENTRY', payload: updatedEntry });
+        // Aggiorna lo store con una copia che include updatedAt per forzare re-render
+        const updatedWithTs = { ...updatedEntry, updatedAt: updateData.updatedAt } as CalendarEntry;
+        dispatch({ type: 'UPDATE_ENTRY', payload: updatedWithTs });
         
         // Aggiorna anche l'entry nel tooltip se è lo stesso
         if (tooltipEntry?.id === updatedEntry.id) {
-          setTooltipEntry(updatedEntry);
+          setTooltipEntry(updatedWithTs);
         }
       } catch (error) {
         console.error('❌ MainCalendarPage: Errore aggiornamento entry dal tooltip:', error);

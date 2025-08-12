@@ -99,9 +99,7 @@ function CustomCalendarCell({
   const lastUpdated = getLastUpdated();
   const displayData = useMemo(() => {
     return getDisplayDataForDate(date, entry, isInitialized);
-  }, [date, // cambia al cambio giorno
-      entry?.id, entry?.updatedAt, // re-render su entry aggiornata
-      isInitialized, getDisplayDataForDate, selectedSalesPointId, lastUpdated]);
+  }, [date, entry?.id, entry?.updatedAt, isInitialized, getDisplayDataForDate, selectedSalesPointId, lastUpdated]);
   
 
 

@@ -385,13 +385,11 @@ export default function TooltipModal({
                           <TouchableOpacity
                           style={{ maxWidth: '75%' }}
                           onLongPress={() => {
+                            // Android consente massimo 3 bottoni: mostriamo solo azioni principali
                             Alert.alert(
                               'Azioni messaggio',
-                              `Cosa vuoi fare con questo messaggio?`,
+                              'Cosa vuoi fare con questo messaggio?',
                               [
-                                { text: '👍', onPress: () => handleReaction(note.id, '👍') },
-                                { text: '❤️', onPress: () => handleReaction(note.id, '❤️') },
-                                { text: '😂', onPress: () => handleReaction(note.id, '😂') },
                                 { text: '🗑️ Elimina', style: 'destructive', onPress: () => {
                                     if (!onUpdateEntry) return;
                                     try {
@@ -401,8 +399,8 @@ export default function TooltipModal({
                                         updatedAt: new Date()
                                       } as CalendarEntry;
                                       onUpdateEntry(updated);
-                                    } catch (e) {}
-                                  } 
+                                    } catch {}
+                                  }
                                 },
                                 { text: '💬 Rispondi', onPress: () => handleReply(note.id, note.userName || 'Utente', note.message) },
                                 { text: 'Annulla', style: 'cancel' }
@@ -452,6 +450,28 @@ export default function TooltipModal({
                             }}>
                               {timeString}
                             </Text>
+                            {/* Azioni inline: elimina / rispondi */}
+                            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 4 }}>
+                              <TouchableOpacity
+                                onPress={() => {
+                                  if (!onUpdateEntry) return;
+                                  try {
+                                    const updated = {
+                                      ...entry,
+                                      chatNotes: (entry.chatNotes || []).filter(n => n.id !== note.id),
+                                      updatedAt: new Date()
+                                    } as CalendarEntry;
+                                    onUpdateEntry(updated);
+                                  } catch {}
+                                }}
+                                accessibilityLabel="Elimina messaggio"
+                              >
+                                <Text style={{ fontSize: 14, color: isCurrentUser ? '#fff' : '#007AFF' }}>🗑️</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity onPress={() => handleReply(note.id, note.userName || 'Utente', note.message)} accessibilityLabel="Rispondi">
+                                <Text style={{ fontSize: 14, color: isCurrentUser ? '#fff' : '#007AFF' }}>💬</Text>
+                              </TouchableOpacity>
+                            </View>
                           </View>
                           
                           {/* Reazioni */}
@@ -729,9 +749,10 @@ export default function TooltipModal({
                       {/* Pulsante elimina */}
                       <SafeTouchableOpacity
                         style={styles.deletePhotoButton}
-                        onPress={(e) => {
+                        onPress={async (e) => {
                           e.stopPropagation();
-                          photoManager.deletePhoto(photo.firestoreId);
+                          await photoManager.deletePhoto(photo.firestoreId);
+                          try { await photoManager.loadPhotos(); } catch {}
                         }}
                       >
                         <Text style={styles.deletePhotoIcon}>🗑️</Text>
