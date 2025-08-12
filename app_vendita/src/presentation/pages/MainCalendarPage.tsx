@@ -29,6 +29,7 @@ import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
 import { useCalendarStore } from '../../stores/calendarStore';
 import { logger } from '../../utils/logger';
 import { useRepository } from '../../hooks/useRepository';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 interface MainCalendarPageProps {
   navigation?: any;
@@ -64,6 +65,7 @@ export default function MainCalendarPage({
   const [isLoading, setIsLoading] = useState(false);
   const [calendarView, setCalendarView] = useState<'week' | 'month'>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [filterReloading, setFilterReloading] = useState(false);
   
   // Filtri con Zustand
   // Selettori atomici dal negozio (evita oggetto aggregato senza equality → re-render a cascata)
@@ -131,13 +133,49 @@ export default function MainCalendarPage({
   const getEntriesForFilters = useCalendarStore(state => state.getEntriesForFilters);
   const getTotalsForFilters = useCalendarStore(state => state.getTotalsForFilters);
   const getMonthlyTotalsForSalesPoint = useCalendarStore(state => state.getMonthlyTotalsForSalesPoint);
+  // Necessario per triggerare i ricalcoli live quando cambiano le entries
+  const storeEntries = useCalendarStore(state => state.entries);
+
+  // Range visibile per allineare KPI/Entries con la UI corrente (settimana/mese)
+  const visibleRange = useMemo(() => {
+    const base = new Date(currentDate);
+    if (calendarView === 'week') {
+      const day = base.getDay();
+      const diffToMonday = day === 0 ? -6 : 1 - day; // lunedì
+      const start = new Date(base);
+      start.setDate(base.getDate() + diffToMonday);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    }
+    // vista mese
+    const start = new Date(base.getFullYear(), base.getMonth(), 1, 0, 0, 0, 0);
+    const end = new Date(base.getFullYear(), base.getMonth() + 1, 0, 23, 59, 59, 999);
+    return { start, end };
+  }, [calendarView, currentDate]);
+
+  // Utilità locale: chiave data in timezone locale (YYYY-MM-DD) per confronti robusti
+  const getLocalDateKey = (value: Date | string) => {
+    const d = value instanceof Date ? value : new Date(value);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
   const filteredCalendarEntries = useMemo(() => {
     // Business rule: senza cliente selezionato non si mostrano dati
     if (!selectedSalesPointId || selectedSalesPointId === 'default') {
       return [] as CalendarEntry[];
     }
-    return getEntriesForFilters(undefined, selectedSalesPointId);
-  }, [getEntriesForFilters, selectedSalesPointId]);
+    const all = getEntriesForFilters(undefined, selectedSalesPointId);
+    const { start, end } = visibleRange;
+    return all.filter(e => {
+      const d = e.date instanceof Date ? e.date : new Date(e.date);
+      return d >= start && d <= end;
+    });
+  }, [getEntriesForFilters, selectedSalesPointId, storeEntries, visibleRange]);
 
   // Calcoli memoizzati: totali per filtri correnti e totali mensili (mese corrente)
   const calendarTotals = useMemo(() => {
@@ -158,7 +196,53 @@ export default function MainCalendarPage({
         actionsMonth: 0
       }
     };
-  }, [getTotalsForFilters, getMonthlyTotalsForSalesPoint, selectedSalesPointId, currentDate]);
+  }, [getTotalsForFilters, getMonthlyTotalsForSalesPoint, selectedSalesPointId, currentDate, storeEntries]);
+
+  // Deduplicazione conservativa: unifica entries duplicate stesso giorno/punto vendita mantenendo la più ricca/recente
+  useEffect(() => {
+    if (!selectedSalesPointId || selectedSalesPointId === 'default') return;
+    if (!storeEntries || storeEntries.length === 0) return;
+
+    const entriesForSP = storeEntries.filter(e => e.salesPointId === selectedSalesPointId);
+    if (entriesForSP.length === 0) return;
+
+    const groups = new Map<string, typeof entriesForSP>();
+    for (const e of entriesForSP) {
+      const key = getLocalDateKey(e.date as any);
+      const list = groups.get(key) || [];
+      list.push(e);
+      groups.set(key, list);
+    }
+
+    const duplicates = Array.from(groups.entries()).filter(([, list]) => list.length > 1);
+    if (duplicates.length === 0) return;
+
+    duplicates.forEach(async ([, list]) => {
+      const richness = (e: any) =>
+        (e?.focusReferencesData?.length || 0) * 10 +
+        (e?.sales?.length || 0) * 5 +
+        (e?.actions?.length || 0);
+
+      const sorted = [...list].sort((a, b) => {
+        const rb = richness(b) - richness(a);
+        if (rb !== 0) return rb; // più contenuto prima
+        const ta = new Date((a.updatedAt || a.createdAt) as any).getTime();
+        const tb = new Date((b.updatedAt || b.createdAt) as any).getTime();
+        return tb - ta; // più recente prima
+      });
+      // Mantieni il primo (più ricco/recente) ed elimina gli altri
+      const toDelete = sorted.slice(1);
+
+      for (const dup of toDelete) {
+        try {
+          await repository.deleteCalendarEntry(dup.id);
+          dispatch({ type: 'DELETE_ENTRY', payload: dup.id });
+        } catch (err) {
+          console.warn('Dedup fallita per entry', dup.id, err);
+        }
+      }
+    });
+  }, [selectedSalesPointId, storeEntries, repository, dispatch]);
 
   // Funzione per ottenere tutte le entries per le viste calendario (senza filtro data)
   /* const getCalendarEntries = useCallback(() => filteredCalendarEntries, [filteredCalendarEntries]); */
@@ -208,10 +292,14 @@ export default function MainCalendarPage({
       }
     }, [navigation, reloadExcelData]);
 
-    const loadInitialData = async () => {
+    const loadInitialData = async (options?: { showOverlayOnly?: boolean }) => {
       logger.business('Inizio caricamento dati iniziali');
       try {
-        setIsLoading(true);
+        if (options?.showOverlayOnly) {
+          setFilterReloading(true);
+        } else {
+          setIsLoading(true);
+        }
         dispatch({ type: 'SET_LOADING', payload: true });
 
         logger.data('Caricamento utenti...');
@@ -366,7 +454,11 @@ export default function MainCalendarPage({
           payload: 'Errore nel caricamento dei dati',
         });
       } finally {
-        setIsLoading(false);
+        if (options?.showOverlayOnly) {
+          setFilterReloading(false);
+        } else {
+          setIsLoading(false);
+        }
         dispatch({ type: 'SET_LOADING', payload: false });
         if (__DEV__) {
           console.log('🏁 MainCalendarPage: Caricamento dati terminato');
@@ -472,9 +564,87 @@ export default function MainCalendarPage({
           
           const updatedEntry = await repository.updateCalendarEntry(editingEntry.id, updateData);
           dispatch({ type: 'UPDATE_ENTRY', payload: updatedEntry });
+          dispatch({ type: 'UPDATE_SYNC_TIMESTAMP', payload: Date.now() });
         } else {
           // Crea nuovo entry
-          const createData: any = {
+          // Prima verifica se esiste già un'entry per stessa data e stesso punto vendita
+          const normalizedDate = (entry.date instanceof Date ? entry.date : new Date(entry.date))
+            .toISOString()
+            .split('T')[0];
+
+          const sameDayEntries = state.entries.filter(e => {
+            const eDateStr = (e.date instanceof Date ? e.date : new Date(e.date)).toISOString().split('T')[0];
+            return e.salesPointId === (selectedSalesPointId || 'default_salespoint') && eDateStr === normalizedDate;
+          });
+
+          if (sameDayEntries.length > 0) {
+            // Se esistono più entries nello stesso giorno, mantieni la più recente e rimuovi le altre
+            const sortedByUpdate = [...sameDayEntries].sort((a, b) => {
+              const ta = new Date((a.updatedAt || a.createdAt) as any).getTime();
+              const tb = new Date((b.updatedAt || b.createdAt) as any).getTime();
+              return tb - ta;
+            });
+            const entryToKeep = sortedByUpdate[0];
+            if (!entryToKeep) {
+              // In caso estremo non ci sono entry valide: procedi con creazione normale
+              const createData: any = {
+                date: entry.date,
+                userId: selectedUserId || 'default_user',
+                salesPointId: selectedSalesPointId || 'default_salespoint',
+                notes: entry.notes,
+                chatNotes: entry.chatNotes,
+                sales: entry.sales,
+                actions: entry.actions,
+                hasProblem: entry.hasProblem,
+                tags: entry.tags,
+                focusReferencesData: entry.focusReferencesData,
+              };
+              if (entry.repeatSettings && entry.repeatSettings.enabled) {
+                createData.repeatSettings = entry.repeatSettings;
+              }
+              if (entry.problemDescription) {
+                createData.problemDescription = entry.problemDescription;
+              }
+              const newEntry = await repository.saveCalendarEntry(createData);
+              dispatch({ type: 'ADD_ENTRY', payload: newEntry });
+              return;
+            }
+
+            // Aggiorna quella da mantenere
+            const updateData: any = {
+              date: entry.date,
+              userId: selectedUserId || 'default_user',
+              salesPointId: selectedSalesPointId || 'default_salespoint',
+              notes: entry.notes,
+              chatNotes: entry.chatNotes,
+              sales: entry.sales,
+              actions: entry.actions,
+              hasProblem: entry.hasProblem,
+              tags: entry.tags,
+              focusReferencesData: entry.focusReferencesData,
+            };
+            if (entry.repeatSettings && entry.repeatSettings.enabled) {
+              updateData.repeatSettings = entry.repeatSettings;
+            }
+            if (entry.problemDescription) {
+              updateData.problemDescription = entry.problemDescription;
+            }
+            const updatedEntry = await repository.updateCalendarEntry(entryToKeep.id, updateData);
+            dispatch({ type: 'UPDATE_ENTRY', payload: updatedEntry });
+            dispatch({ type: 'UPDATE_SYNC_TIMESTAMP', payload: Date.now() });
+
+            // Elimina eventuali duplicati residui (conservativo)
+            const duplicatesToDelete = sortedByUpdate.slice(1);
+            for (const dup of duplicatesToDelete) {
+              try {
+                await repository.deleteCalendarEntry(dup.id);
+                dispatch({ type: 'DELETE_ENTRY', payload: dup.id });
+              } catch (e) {
+                console.warn('Impossibile eliminare entry duplicata', dup.id, e);
+              }
+            }
+          } else {
+            const createData: any = {
             date: entry.date,
             userId: selectedUserId || 'default_user',
             salesPointId: selectedSalesPointId || 'default_salespoint',
@@ -498,6 +668,8 @@ export default function MainCalendarPage({
           
           const newEntry = await repository.saveCalendarEntry(createData);
           dispatch({ type: 'ADD_ENTRY', payload: newEntry });
+          dispatch({ type: 'UPDATE_SYNC_TIMESTAMP', payload: Date.now() });
+          }
         }
         
         setShowEntryModal(false);
@@ -535,6 +707,7 @@ export default function MainCalendarPage({
               try {
                 await repository.deleteCalendarEntry(entryId);
                 dispatch({ type: 'DELETE_ENTRY', payload: entryId });
+                dispatch({ type: 'UPDATE_SYNC_TIMESTAMP', payload: Date.now() });
                 setShowEntryModal(false);
                 setEditingEntry(undefined);
                 
@@ -675,6 +848,18 @@ export default function MainCalendarPage({
                 );
                 dispatch({ type: 'SET_ENTRIES', payload: currentEntries });
                 
+                // Reset del sistema progressivo per evitare che mantenga dati precedenti del punto vendita
+                try {
+                  if (progressiveSystem && typeof progressiveSystem.resetSystem === 'function') {
+                    progressiveSystem.resetSystem();
+                  }
+                  if (progressiveSystem && typeof progressiveSystem.resetInitialization === 'function') {
+                    progressiveSystem.resetInitialization();
+                  }
+                } catch (e) {
+                  console.warn('Reset sistema progressivo dopo reset dati fallito:', e);
+                }
+
                 // Resetta il sell-in per il punto vendita selezionato
                 const updatedDailySellIn = { ...dailySellIn };
                 Object.keys(updatedDailySellIn).forEach(date => {
@@ -778,7 +963,7 @@ export default function MainCalendarPage({
     // 8. Ricarica i dati se c'è un punto vendita selezionato (senza delay)
     if (selectedSalesPointId && selectedSalesPointId !== 'default') {
       if (__DEV__) { console.log('🔄 MainCalendarPage: Ricaricamento dati immediato dopo cambio filtri'); }
-      loadInitialData();
+      loadInitialData({ showOverlayOnly: true });
     }
   };
 
@@ -1008,7 +1193,7 @@ export default function MainCalendarPage({
     clearLocalCache().then(() => {
       // Ricarica i dati solo se c'è un punto vendita selezionato
       if (selectedSalesPointId && selectedSalesPointId !== 'default') {
-        loadInitialData();
+        loadInitialData({ showOverlayOnly: true });
       }
     });
   }, [selectedSalesPointId]);
@@ -1130,12 +1315,14 @@ export default function MainCalendarPage({
       return (
         <SafeAreaView style={styles.loadingContainer}>
           <StatusBar
-            barStyle="light-content"
-            backgroundColor={Colors.primary}
+            barStyle="dark-content"
+            backgroundColor={Colors.warmSecondary}
           />
           <View style={styles.loadingContent}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Caricamento...</Text>
+            <View style={styles.loadingCard}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+              <Text style={styles.loadingText}>Caricamento dati…</Text>
+            </View>
           </View>
         </SafeAreaView>
       );
@@ -1427,6 +1614,8 @@ export default function MainCalendarPage({
           userId={selectedUserId || "default_user"}
           salesPointName={getSalesPointName(selectedSalesPointId)}
         />
+
+        <LoadingOverlay visible={filterReloading} message="Aggiornamento dati..." />
       </SafeAreaView>
     );
 }
@@ -1439,17 +1628,30 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.warmSecondary,
   },
   loadingContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingCard: {
+    backgroundColor: Colors.warmBackground,
+    paddingVertical: Spacing.large,
+    paddingHorizontal: Spacing.large,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.warmBorder,
+    alignItems: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0 10px 24px rgba(0,0,0,0.12)' },
+      default: { elevation: 5 },
+    }),
+  },
   loadingText: {
     marginTop: Spacing.medium,
     fontSize: 16,
-    color: Colors.background,
+    color: Colors.textPrimary,
     fontWeight: '600',
   },
   header: {

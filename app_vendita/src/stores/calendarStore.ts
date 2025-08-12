@@ -4,6 +4,7 @@ import { CalendarEntry } from '../data/models/CalendarEntry';
 import { User } from '../data/models/User';
 import { SalesPoint } from '../data/models/SalesPoint';
 import { createStorageAdapter } from '../utils/storageAdapter';
+import { getTagById } from '../constants/Tags';
 
 // Utility per logging condizionale (placeholder per futuri debug)
 
@@ -206,7 +207,15 @@ export const useCalendarStore = create<CalendarState>()(
           return focus;
         };
         const sellIn = list.reduce((sum, e) => sum + computeSellIn(e), 0);
-        const actions = list.reduce((sum, e) => sum + (e.actions?.reduce((s, a) => s + (a?.count || 0), 0) || 0), 0);
+        // Conta sia le azioni esplicite che i tag di tipo "action"
+        const actions = list.reduce((sum, e) => {
+          const explicitActions = e.actions?.reduce((s, a) => s + (a?.count || 0), 0) || 0;
+          const actionTags = (e.tags || []).reduce((s, tagId) => {
+            const tag = getTagById(tagId);
+            return s + (tag?.type === 'action' ? 1 : 0);
+          }, 0);
+          return sum + explicitActions + actionTags;
+        }, 0);
         return { sellIn, actions };
       },
 
