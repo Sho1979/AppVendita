@@ -515,6 +515,13 @@ export default function MainCalendarPage({
     // Gestisce la selezione di una data
     const onDayPress = useCallback((dateString: string) => {
       logger.ui('📅 MainCalendarPage: Giorno selezionato:', dateString);
+
+      // Inibisci qualsiasi inserimento se non è selezionato un punto vendita valido
+      if (!selectedSalesPointId || selectedSalesPointId === 'default') {
+        Alert.alert('Seleziona un punto vendita', 'Per inserire o modificare i dati devi prima selezionare un punto vendita.');
+        return;
+      }
+
       setSelectedDate(dateString);
       dispatch({
         type: 'UPDATE_FILTERS',
@@ -524,30 +531,23 @@ export default function MainCalendarPage({
       // Apri il form solo nel calendario settimanale (guida principale)
       if (calendarView === 'week') {
         logger.ui('📅 MainCalendarPage: Apertura diretta modal per calendario settimanale');
-        
-        // Controlla se esistono già entry per questa data
+        // Controlla se esistono già entry per questa data (per il cliente corrente)
         const existingEntries = state.entries.filter((entry: CalendarEntry) => {
+          if (entry.salesPointId !== selectedSalesPointId) return false;
           const entryDate = new Date(entry.date);
-          const selectedDate = new Date(dateString);
-          return entryDate.toDateString() === selectedDate.toDateString();
+          const selected = new Date(dateString);
+          return entryDate.toDateString() === selected.toDateString();
         });
-        
         logger.ui(`📅 MainCalendarPage: Entry esistenti per ${dateString}: ${existingEntries.length}`);
-        
         if (existingEntries.length > 0) {
-          // Se esistono entry, apri in modalità modifica con il primo entry
-          logger.ui('📝 MainCalendarPage: Apertura modal modifica per entry esistente');
           showEditEntryModal(existingEntries[0]!);
         } else {
-          // Se non esistono entry, apri in modalità nuovo
-          logger.ui('📝 MainCalendarPage: Apertura modal nuovo entry');
           showAddEntryModal(dateString);
         }
       } else {
-        // Nel calendario mensile (riassunto) - solo log, nessuna azione
         logger.ui('📅 MainCalendarPage: Clic nel calendario mensile (riassunto) - nessuna azione');
       }
-    }, [calendarView, state.entries, setSelectedDate, dispatch, showEditEntryModal, showAddEntryModal]);
+    }, [calendarView, state.entries, setSelectedDate, dispatch, showEditEntryModal, showAddEntryModal, selectedSalesPointId]);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     /* const showDayDetails = (entries: CalendarEntry[]) => {

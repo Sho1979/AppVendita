@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, Platform } from 'react-native';
 import { useCalendarStore } from '../../stores/calendarStore';
 import { useFirebaseExcelData } from '../../hooks/useFirebaseExcelData';
+import { useRepository } from '../../hooks/useRepository';
 
 type Metric = 'ordered' | 'sold';
 type Period = 'current' | 'previous';
@@ -14,8 +15,10 @@ interface LeaderboardRow {
 
 export default function LeaderboardPage() {
   const entries = useCalendarStore((s) => s.entries);
+  const refreshToken = useCalendarStore((s) => s.leaderboardRefreshToken);
   const salesPoints = useCalendarStore((s) => s.salesPoints);
   const { excelData: excelRows } = useFirebaseExcelData();
+  const repository = useRepository();
 
   const [metric, setMetric] = useState<Metric>('ordered');
   const [period, setPeriod] = useState<Period>('current');
@@ -30,52 +33,99 @@ export default function LeaderboardPage() {
   const currentYear = base.getFullYear();
   const currentMonth = base.getMonth() + 1;
 
+  // Stato locale per classifica calcolata dal repository (mese corrente)
+  const [repoRows, setRepoRows] = useState<LeaderboardRow[] | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const year = currentYear;
+        const month = currentMonth;
+        const start = new Date(year, month - 1, 1);
+        const end = new Date(year, month, 0);
+        const entriesAll = await repository.getCalendarEntries(start, end);
+        const byClient = new Map<string, number>();
+        for (const e of entriesAll) {
+          const clientId = e.salesPointId;
+          if (!clientId) continue;
+          let add = 0;
+          if (metric === 'ordered') {
+            add = e.focusReferencesData?.reduce((s: number, ref: any) => {
+              const ordered = parseFloat(String(ref?.orderedPieces || '0')) || 0;
+              const price = parseFloat(String(ref?.netPrice || '0')) || 0;
+              return s + ordered * price;
+            }, 0) || 0;
+          } else {
+            add = e.focusReferencesData?.reduce((s: number, ref: any) => {
+              const sold = parseFloat(String(ref?.soldPieces || '0')) || 0;
+              const price = parseFloat(String(ref?.netPrice || '0')) || 0;
+              return s + sold * price;
+            }, 0) || 0;
+          }
+          if (add > 0) {
+            byClient.set(clientId, (byClient.get(clientId) || 0) + add);
+          }
+        }
+        const built: LeaderboardRow[] = Array.from(byClient.entries()).map(([salesPointId, value]) => {
+          let name = salesPoints.find((sp) => sp.id === salesPointId)?.name;
+          if (!name || name.toLowerCase().includes('default')) {
+            const match = (excelRows as any[])?.find((r) => r.codiceCliente === salesPointId || r['insegnaCliente'] === salesPointId);
+            name = match?.cliente || match?.['insegnaCliente'] || name;
+          }
+          name = name || salesPointId;
+          return { salesPointId, salesPointName: name, value };
+        });
+        if (mounted) setRepoRows(built);
+      } catch (e) {
+        if (mounted) setRepoRows([]);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, [repository, currentYear, currentMonth, metric, salesPoints, excelRows, refreshToken]);
+
   const rows = useMemo<LeaderboardRow[]>(() => {
-    if (!entries || entries.length === 0) return [];
-
-    const byClient = new Map<string, number>();
-
-    for (const e of entries) {
-      const d = e.date instanceof Date ? e.date : new Date(e.date);
-      if (d.getFullYear() !== currentYear || d.getMonth() + 1 !== currentMonth) continue;
-
-      const clientId = e.salesPointId;
-      if (!clientId) continue;
-
-      let add = 0;
-      if (metric === 'ordered') {
-        // Ordinato: somma su TUTTE le 7 referenze → orderedPieces * netPrice
-        add = e.focusReferencesData?.reduce((s, ref) => {
-          const ordered = parseFloat(String(ref?.orderedPieces || '0')) || 0;
-          const price = parseFloat(String(ref?.netPrice || '0')) || 0;
-          return s + ordered * price;
-        }, 0) || 0;
-      } else {
-        // Venduto: somma su TUTTE le 7 referenze → soldPieces * netPrice
-        add = e.focusReferencesData?.reduce((s, ref) => {
-          const sold = parseFloat(String(ref?.soldPieces || '0')) || 0;
-          const price = parseFloat(String(ref?.netPrice || '0')) || 0;
-          return s + sold * price;
-        }, 0) || 0;
+    // Se non abbiamo ancora caricato dal repository, mostra fallback locale (se coerente)
+    if (repoRows === null) {
+      if (!entries || entries.length === 0) return [];
+      const byClient = new Map<string, number>();
+      for (const e of entries) {
+        const d = e.date instanceof Date ? e.date : new Date(e.date);
+        if (d.getFullYear() !== currentYear || d.getMonth() + 1 !== currentMonth) continue;
+        const clientId = e.salesPointId; if (!clientId) continue;
+        let add = 0;
+        if (metric === 'ordered') {
+          add = e.focusReferencesData?.reduce((s, ref) => {
+            const ordered = parseFloat(String(ref?.orderedPieces || '0')) || 0;
+            const price = parseFloat(String(ref?.netPrice || '0')) || 0;
+            return s + ordered * price;
+          }, 0) || 0;
+        } else {
+          add = e.focusReferencesData?.reduce((s, ref) => {
+            const sold = parseFloat(String(ref?.soldPieces || '0')) || 0;
+            const price = parseFloat(String(ref?.netPrice || '0')) || 0;
+            return s + sold * price;
+          }, 0) || 0;
+        }
+        if (add > 0) {
+          byClient.set(clientId, (byClient.get(clientId) || 0) + add);
+        }
       }
-
-      if (add > 0) {
-        byClient.set(clientId, (byClient.get(clientId) || 0) + add);
-      }
+      const built: LeaderboardRow[] = Array.from(byClient.entries()).map(([salesPointId, value]) => {
+        let name = salesPoints.find((sp) => sp.id === salesPointId)?.name;
+        if (!name || name.toLowerCase().includes('default')) {
+          const match = (excelRows as any[])?.find((r) => r.codiceCliente === salesPointId || r['insegnaCliente'] === salesPointId);
+          name = match?.cliente || match?.['insegnaCliente'] || name;
+        }
+        name = name || salesPointId;
+        return { salesPointId, salesPointName: name, value };
+      });
+      return built.sort((a, b) => b.value - a.value).slice(0, limit);
     }
 
-    const rows: LeaderboardRow[] = Array.from(byClient.entries()).map(([salesPointId, value]) => {
-      // Nome punto vendita: 1) store.salesPoints; 2) excelRows.cliente/insegnaCliente; 3) id
-      let name = salesPoints.find((sp) => sp.id === salesPointId)?.name;
-      if (!name || name.toLowerCase().includes('default')) {
-        const match = (excelRows as any[])?.find((r) => r.codiceCliente === salesPointId || r['insegnaCliente'] === salesPointId);
-        name = match?.cliente || match?.['insegnaCliente'] || name;
-      }
-      name = name || salesPointId;
-      return { salesPointId, salesPointName: name, value };
-    });
+    const rows = repoRows;
 
-    // Solo clienti con dati e ordinati per valore desc
     let result = rows.filter((r) => r.value > 0);
 
     // Ricerca per nome/id
@@ -88,7 +138,7 @@ export default function LeaderboardPage() {
 
     // Ordina e applica limite dinamico
     return result.sort((a, b) => b.value - a.value).slice(0, limit);
-  }, [entries, salesPoints, metric, currentYear, currentMonth, query, limit]);
+  }, [entries, repoRows, salesPoints, metric, currentYear, currentMonth, query, limit]);
 
   const total = useMemo(() => rows.reduce((s, r) => s + r.value, 0), [rows]);
 

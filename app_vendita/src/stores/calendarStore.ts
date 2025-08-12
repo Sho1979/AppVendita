@@ -26,6 +26,8 @@ interface CalendarState {
   isLoading: boolean;
   error: string | null;
   lastSyncTimestamp: number;
+  // Token per invalidare/rinfrescare la classifica
+  leaderboardRefreshToken: number;
   
   // Filtri attivi
   activeFilters: ActiveFilters;
@@ -44,6 +46,7 @@ interface CalendarState {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setLastSyncTimestamp: (timestamp: number) => void;
+  bumpLeaderboardRefreshToken: () => void;
   
   // Azioni per i filtri
   updateFilters: (filters: Partial<ActiveFilters>) => void;
@@ -73,6 +76,7 @@ const initialState = {
   isLoading: false,
   error: null,
   lastSyncTimestamp: 0,
+  leaderboardRefreshToken: 0,
   activeFilters: {
     userId: '',
     salesPointId: '',
@@ -128,6 +132,10 @@ export const useCalendarStore = create<CalendarState>()(
       
       setLastSyncTimestamp: (lastSyncTimestamp) => {
         set({ lastSyncTimestamp });
+      },
+
+      bumpLeaderboardRefreshToken: () => {
+        set({ leaderboardRefreshToken: Date.now() });
       },
       
       // Azioni per i filtri
@@ -267,6 +275,7 @@ export const useCalendarStore = create<CalendarState>()(
         salesPoints: state.salesPoints,
         lastSyncTimestamp: state.lastSyncTimestamp,
         activeFilters: state.activeFilters,
+        // Non persistiamo leaderboardRefreshToken per mantenerlo volatile
       }),
     }
   )

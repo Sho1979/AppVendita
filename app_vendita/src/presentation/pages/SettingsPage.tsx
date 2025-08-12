@@ -13,6 +13,9 @@ import FocusReferencesModal from '../components/FocusReferencesModal';
 import { Colors } from '../../constants/Colors';
 import { Spacing } from '../../constants/Spacing';
 import { AsyncStorageCalendarRepository } from '../../data/repositories/CalendarRepository';
+import { useRepository } from '../../hooks/useRepository';
+import { useCalendarStore } from '../../stores/calendarStore';
+import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
 import { PriceReference } from '../../data/models/PriceReference';
 import { useAuth } from '../../hooks/useAuth';
 import { useMasterDataStore } from '../../stores/masterDataStore';
@@ -27,6 +30,9 @@ export default function SettingsPage({
 }: SettingsPageProps) {
   const [showFocusReferencesModal, setShowFocusReferencesModal] = useState(false);
   const repository = new AsyncStorageCalendarRepository();
+  const liveRepo = useRepository();
+  const calendarStore = useCalendarStore();
+  const focusReferencesStore = useFocusReferencesStore();
   const { user, logout } = useAuth();
   const masterDataStore = useMasterDataStore();
 
@@ -96,6 +102,49 @@ export default function SettingsPage({
     {
       title: '📊 Gestione Dati',
       items: [
+        {
+          title: 'Reset TOTale (TUTTI i clienti) ',
+          subtitle: 'Cancella entries, tag e note per tutti i clienti (le Focus References RESTANO). Operazione irreversibile.',
+          icon: '🧨',
+          onPress: () => {
+            Alert.alert(
+              'Conferma Reset Totale',
+              'Questa operazione cancellerà TUTTI i dati di inserimento (entries, tag, note) per tutti i clienti e ripulirà le cache locali. Le Focus References resteranno invariate. Procedere?',
+              [
+                { text: 'Annulla', style: 'cancel' },
+                {
+                  text: 'Conferma',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      // 1) Cancella tutte le entries dal backend (range molto ampio)
+                      const start = new Date(2020, 0, 1);
+                      const end = new Date(2030, 11, 31);
+                      const all = await liveRepo.getCalendarEntries(start, end);
+                      for (const e of all) {
+                        await liveRepo.deleteCalendarEntry(e.id);
+                      }
+                      // 2) Pulisci store locale
+                      calendarStore.setEntries([]);
+                      calendarStore.setLastSyncTimestamp(0);
+                      // 3) NON toccare le Focus References (restano). Pulisci solo cache entries
+                      if (typeof localStorage !== 'undefined') {
+                        try { localStorage.removeItem('calendar_entries'); } catch {}
+                      }
+                      // 4) Invalida classifica (live refresh)
+                      calendarStore.bumpLeaderboardRefreshToken();
+                      // 5) Notifica
+                      Alert.alert('Reset completato', 'Tutti i dati sono stati cancellati. L\'app ripartirà da zero.');
+                    } catch (error) {
+                      console.error('❌ Reset totale fallito:', error);
+                      Alert.alert('Errore', 'Impossibile completare il reset totale.');
+                    }
+                  }
+                }
+              ]
+            );
+          }
+        },
 
         {
           title: 'Visualizza Dati Importati',

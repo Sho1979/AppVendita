@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useContext, ReactNode, useEffect, useState, useMemo, useRef } from 'react';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { User } from '../../data/models/User';
 import { SalesPoint } from '../../data/models/SalesPoint';
@@ -108,56 +108,97 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
   // Ottieni il metodo resetSystem dal hook useProgressiveCalculation
   const { resetSystem, getLastUpdated } = useProgressiveCalculation(sharedProgressiveService);
 
-  // Memoizza la condizione di inizializzazione per evitare re-render inutili
-  const shouldInitialize = useMemo(() => 
-    calendarStore.entries.length > 0 && !isInitialized, 
-    [calendarStore.entries.length, isInitialized]
-  );
+  // Memoiza la condizione di inizializzazione, scoping per cliente
+  const selectedSalesPointId = calendarStore.activeFilters.salesPointId;
+  const shouldInitialize = useMemo(() => {
+    const hasEntriesForClient = calendarStore.entries.some(e => 
+      selectedSalesPointId && selectedSalesPointId !== 'default' 
+        ? e.salesPointId === selectedSalesPointId 
+        : false
+    );
+    return hasEntriesForClient && !isInitialized;
+  }, [calendarStore.entries, selectedSalesPointId, isInitialized]);
 
-  // Inizializza il sistema progressivo quando necessario
+  // Inizializza il sistema progressivo quando necessario (solo entries del cliente)
   useEffect(() => {
     if (shouldInitialize) {
       try {
-        // Carica tutti i dati esistenti nel sistema progressivo
-        initializeWithExistingData(calendarStore.entries);
-        logger.info('CalendarProvider', 'Sistema progressivo inizializzato', { 
-          entriesCount: calendarStore.entries.length 
+        const filteredEntries = calendarStore.entries.filter(e => e.salesPointId === selectedSalesPointId);
+        initializeWithExistingData(filteredEntries);
+        logger.info('CalendarProvider', 'Sistema progressivo inizializzato (scoped per cliente)', { 
+          entriesCount: filteredEntries.length,
+          salesPointId: selectedSalesPointId
         });
       } catch (error) {
         logger.error('CalendarProvider', 'Errore inizializzazione sistema progressivo', error);
       }
     }
-  }, [shouldInitialize, initializeWithExistingData, calendarStore.entries]);
+  }, [shouldInitialize, initializeWithExistingData, calendarStore.entries, selectedSalesPointId]);
+
+  // Re-init chirurgico quando cambia il cliente: reset e inizializza con sole entries del cliente
+  useEffect(() => {
+    if (!selectedSalesPointId || selectedSalesPointId === 'default') {
+      // Nessun cliente selezionato: azzera il sistema
+      resetSystem();
+      resetInitialization();
+      return;
+    }
+    // Reset e re-init scoped
+    resetSystem();
+    resetInitialization();
+    const filteredEntries = calendarStore.entries.filter(e => e.salesPointId === selectedSalesPointId);
+    if (filteredEntries.length > 0) {
+      try {
+        initializeWithExistingData(filteredEntries);
+        logger.info('CalendarProvider', 'Re-init progressivo per cambio cliente', { 
+          entriesCount: filteredEntries.length,
+          salesPointId: selectedSalesPointId
+        });
+      } catch (error) {
+        logger.error('CalendarProvider', 'Errore re-init progressivo per cliente', error);
+      }
+    }
+  }, [selectedSalesPointId]);
 
   // Memoizza le entries da sincronizzare per evitare calcoli ripetuti
+  // Mappa locale per evitare salti di sincronizzazione (id -> timestamp sincronizzato)
+  const syncedMapRef = useRef<Map<string, number>>(new Map());
+
   const entriesToSync = useMemo(() => {
     if (!isInitialized || calendarStore.entries.length === 0) return [];
-    
-    return calendarStore.entries.filter(entry => {
-      const entryTimestamp = new Date(entry.updatedAt || entry.createdAt).getTime();
-      return entryTimestamp > calendarStore.lastSyncTimestamp;
+    if (!selectedSalesPointId || selectedSalesPointId === 'default') return [];
+
+    const list = calendarStore.entries.filter(entry => entry.salesPointId === selectedSalesPointId);
+    const toSync = list.filter(entry => {
+      const ts = new Date(entry.updatedAt || entry.createdAt).getTime();
+      const prev = syncedMapRef.current.get(entry.id) || 0;
+      return ts !== prev; // sync se mai sincronizzato o timestamp cambiato
     });
-  }, [isInitialized, calendarStore.entries, calendarStore.lastSyncTimestamp]);
+    return toSync;
+  }, [isInitialized, calendarStore.entries, selectedSalesPointId]);
 
   // Sincronizza le nuove entries con il sistema progressivo (ottimizzato)
   useEffect(() => {
-    if (entriesToSync.length > 0) {
-      logger.debug('CalendarProvider', 'Sincronizzazione entries progressive', { 
-        count: entriesToSync.length 
-      });
-      
-      entriesToSync.forEach(entry => {
-        try {
-          updateEntryWithProgressiveSync(entry);
-        } catch (error) {
-          logger.warn('CalendarProvider', 'Errore sincronizzazione entry', { 
-            entryId: entry.id, 
-            error 
-          });
-        }
-      });
-    }
+    if (entriesToSync.length === 0) return;
+    logger.debug('CalendarProvider', 'Sincronizzazione entries progressive (scoped)', { count: entriesToSync.length });
+    entriesToSync.forEach(entry => {
+      try {
+        updateEntryWithProgressiveSync(entry);
+        const ts = new Date(entry.updatedAt || entry.createdAt).getTime();
+        syncedMapRef.current.set(entry.id, ts);
+      } catch (error) {
+        logger.warn('CalendarProvider', 'Errore sincronizzazione entry', { entryId: entry.id, error });
+      }
+    });
   }, [entriesToSync, updateEntryWithProgressiveSync]);
+
+  // Pulisci la mappa quando fai reset
+  useEffect(() => {
+    // Reset mappa quando viene resettato il sistema (heuristic: all'init o cambio cliente già gestito sopra)
+    if (!selectedSalesPointId || selectedSalesPointId === 'default') {
+      syncedMapRef.current.clear();
+    }
+  }, [selectedSalesPointId]);
 
   // Adapter per mantenere la compatibilità con l'interfaccia esistente
   const state: CalendarState = {

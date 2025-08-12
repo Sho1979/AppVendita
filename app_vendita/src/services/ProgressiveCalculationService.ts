@@ -626,9 +626,13 @@ export class ProgressiveCalculationService {
     const firstDate = this.findFirstDateWithData();
     if (!firstDate) return [];
 
-    
+    // Limita l'accumulo al mese corrente (Mese-To-Date) per evitare trascinamenti storici
+    const target = new Date(date);
+    const monthStart = new Date(target.getFullYear(), target.getMonth(), 1);
+    const startKey = (monthStart.toISOString().split('T')[0]) || date;
+
     const dates = Array.from(this.state.entries.keys())
-      .filter(d => d >= firstDate && d <= date)
+      .filter(d => d >= startKey && d <= date)
       .sort();
 
     // Raccoglie tutti i prodotti da tutte le date
