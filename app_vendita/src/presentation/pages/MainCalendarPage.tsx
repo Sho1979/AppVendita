@@ -11,6 +11,9 @@ import {
   SafeAreaView,
   Platform,
   PanResponder,
+    Animated,
+    Easing,
+    Dimensions,
 } from 'react-native';
 import { useCalendar } from '../providers/CalendarContext';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
@@ -766,6 +769,32 @@ export default function MainCalendarPage({
     const lastDxRef = useRef(0);
     const swipeThreshold = 30; // pixel orizzontali per considerare swipe
     const verticalTolerance = 15; // max movimento verticale
+    const translateX = useRef(new Animated.Value(0)).current;
+    const isAnimatingRef = useRef(false);
+    const screenWidth = Dimensions.get('window').width;
+    const pageThresholdPx = Math.max(30, Math.min(120, screenWidth * 0.2));
+
+    const animateNavigate = (direction: 'prev' | 'next') => {
+      if (isAnimatingRef.current) return;
+      isAnimatingRef.current = true;
+      const toValue = direction === 'prev' ? screenWidth : -screenWidth;
+      Animated.timing(translateX, {
+        toValue,
+        duration: 160,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start(() => {
+        if (calendarView === 'week') {
+          navigateWeek(direction);
+        } else {
+          navigateMonth(direction);
+        }
+        // reset immediato senza flicker
+        translateX.setValue(0);
+        isAnimatingRef.current = false;
+      });
+    };
+
     const panResponder = useMemo(() => PanResponder.create({
       onMoveShouldSetPanResponder: (_e, g) => {
         const should = Math.abs(g.dx) > 10 && Math.abs(g.dy) < verticalTolerance;
@@ -777,17 +806,31 @@ export default function MainCalendarPage({
         if (Math.abs(g.dx) > swipeThreshold && Math.abs(g.dy) < verticalTolerance) {
           isSwipingRef.current = true;
         }
+        if (!isAnimatingRef.current) {
+          translateX.setValue(g.dx);
+        }
       },
       onPanResponderRelease: () => {
         if (!isSwipingRef.current) return;
         const dx = lastDxRef.current;
-        if (dx > swipeThreshold) {
-          calendarView === 'week' ? navigateWeek('prev') : navigateMonth('prev');
-        } else if (dx < -swipeThreshold) {
-          calendarView === 'week' ? navigateWeek('next') : navigateMonth('next');
+        if (dx > pageThresholdPx) {
+          animateNavigate('prev');
+        } else if (dx < -pageThresholdPx) {
+          animateNavigate('next');
         }
-        isSwipingRef.current = false;
-        lastDxRef.current = 0;
+        else {
+          Animated.timing(translateX, {
+            toValue: 0,
+            duration: 140,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }).start(() => {
+            isSwipingRef.current = false;
+            lastDxRef.current = 0;
+          });
+          return;
+        }
+        // se si naviga, i ref verranno resettati in animateNavigate -> start callback
       },
       onPanResponderTerminationRequest: () => true,
     }), [calendarView, navigateWeek, navigateMonth]);
@@ -1503,7 +1546,7 @@ export default function MainCalendarPage({
         )}
 
         {/* CALENDARIO - OCCUPA TUTTO LO SPAZIO DISPONIBILE TRA HEADER E FOOTER */}
-        <View style={styles.calendarContainer} {...panResponder.panHandlers}>
+        <Animated.View style={[styles.calendarContainer, { transform: [{ translateX }] }]} {...panResponder.panHandlers}>
           {calendarView === 'week' ? (
             <WeekCalendar
               currentDate={currentDate}
@@ -1533,7 +1576,7 @@ export default function MainCalendarPage({
               }}
             />
           )}
-        </View>
+        </Animated.View>
 
         {/* TEMPORANEO: Test Componenti - DISABILITATO */}
         {/* <View style={styles.testContainer}>
