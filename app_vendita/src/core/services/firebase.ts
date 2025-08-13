@@ -10,7 +10,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyDeYjHqD7eDBWakaO0TJ8yalU9TPGzVCeE",
   authDomain: "app-vendita.firebaseapp.com",
   projectId: "app-vendita",
-  storageBucket: "app-vendita.firebasestorage.app",
+  storageBucket: "app-vendita.appspot.com",
   messagingSenderId: "188147445527",
   appId: "1:188147445527:web:c7c0441ae91de210165152",
   measurementId: "G-WLF5DHT15H"

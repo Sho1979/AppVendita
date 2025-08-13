@@ -14,6 +14,10 @@ interface WeekCalendarProps {
   selectedSalesPointId?: string;
   onDayPress: (date: string) => void;
   onTooltipPress?: (type: 'stock' | 'notes' | 'info' | 'images', date: string, entry?: CalendarEntry) => void;
+  mode?: 'filtered' | 'unfiltered';
+  onOverlayPress?: (date: string, items: { retailer?: string|null; action: string }[]) => void;
+  // Accetto prop per compatibilità ma non lo uso in settimanale
+  vademecumOverlay?: Record<string, { inCount: number; outCount: number; items: { retailer?: string|null; action: string; channel?: 'FOOD'|'DIY' }[] }>;
 }
 
 export default function WeekCalendar({
@@ -23,6 +27,9 @@ export default function WeekCalendar({
   selectedSalesPointId,
   onDayPress,
   onTooltipPress,
+  mode = 'filtered',
+  onOverlayPress,
+  vademecumOverlay,
 }: WeekCalendarProps) {
   const [currentPage, setCurrentPage] = useState(0);
 
@@ -96,6 +103,13 @@ export default function WeekCalendar({
     }
   }, [currentDate, weekDates, daysPerPage, isMobile]);
 
+  // Pulse condiviso per blink dei chip overlay
+  const [pulse, setPulse] = useState(false);
+  useEffect(() => {
+    const id = setInterval(() => setPulse(p => !p), 900);
+    return () => clearInterval(id);
+  }, []);
+
   // const visibleDayNames = useMemo(() => {
   //   if (!isMobile) {
   //     return dayNames;
@@ -158,24 +172,39 @@ export default function WeekCalendar({
           const entry = getEntryForDate(date);
           const dateStr = toLocalDateKey(date);
           const disabled = date.getMonth() !== currentDate.getMonth();
+          const overlay = (vademecumOverlay as any)?.[dateStr];
 
           return (
-            <CustomCalendarCell
-              key={dateStr}
-              date={dateStr || ''}
-              entry={entry}
-              isSelected={isSelected(date)}
-              isToday={isToday(date)}
-              selectedSalesPointId={selectedSalesPointId || 'default'}
-              onPress={() => {
-                if (!disabled) {
-                  onDayPress(dateStr || '');
-                }
-              }}
-              isWeekView={true}
-              disabled={disabled}
-              onTooltipPress={onTooltipPress || undefined}
-            />
+            <View key={dateStr} style={{ flex: 1 }}>
+              <CustomCalendarCell
+                date={dateStr || ''}
+                entry={entry}
+                isSelected={isSelected(date)}
+                isToday={isToday(date)}
+                selectedSalesPointId={selectedSalesPointId || 'default'}
+                onPress={() => {
+                  if (!disabled) {
+                    onDayPress(dateStr || '');
+                  }
+                }}
+                isWeekView={true}
+                disabled={disabled}
+                onTooltipPress={onTooltipPress || undefined}
+              />
+              {/* Header badge minimal IN/OUT */}
+              {/* Overlay settimanale: tag testuali dentro la cella (metà FOOD, metà DIY) */}
+              {mode === 'unfiltered' && overlay && (overlay.items || []).length > 0 ? (
+                <View style={styles.weekTagOverlay} pointerEvents="none">
+                  {(() => {
+                    const { renderVademecumWeekOverlay } = require('../overlays/VademecumWeekOverlay');
+                    return renderVademecumWeekOverlay(overlay, (ret: string, items: any[]) => {
+                      const filtered = items.filter((it: any) => (it.retailer || '').toUpperCase() === ret);
+                      if (onOverlayPress) onOverlayPress(dateStr, filtered);
+                    }, pulse);
+                  })()}
+                </View>
+              ) : null}
+            </View>
           );
         })}
       </View>
@@ -390,5 +419,35 @@ const styles = StyleSheet.create({
     color: Colors.warmBackground,
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  weekTagOverlay: {
+    position: 'absolute',
+    top: 18,
+    left: 0,
+    right: 0,
+    bottom: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+  },
+  weekTagColumn: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: '48%',
+    justifyContent: 'flex-start',
+    gap: 4,
+  },
+  weekTag: {
+    maxWidth: '96%',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: '#B0BEC5',
+  },
+  weekTagText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

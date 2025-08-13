@@ -31,6 +31,8 @@ import { useCalendarStore } from '../../stores/calendarStore';
 import { logger } from '../../utils/logger';
 import { useRepository } from '../../hooks/useRepository';
 // import LoadingOverlay from '../components/LoadingOverlay';
+import FocusVademecumSummary from '../components/FocusVademecumSummary';
+import { vademecumRepository } from '../../data/repositories/vademecumRepository';
 
 interface MainCalendarPageProps {
   navigation?: any;
@@ -66,6 +68,160 @@ export default function MainCalendarPage({
   const [isLoading, setIsLoading] = useState(false);
   const [calendarView, setCalendarView] = useState<'week' | 'month'>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
+  // Overlay Vademecum (IN/OUT) per vista mensile
+  const [vademecumOverlay, setVademecumOverlay] = useState<Record<string, { inCount: number; outCount: number; items: { retailer?: string|null; action: string }[] }>>({});
+  const [overlaySheet, setOverlaySheet] = useState<{ visible: boolean; date: string; items: { retailer?: string|null; action: string }[] } | null>(null);
+  const [viewer, setViewer] = useState<{ visible: boolean; channel: 'FOOD'|'DIY' } | null>(null);
+  const [showVademecum, setShowVademecum] = useState<false | 'FOOD' | 'DIY'>(false);
+
+  // Listener per apertura viewer completo PDF (testo estratto)
+  useEffect(() => {
+    const handler = (e: any) => {
+      const ch = e?.detail?.channel === 'DIY' ? 'DIY' : 'FOOD';
+      setViewer({ visible: true, channel: ch });
+    };
+    try { (window as any).addEventListener('openVademecumViewer', handler); } catch {}
+    return () => { try { (window as any).removeEventListener('openVademecumViewer', handler); } catch {} };
+  }, []);
+
+  // Espone setOverlaySheet per overlay settimanale (click chip)
+  useEffect(() => {
+    (global as any).setOverlaySheet = setOverlaySheet;
+    return () => { if ((global as any).setOverlaySheet) delete (global as any).setOverlaySheet; };
+  }, []);
+
+  useEffect(() => {
+    // Carica tasks Vademecum per mese corrente per overlay
+    const loadOverlay = async () => {
+      try {
+        const [food, diy] = await Promise.all([
+          vademecumRepository.getTasks('FOOD'),
+          vademecumRepository.getTasks('DIY'),
+        ]);
+        const all = [...food, ...diy];
+        const overlay: Record<string, { inCount: number; outCount: number; items: { retailer?: string|null; action: string }[] }> = {};
+        const overlayKeys: Record<string, Set<string>> = {};
+        const y = currentDate.getFullYear();
+        const m = currentDate.getMonth();
+        const monthStart = new Date(y, m, 1, 0, 0, 0, 0);
+        const monthEnd = new Date(y, m + 1, 0, 23, 59, 59, 999);
+        const toKey = (d: Date) => {
+          const yy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          return `${yy}-${mm}-${dd}`;
+        };
+        // Helper per inserire un item in overlay con dedup
+        const pushItem = (
+          date: Date,
+          type: 'IN'|'OUT',
+          retailer?: string|null,
+          action?: string,
+          channel?: 'FOOD'|'DIY',
+          startIn?: Date | null,
+          endOut?: Date | null,
+        ) => {
+          const k = toKey(date);
+          const obj = overlay[k] || { inCount: 0, outCount: 0, items: [] as any[] };
+          const keyset = overlayKeys[k] || new Set<string>();
+          const safeAction = (action || '').toString();
+          const itemKey = `${retailer || ''}__${type}__${safeAction.trim().toLowerCase()}`;
+          if (type === 'IN') obj.inCount += 1; else obj.outCount += 1;
+          if (!keyset.has(itemKey)) {
+            // Blink: primo/ultimo giorno di IN/OUT
+            let blink = 0;
+            const sameDay = (a?: Date | null, b?: Date | null) => !!a && !!b && a.toDateString() === b.toDateString();
+            if (type === 'IN') {
+              const inStart = startIn || null;
+              const inEnd = endOut ? new Date(endOut.getFullYear(), endOut.getMonth(), endOut.getDate() - 1) : inStart;
+              if (sameDay(date, inStart) || sameDay(date, inEnd)) blink = 1;
+            } else {
+              const outStart = startIn && endOut && endOut >= startIn ? startIn : endOut;
+              const outEnd = endOut || outStart;
+              if (sameDay(date, outStart) || sameDay(date, outEnd)) blink = 1;
+            }
+            (obj.items as any[]).push({ retailer: retailer ?? null, action: safeAction, channel: channel || 'FOOD', blink } as any);
+            keyset.add(itemKey);
+            overlayKeys[k] = keyset;
+          }
+          overlay[k] = obj;
+        };
+
+        for (const t of all) {
+          const s = t.windowStart ? new Date(t.windowStart) : null;
+          const e = t.windowEnd ? new Date(t.windowEnd) : null;
+          const text = (t.actionText || '').toLowerCase();
+
+          // Esclusioni: usa actionCategory se presente, altrimenti fallback regex
+          const cat = (t as any).actionCategory as string | undefined;
+          const isVolantino = cat ? cat === 'volantino' : /volantin|catalogo|opuscolo/.test(text);
+          const isImplementazione = cat ? cat === 'implementazione' : /implementazione|allestiment|display|testata|isola|gondola|spiaggiata/.test(text);
+          const isVerifica = cat ? cat === 'verifica' : /verifica|controllo|audit|check|foto/.test(text);
+          const isRaccolta = cat ? cat === 'raccolta_ordini' : /raccolta\s+ordini?/.test(text) || /raccolta\s+ordine/.test(text);
+          const isFocusBrand = cat ? cat === 'focus_brand' : /focus\s*brand/.test(text);
+          if (isVolantino || isImplementazione || isVerifica || isRaccolta || isFocusBrand) {
+            // continua a mostrare questi contenuti nel bottom sheet (no pallini I/O)
+            continue;
+          }
+
+          // Caso 1: finestra OUT continua (es. sell out 11-24 Ago) → badge OUT ogni giorno del range
+          if (s && e && e >= s) {
+            const d = new Date(s);
+            while (d <= e) {
+              if (d >= monthStart && d <= monthEnd) {
+                pushItem(d, 'OUT', t.retailer, `[SELL OUT] ${t.actionText}`, t.channel as any, s, e);
+              }
+              d.setDate(d.getDate() + 1);
+            }
+            // Pre-finestra: se non c'è un vero sell-in indicato, crea 21 giorni di IN prima di s
+            const preStart = new Date(s);
+            preStart.setDate(preStart.getDate() - 21);
+            const d2 = new Date(preStart);
+            while (d2 < s) {
+              if (d2 >= monthStart && d2 <= monthEnd) {
+                pushItem(d2, 'IN', t.retailer, `[SELL IN] ${t.actionText}`, t.channel as any, preStart, s);
+              }
+              d2.setDate(d2.getDate() + 1);
+            }
+            continue;
+          }
+
+          // Caso 2: data singola indicata (solo end o solo start) → OUT su quel giorno, IN per 21gg prima
+          const dateRef = e || s;
+          if (dateRef) {
+            // OUT sul giorno di riferimento
+            if (dateRef >= monthStart && dateRef <= monthEnd) {
+              pushItem(dateRef, 'OUT', t.retailer, `[SELL OUT] ${t.actionText}`, t.channel as any, s, e);
+            }
+            // Pre 21 giorni di IN
+            const startIn = new Date(dateRef);
+            startIn.setDate(startIn.getDate() - 21);
+            const d = new Date(startIn);
+            while (d < dateRef) {
+              if (d >= monthStart && d <= monthEnd) {
+                pushItem(d, 'IN', t.retailer, `[SELL IN] ${t.actionText}`, t.channel as any, startIn, dateRef);
+              }
+              d.setDate(d.getDate() + 1);
+            }
+            continue;
+          }
+
+          // Nessuna inferenza per raccolta ordini in overlay (mostrata solo nei dettagli)
+        }
+        setVademecumOverlay(overlay);
+      } catch (e) {
+        // non bloccare la pagina
+      }
+    };
+    // Mostra overlay solo quando NON c'è un cliente selezionato
+    const noCustomerFilter = !useFiltersStore.getState().selectedSalesPointId || useFiltersStore.getState().selectedSalesPointId === 'default';
+    if ((calendarView === 'month' || calendarView === 'week') && noCustomerFilter) {
+      loadOverlay();
+    } else {
+      // con filtro cliente, non mostrare overlay
+      setVademecumOverlay({});
+    }
+  }, [calendarView, currentDate]);
   // const [filterReloading, setFilterReloading] = useState(false);
 
   // Swipe minimale: isolato dai tap
@@ -209,6 +365,9 @@ export default function MainCalendarPage({
       return d >= start && d <= end;
     });
   }, [getEntriesForFilters, selectedSalesPointId, storeEntries, visibleRange]);
+
+  // Vista non filtrata (nessun cliente selezionato)
+  const isUnfilteredView = useMemo(() => !selectedSalesPointId || selectedSalesPointId === 'default', [selectedSalesPointId]);
 
   // Calcoli memoizzati: totali per filtri correnti e totali mensili (mese corrente)
   const calendarTotals = useMemo(() => {
@@ -1419,6 +1578,16 @@ export default function MainCalendarPage({
               >
                 <Text style={styles.filterButtonPastelText}>🔍</Text>
               </TouchableOpacity>
+
+              {/* Toggle Vademecum */}
+              <TouchableOpacity
+                style={styles.filterButtonPastel}
+                onPress={() => setShowVademecum(prev => prev ? false : 'FOOD')}
+                accessibilityLabel="Mostra/Nascondi Vademecum"
+                accessibilityHint="Apre la lettura Vademecum senza nascondere il calendario"
+              >
+                <Text style={styles.filterButtonPastelText}>📄</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -1507,12 +1676,10 @@ export default function MainCalendarPage({
               selectedDate={selectedDate}
               selectedSalesPointId={selectedSalesPointId}
               onDayPress={(d) => { if (!isSwipingRef.current) onDayPress(d); }}
-              onTooltipPress={(type, date, entry) => {
-                setTooltipType(type);
-                setTooltipDate(date);
-                setTooltipEntry(entry);
-                setShowTooltipModal(true);
-              }}
+              onTooltipPress={() => {}}
+              vademecumOverlay={!selectedSalesPointId || selectedSalesPointId === 'default' ? (vademecumOverlay as any) : undefined as any}
+              mode={!selectedSalesPointId || selectedSalesPointId === 'default' ? 'unfiltered' : 'filtered'}
+              onOverlayPress={(date: string, items: any[]) => setOverlaySheet({ visible: true, date, items })}
             />
             </View>
           ) : (
@@ -1529,6 +1696,9 @@ export default function MainCalendarPage({
                 setTooltipEntry(entry);
                 setShowTooltipModal(true);
               }}
+              vademecumOverlay={!selectedSalesPointId || selectedSalesPointId === 'default' ? vademecumOverlay : ({} as any)}
+              onOverlayPress={(date, items) => setOverlaySheet({ visible: true, date, items })}
+              mode={!selectedSalesPointId || selectedSalesPointId === 'default' ? 'unfiltered' : 'filtered'}
             />
             </View>
           )}
@@ -1542,25 +1712,46 @@ export default function MainCalendarPage({
           <DatePickerTest />
         </View> */}
 
+        {/* BLOCCO FOCUS VADEMECUM: nascosto di default, attivabile da pulsante */}
+        {showVademecum && (
+          <FocusVademecumSummary
+            defaultTab={showVademecum || 'FOOD'}
+            onClose={() => setShowVademecum(false)}
+          />
+        )}
+
         {/* FOOTER MIGLIORATO - STATISTICHE E AZIONI */}
         <View style={styles.footer}>
           <View style={styles.footerStats}>
-            <TouchableOpacity style={styles.kpiCard} onPress={() => Alert.alert('Dettaglio', `Entries: ${filteredCalendarEntries.length}`)}>
-              <Text style={styles.kpiTitle}>Entries</Text>
-              <Text style={styles.kpiValue}>{filteredCalendarEntries.length}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.kpiCard} onPress={() => Alert.alert('Dettaglio', `Sell-In cliente: €${Math.round(calendarTotals.filtered.sellInTotal)}`)}>
-              <Text style={styles.kpiTitle}>Sell-In</Text>
-              <Text style={styles.kpiValue}>€{Math.round(calendarTotals.filtered.sellInTotal)}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.kpiCard} onPress={() => Alert.alert('Dettaglio', `Sell-In mese: €${Math.round(calendarTotals.filtered.sellInMonth)}`)}>
-              <Text style={styles.kpiTitle}>Sell-In Mese</Text>
-              <Text style={styles.kpiValue}>€{Math.round(calendarTotals.filtered.sellInMonth)}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.kpiCard} onPress={() => Alert.alert('Dettaglio', `Azioni totali: ${calendarTotals.filtered.actionsTotal}`)}>
-              <Text style={styles.kpiTitle}>Azioni</Text>
-              <Text style={styles.kpiValue}>{calendarTotals.filtered.actionsTotal}</Text>
-            </TouchableOpacity>
+            {isUnfilteredView ? (
+              <TouchableOpacity
+                style={[styles.kpiCard, { flex: 1, backgroundColor: Colors.warmPrimary }]}
+                onPress={() => setShowVademecum(prev => prev ? false : 'FOOD')}
+                accessibilityLabel="Apri Focus BRAND"
+              >
+                <Text style={[styles.kpiTitle, { color: Colors.warmBackground }]}>Apri</Text>
+                <Text style={[styles.kpiValue, { color: Colors.warmBackground }]}>Focus BRAND</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity style={styles.kpiCard} onPress={() => Alert.alert('Dettaglio', `Entries: ${filteredCalendarEntries.length}`)}>
+                  <Text style={styles.kpiTitle}>Entries</Text>
+                  <Text style={styles.kpiValue}>{filteredCalendarEntries.length}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.kpiCard} onPress={() => Alert.alert('Dettaglio', `Sell-In cliente: €${Math.round(calendarTotals.filtered.sellInTotal)}`)}>
+                  <Text style={styles.kpiTitle}>Sell-In</Text>
+                  <Text style={styles.kpiValue}>€{Math.round(calendarTotals.filtered.sellInTotal)}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.kpiCard} onPress={() => Alert.alert('Dettaglio', `Sell-In mese: €${Math.round(calendarTotals.filtered.sellInMonth)}`)}>
+                  <Text style={styles.kpiTitle}>Sell-In Mese</Text>
+                  <Text style={styles.kpiValue}>€{Math.round(calendarTotals.filtered.sellInMonth)}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.kpiCard} onPress={() => Alert.alert('Dettaglio', `Azioni totali: ${calendarTotals.filtered.actionsTotal}`)}>
+                  <Text style={styles.kpiTitle}>Azioni</Text>
+                  <Text style={styles.kpiValue}>{calendarTotals.filtered.actionsTotal}</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
           <View style={styles.footerActions}>
             <TouchableOpacity
@@ -1647,6 +1838,64 @@ export default function MainCalendarPage({
           userId={selectedUserId || "default_user"}
           salesPointName={getSalesPointName(selectedSalesPointId)}
         />
+
+        {/* Bottom sheet/Modal Vademecum (solo info) */}
+        <Modal
+          visible={!!overlaySheet?.visible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setOverlaySheet(null)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { paddingBottom: 8 }]}> 
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Dettagli Vademecum — {overlaySheet?.date}</Text>
+              </View>
+              <View style={{ padding: 12 }}>
+                {overlaySheet?.items?.slice(0, 8).map((it, idx) => (
+                  <View key={idx} style={{ marginBottom: 8 }}>
+                    <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>
+                      {it.retailer || 'Insegna'}
+                    </Text>
+                    <Text style={{ color: Colors.textSecondary }}>{it.action}</Text>
+                  </View>
+                ))}
+                {overlaySheet && (overlaySheet.items?.length || 0) > 8 ? (
+                  <Text style={{ color: Colors.textSecondary }}>
+                    … e {((overlaySheet.items?.length || 0) - 8)} altri
+                  </Text>
+                ) : null}
+              </View>
+              <TouchableOpacity style={styles.closeButton} onPress={() => setOverlaySheet(null)}>
+                <Text style={styles.closeButtonText}>Chiudi</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Viewer completo Vademecum (testo estratto) */}
+        <Modal
+          visible={!!viewer?.visible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setViewer(null)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { paddingBottom: 8 }]}> 
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Vademecum {viewer?.channel}</Text>
+              </View>
+              <View style={{ padding: 12, maxHeight: 600 }}>
+                <Text style={{ color: Colors.textSecondary }}>
+                  Testo estratto disponibile. Nel passo successivo posso caricare qui il contenuto estratto dal parser (paginato per canale) per consultazione completa.
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.closeButton} onPress={() => setViewer(null)}>
+                <Text style={styles.closeButtonText}>Chiudi</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         {/* Overlay rimosso per evitare di bloccare i tap. Riattivare solo dopo test. */}
       </SafeAreaView>

@@ -3,6 +3,16 @@ rules_version = '2';
 // Regole Firebase Storage per app vendita
 service firebase.storage {
   match /b/{bucket}/o {
+    // Regole per i PDF dei Vademecum (FOOD/DIY)
+    // Percorso: vademecum/YYYY-MM/{FOOD|DIY}.pdf
+    match /vademecum/{yearMonth}/{fileName} {
+      // Lettura consentita agli utenti autenticati
+      allow read: if request.auth != null;
+      // Scrittura consentita agli utenti autenticati per PDF fino a 30MB
+      allow write: if request.auth != null
+        && request.resource.size < 30 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
+    }
     // Regole per le foto dei punti vendita
     match /photos/{year}/{month}/{day}/{salesPointId}/{fileName} {
       // Permetti lettura a tutti gli utenti autenticati

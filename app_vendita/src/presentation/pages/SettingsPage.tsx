@@ -19,6 +19,8 @@ import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
 import { PriceReference } from '../../data/models/PriceReference';
 import { useAuth } from '../../hooks/useAuth';
 import { useMasterDataStore } from '../../stores/masterDataStore';
+import VademecumImportSection from '../components/settings/VademecumImportSection';
+import VademecumPdfUploadSection from '../components/settings/VademecumPdfUploadSection';
 
 interface SettingsPageProps {
   navigation: any;
@@ -70,6 +72,30 @@ export default function SettingsPage({
 
 
   const settingsSections = [
+    {
+      title: '📄 Vademecum Viewer',
+      items: [
+        {
+          title: 'Apri Vademecum FOOD',
+          subtitle: 'Visualizza il testo estratto completo del PDF FOOD',
+          icon: '🍽️',
+          onPress: () => {
+            navigation?.navigate?.('Calendario');
+            // usa evento custom sul window per aprire viewer (isolato)
+            try { (window as any).dispatchEvent(new CustomEvent('openVademecumViewer', { detail: { channel: 'FOOD' } })); } catch {}
+          },
+        },
+        {
+          title: 'Apri Vademecum DIY',
+          subtitle: 'Visualizza il testo estratto completo del PDF DIY',
+          icon: '🛠️',
+          onPress: () => {
+            navigation?.navigate?.('Calendario');
+            try { (window as any).dispatchEvent(new CustomEvent('openVademecumViewer', { detail: { channel: 'DIY' } })); } catch {}
+          },
+        },
+      ],
+    },
     {
       title: '👤 Account',
       items: [
@@ -275,6 +301,8 @@ export default function SettingsPage({
       </View>
 
       <ScrollView style={styles.content}>
+        <VademecumPdfUploadSection />
+        <VademecumImportSection />
         {settingsSections.map((section, sectionIndex) => (
           <View key={sectionIndex} style={styles.section}>
             <Text style={styles.sectionTitle}>{section.title}</Text>

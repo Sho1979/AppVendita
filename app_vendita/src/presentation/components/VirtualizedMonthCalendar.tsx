@@ -1,8 +1,9 @@
 import React, { useMemo, useCallback, useState } from 'react';
-import { View, StyleSheet, FlatList, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Dimensions, TouchableOpacity } from 'react-native';
 import CustomCalendarCell from './CustomCalendarCell';
 import { CalendarEntry } from '../../data/models/CalendarEntry';
 import { Colors } from '../../constants/Colors';
+import { renderVademecumMonthOverlay } from '../overlays/VademecumMonthOverlay';
 
 interface VirtualizedMonthCalendarProps {
   currentDate: Date;
@@ -11,6 +12,10 @@ interface VirtualizedMonthCalendarProps {
   selectedSalesPointId?: string;
   onDayPress: (date: string) => void;
   onTooltipPress?: ((type: 'stock' | 'notes' | 'info' | 'images', date: string, entry?: CalendarEntry) => void) | undefined;
+  // Overlay Vademecum: contatori IN/OUT per giorno (isolate, read-only)
+  vademecumOverlay?: Record<string, { inCount: number; outCount: number; items: { retailer?: string|null; action: string }[] }>;
+  onOverlayPress?: (date: string, items: { retailer?: string|null; action: string }[]) => void;
+  mode?: 'filtered' | 'unfiltered';
 
 }
 
@@ -30,6 +35,9 @@ export default function VirtualizedMonthCalendar({
   selectedSalesPointId,
   onDayPress,
   onTooltipPress,
+  vademecumOverlay,
+  onOverlayPress,
+  mode = 'filtered',
 }: VirtualizedMonthCalendarProps) {
   // Misura dinamica: altezza contenitore e altezza header per calcolo preciso delle celle
   const [containerHeight, setContainerHeight] = useState<number>(0);
@@ -41,17 +49,7 @@ export default function VirtualizedMonthCalendar({
     }
   }, [containerHeight]);
 
-  const rowsCount = monthData?.weeks?.length || 6;
-  const cellHeight = useMemo(() => {
-    // Fallback iniziale se non misurato
-    if (!containerHeight) {
-      return Math.max(64, Math.floor((height - 320) / rowsCount));
-    }
-    const available = Math.max(0, containerHeight);
-    return Math.max(64, Math.floor(available / rowsCount));
-  }, [containerHeight, rowsCount]);
-
-  // Memoizza la generazione delle date del mese
+  // Memoizza la generazione delle date del mese (prima di usarla altrove)
   const monthData = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -85,6 +83,18 @@ export default function VirtualizedMonthCalendar({
     const dates: Array<Date | null> = weeks.flatMap(w => w.dates);
     return { dates, weeks };
   }, [currentDate]);
+
+  // Numero di righe effettive del mese corrente
+  const rowsCount = monthData?.weeks?.length || 6;
+
+  const cellHeight = useMemo(() => {
+    // Fallback iniziale se non misurato
+    if (!containerHeight) {
+      return Math.max(64, Math.floor((height - 320) / rowsCount));
+    }
+    const available = Math.max(0, containerHeight);
+    return Math.max(64, Math.floor(available / rowsCount));
+  }, [containerHeight, rowsCount]);
 
   // Memoizza la funzione per trovare entries
   const getEntryForDate = useCallback((date: Date | null): CalendarEntry | undefined => {
@@ -149,6 +159,7 @@ export default function VirtualizedMonthCalendar({
           }
           const entry = getEntryForDate(date);
           const dateStr = date.toISOString().split('T')[0];
+          const overlay = vademecumOverlay && vademecumOverlay[dateStr];
           return (
             <View key={dateStr} style={[styles.cellContainer, { height: cellHeight }]}>
               <CustomCalendarCell
@@ -161,12 +172,15 @@ export default function VirtualizedMonthCalendar({
                 isWeekView={false}
                 onTooltipPress={onTooltipPress}
               />
+              {mode === 'unfiltered' && overlay && (overlay.inCount > 0 || overlay.outCount > 0)
+                ? renderVademecumMonthOverlay(dateStr, overlay as any, onOverlayPress)
+                : null}
             </View>
           );
         })}
       </View>
     );
-  }, [getEntryForDate, isSelected, isToday, onDayPress, onTooltipPress, cellHeight, selectedSalesPointId]);
+  }, [getEntryForDate, isSelected, isToday, onDayPress, onTooltipPress, cellHeight, selectedSalesPointId, vademecumOverlay, onOverlayPress]);
 
   // Ottimizzazioni FlatList
   const getItemLayout = useCallback((_: any, index: number) => ({
@@ -228,6 +242,23 @@ const styles = StyleSheet.create({
     height: undefined,
     minHeight: 64,
     backgroundColor: Colors.warmBackground,
+  },
+  overlayContainer: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    flexDirection: 'row',
+    gap: 4,
+  },
+  overlayBadge: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  overlayText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
   },
   otherMonthCell: {
     backgroundColor: '#F2F2F2',

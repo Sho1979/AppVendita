@@ -15,6 +15,10 @@ import { ExcelRow } from '../../data/models/ExcelData';
 import { useRepository } from '../../hooks/useRepository';
 import { useFirebaseExcelData } from '../../hooks/useFirebaseExcelData';
 import { useFocusReferencesStore } from '../../stores/focusReferencesStore';
+import { initializeProductCatalogFromStore } from '../../services/ProductCatalogResolver';
+import { NamResolver } from '../../services/NamResolver';
+import { OrgGraphResolver } from '../../services/OrgGraphResolver';
+import { useFirebaseExcelData } from '../../hooks/useFirebaseExcelData';
 import { logger } from '../../utils/logger';
 import { Colors } from '../../constants/Colors';
 
@@ -63,6 +67,7 @@ const DataLoadingContainer: React.FC<DataLoadingContainerProps> = memo(({
   
   const repository = useRepository();
   const focusReferencesStore = useFocusReferencesStore();
+  const { excelRows } = useFirebaseExcelData();
   const { excelRows, isLoading: excelDataLoading, reloadData: reloadExcelData } = useFirebaseExcelData();
   
   const [isLoading, setIsLoading] = useState(false);
@@ -214,6 +219,12 @@ const DataLoadingContainer: React.FC<DataLoadingContainerProps> = memo(({
       logger.data('Inizio caricamento referenze focus');
       focusReferencesStore.loadAllReferences();
       await focusReferencesStore.loadFocusReferencesFromFirestore();
+      // Costruisci indice catalogo completo per resolver (solo lettura)
+      initializeProductCatalogFromStore();
+      // Costruisci mappa Insegna -> NAM
+      try { NamResolver.build(excelRows as any); } catch {}
+      // Costruisci grafo organizzativo completo (Insegna↔Agenti/NAM↔PDV)
+      try { OrgGraphResolver.build(excelRows as any); } catch {}
       logger.data('Referenze focus caricate con successo');
     } catch (error) {
       logger.error('DataLoading', 'Errore nel caricamento referenze focus', error);

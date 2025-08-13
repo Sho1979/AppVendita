@@ -1,7 +1,7 @@
 {
   "name": "app_vendita",
   "main": "index.ts",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -44,6 +44,7 @@
     "expo-location": "^18.1.6",
     "expo-status-bar": "~2.0.0",
     "firebase": "^12.0.0",
+    "pdfjs-dist": "^2.16.105",
     "react": "18.3.1",
     "react-dom": "^18.3.1",
     "react-native": "0.76.9",
