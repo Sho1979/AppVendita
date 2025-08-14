@@ -41,16 +41,6 @@ export default function VirtualizedMonthCalendar({
     }
   }, [containerHeight]);
 
-  const rowsCount = monthData?.weeks?.length || 6;
-  const cellHeight = useMemo(() => {
-    // Fallback iniziale se non misurato
-    if (!containerHeight) {
-      return Math.max(64, Math.floor((height - 320) / rowsCount));
-    }
-    const available = Math.max(0, containerHeight);
-    return Math.max(64, Math.floor(available / rowsCount));
-  }, [containerHeight, rowsCount]);
-
   // Memoizza la generazione delle date del mese
   const monthData = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -85,6 +75,18 @@ export default function VirtualizedMonthCalendar({
     const dates: Array<Date | null> = weeks.flatMap(w => w.dates);
     return { dates, weeks };
   }, [currentDate]);
+
+  const rowsCount = monthData?.weeks?.length || 6;
+  const cellHeight = useMemo(() => {
+    // Fallback iniziale se non misurato
+    if (!containerHeight) {
+      return Math.max(64, Math.floor((height - 320) / rowsCount));
+    }
+    const available = Math.max(0, containerHeight);
+    return Math.max(64, Math.floor(available / rowsCount));
+  }, [containerHeight, rowsCount]);
+
+  
 
   // Memoizza la funzione per trovare entries
   const getEntryForDate = useCallback((date: Date | null): CalendarEntry | undefined => {
