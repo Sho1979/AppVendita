@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Neural Brain — 3D Knowledge Graph</title>
+<style>
+  :root {
+    --bg: #07091a;
+    --panel: rgba(18, 22, 38, 0.78);
+    --text: #e6e9f0;
+    --muted: #8892a8;
+    --accent: #7aa2f7;
+    --border: rgba(255, 255, 255, 0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  canvas { display: block; }
+  #ui { position: fixed; inset: 0; pointer-events: none; }
+  #ui > * { pointer-events: auto; }
+
+  .panel {
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+  }
+
+  #search-box {
+    position: absolute; top: 20px; left: 20px;
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    width: 280px;
+  }
+  #search-box svg { color: var(--muted); flex-shrink: 0; }
+  #search {
+    background: transparent; border: none; outline: none;
+    color: var(--text); flex: 1; font-size: 14px;
+    font-family: inherit;
+  }
+  #search::placeholder { color: var(--muted); }
+
+  #legend {
+    position: absolute; top: 20px; right: 20px;
+    padding: 14px 16px; min-width: 180px;
+  }
+  #legend h3 {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--muted); margin-bottom: 10px; font-weight: 600;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 5px 0; font-size: 13px; cursor: pointer;
+    transition: opacity 0.15s, transform 0.15s;
+    user-select: none;
+  }
+  .legend-item:hover { transform: translateX(2px); }
+  .legend-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    box-shadow: 0 0 10px currentColor;
+  }
+
+  #info {
+    position: absolute; bottom: 20px; left: 20px;
+    padding: 14px 18px; min-width: 220px;
+    opacity: 0; transform: translateY(8px);
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  #info.visible { opacity: 1; transform: translateY(0); }
+  #info .label {
+    font-size: 17px; font-weight: 600; margin-bottom: 4px;
+    letter-spacing: 0.2px;
+  }
+  #info .meta { font-size: 12px; color: var(--muted); }
+  #info .bar {
+    margin-top: 10px; height: 3px; border-radius: 2px;
+    background: rgba(255,255,255,0.08); overflow: hidden;
+  }
+  #info .bar-fill {
+    height: 100%; border-radius: 2px;
+    box-shadow: 0 0 8px currentColor;
+    transition: width 0.4s ease-out;
+  }
+
+  #help {
+    position: absolute; bottom: 20px; right: 20px;
+    padding: 10px 14px;
+    font-size: 11px; color: var(--muted);
+    line-height: 1.7;
+  }
+  kbd {
+    background: rgba(255,255,255,0.08);
+    padding: 1px 6px; border-radius: 3px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--text); font-size: 10px;
+  }
+
+  #title {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center; pointer-events: none;
+    opacity: 0;
+    animation: fadeIn 1.4s ease-out 0.4s forwards,
+               fadeOut 1.2s ease-in 5s forwards;
+  }
+  @keyframes fadeIn { to { opacity: 1; } }
+  @keyframes fadeOut { to { opacity: 0; } }
+  #title h1 {
+    font-size: 38px; font-weight: 200; letter-spacing: 6px;
+    background: linear-gradient(135deg, #7aa2f7 0%, #bb9af7 50%, #f7768e 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 10px;
+  }
+  #title p {
+    color: var(--muted); font-size: 12px; letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  #tooltip {
+    position: absolute;
+    background: rgba(7, 9, 26, 0.92);
+    border: 1px solid var(--border);
+    padding: 5px 10px; border-radius: 6px;
+    font-size: 12px; pointer-events: none;
+    opacity: 0; transition: opacity 0.12s;
+    transform: translate(-50%, calc(-100% - 14px));
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  #tooltip.visible { opacity: 1; }
+
+  #fps {
+    position: absolute; top: 20px; left: 50%;
+    transform: translateX(-50%);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 10px; color: var(--muted);
+    padding: 4px 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    backdrop-filter: blur(8px);
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div id="title">
+    <h1>NEURAL&nbsp;BRAIN</h1>
+    <p>3D Knowledge Graph</p>
+  </div>
+
+  <div id="search-box" class="panel">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+    <input id="search" placeholder="Cerca un nodo..." autocomplete="off" />
+  </div>
+
+  <div id="legend" class="panel">
+    <h3>Cluster</h3>
+    <div id="legend-items"></div>
+  </div>
+
+  <div id="info" class="panel">
+    <div class="label" id="info-label"></div>
+    <div class="meta" id="info-meta"></div>
+    <div class="bar"><div class="bar-fill" id="info-bar"></div></div>
+  </div>
+
+  <div id="help" class="panel">
+    <kbd>drag</kbd> ruota &nbsp; <kbd>scroll</kbd> zoom &nbsp; <kbd>click</kbd> focus
+  </div>
+
+  <div id="fps">— fps</div>
+  <div id="tooltip"></div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+    "d3-force-3d": "https://esm.sh/d3-force-3d@3.0.5"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import {
+  forceSimulation, forceLink, forceManyBody, forceCenter
+} from 'd3-force-3d';
+
+/* ============================================================
+ * 1. DATA — demo knowledge graph themed on AppVendita
+ * ============================================================ */
+
+const CLUSTERS = [
+  { id: 'vendite',      name: 'Vendite',      color: 0xf7768e },
+  { id: 'clienti',      name: 'Clienti',      color: 0x7dcfff },
+  { id: 'prodotti',     name: 'Prodotti',     color: 0xe0af68 },
+  { id: 'calendario',   name: 'Calendario',   color: 0x9ece6a },
+  { id: 'firebase',     name: 'Firebase',     color: 0xff9e64 },
+  { id: 'architettura', name: 'Architettura', color: 0xbb9af7 },
+];
+
+const TOPICS = {
+  vendite:      ['Ordine','Fattura','Sconto','Provvigione','Quotazione','Carrello','Pagamento','Resi','Promo','Listino','Margine','Bundle','Target','KPI'],
+  clienti:      ['Anagrafica','Segmento','Lead','Account','Contatto','Storico','Note','Mappa','Visita','Itinerario','Categoria','Priorità','Tag'],
+  prodotti:     ['Catalogo','SKU','Brand','Variante','Magazzino','Prezzo','Foto','Recensione','Stock','Codice','Famiglia','Disponibilità'],
+  calendario:   ['Evento','Appuntamento','Reminder','Vista Mese','Vista Settimana','Sync','Filtro Data','Disponibilità','Ricorrenza'],
+  firebase:     ['Auth','Firestore','Storage','Rules','Functions','Indexes','Analytics','Hosting','Crashlytics','RemoteConfig','Backup','Triggers'],
+  architettura: ['Riverpod','Freezed','UseCase','Repository','Service','Mapper','Provider','Notifier','State','DTO','Model','Injection','Domain','Hook'],
+};
+
+function buildGraph() {
+  const nodes = [];
+  const links = [];
+  let id = 0;
+  const clusterRanges = {};
+
+  for (const c of CLUSTERS) {
+    const start = id;
+    for (const t of TOPICS[c.id]) {
+      nodes.push({ id: id++, label: t, cluster: c.id, color: c.color });
+    }
+    clusterRanges[c.id] = [start, id];
+
+    // intra-cluster connections (dense)
+    for (let i = start; i < id; i++) {
+      const k = 1 + Math.floor(Math.random() * 3);
+      for (let n = 0; n < k; n++) {
+        const j = start + Math.floor(Math.random() * (id - start));
+        if (j !== i) links.push({ source: i, target: j });
+      }
+    }
+  }
+
+  // inter-cluster bridges (sparse, like Obsidian backlinks)
+  const bridgeCount = Math.floor(nodes.length * 0.22);
+  for (let i = 0; i < bridgeCount; i++) {
+    const a = Math.floor(Math.random() * nodes.length);
+    const b = Math.floor(Math.random() * nodes.length);
+    if (a !== b && nodes[a].cluster !== nodes[b].cluster) {
+      links.push({ source: a, target: b, bridge: true });
+    }
+  }
+
+  // dedupe
+  const seen = new Set();
+  const dedup = [];
+  for (const l of links) {
+    const key = l.source < l.target ? `${l.source}-${l.target}` : `${l.target}-${l.source}`;
+    if (!seen.has(key)) { seen.add(key); dedup.push(l); }
+  }
+
+  // degree
+  const degree = new Map();
+  for (const l of dedup) {
+    degree.set(l.source, (degree.get(l.source) || 0) + 1);
+    degree.set(l.target, (degree.get(l.target) || 0) + 1);
+  }
+  for (const n of nodes) n.degree = degree.get(n.id) || 1;
+
+  return { nodes, links: dedup };
+}
+
+const graph = buildGraph();
+const maxDegree = Math.max(...graph.nodes.map(n => n.degree));
+
+/* ============================================================
+ * 2. SCENE
+ * ============================================================ */
+
+const canvas = document.getElementById('c');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x07091a);
+scene.fog = new THREE.FogExp2(0x07091a, 0.0014);
+
+const camera = new THREE.PerspectiveCamera(
+  60, window.innerWidth / window.innerHeight, 0.1, 5000
+);
+camera.position.set(0, 60, 620);
+
+const renderer = new THREE.WebGLRenderer({
+  canvas, antialias: true, powerPreference: 'high-performance'
+});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.rotateSpeed = 0.55;
+controls.zoomSpeed = 0.9;
+controls.minDistance = 80;
+controls.maxDistance = 1800;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.25;
+
+canvas.addEventListener('pointerdown', () => {
+  controls.autoRotate = false;
+}, { once: true });
+
+// post-processing — bloom for the neuronal glow
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  1.1,  // strength
+  0.55, // radius
+  0.05  // threshold
+);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
+
+// soft starfield background for depth
+{
+  const starGeom = new THREE.BufferGeometry();
+  const starCount = 600;
+  const positions = new Float32Array(starCount * 3);
+  for (let i = 0; i < starCount; i++) {
+    const r = 1500 + Math.random() * 800;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    positions[i*3]     = r * Math.sin(phi) * Math.cos(theta);
+    positions[i*3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    positions[i*3 + 2] = r * Math.cos(phi);
+  }
+  starGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const starMat = new THREE.PointsMaterial({
+    color: 0xffffff, size: 1.4, transparent: true, opacity: 0.35,
+    sizeAttenuation: false, depthWrite: false
+  });
+  scene.add(new THREE.Points(starGeom, starMat));
+}
+
+/* ============================================================
+ * 3. NODES (instanced spheres for the bloom glow)
+ * ============================================================ */
+
+const NODE_GEOM = new THREE.SphereGeometry(1, 18, 18);
+const nodeMeshes = [];
+const nodeGroup = new THREE.Group();
+scene.add(nodeGroup);
+
+for (const n of graph.nodes) {
+  const radius = 2.6 + Math.sqrt(n.degree / maxDegree) * 7.5;
+  const mat = new THREE.MeshBasicMaterial({
+    color: n.color,
+    transparent: true,
+    opacity: 1,
+  });
+  const mesh = new THREE.Mesh(NODE_GEOM, mat);
+  mesh.scale.setScalar(radius);
+  mesh.userData.node = n;
+  mesh.userData.baseColor = new THREE.Color(n.color);
+  mesh.userData.baseRadius = radius;
+  nodeGroup.add(mesh);
+  nodeMeshes.push(mesh);
+  n.mesh = mesh;
+  // initial random position for nicer simulation start
+  n.x = (Math.random() - 0.5) * 200;
+  n.y = (Math.random() - 0.5) * 200;
+  n.z = (Math.random() - 0.5) * 200;
+}
+
+/* ============================================================
+ * 4. EDGES (line segments with vertex colors)
+ * ============================================================ */
+
+const edgeGeom = new THREE.BufferGeometry();
+const edgePositions = new Float32Array(graph.links.length * 2 * 3);
+const edgeColors = new Float32Array(graph.links.length * 2 * 3);
+edgeGeom.setAttribute('position', new THREE.BufferAttribute(edgePositions, 3));
+edgeGeom.setAttribute('color', new THREE.BufferAttribute(edgeColors, 3));
+const edgeMat = new THREE.LineBasicMaterial({
+  vertexColors: true,
+  transparent: true,
+  opacity: 0.22,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+});
+const edgeLines = new THREE.LineSegments(edgeGeom, edgeMat);
+scene.add(edgeLines);
+
+/* ============================================================
+ * 5. PULSES — glowing particles travelling along edges
+ * ============================================================ */
+
+const PULSE_COUNT = 120;
+const pulseGeom = new THREE.SphereGeometry(1, 8, 8);
+const pulses = [];
+for (let i = 0; i < PULSE_COUNT; i++) {
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  const mesh = new THREE.Mesh(pulseGeom, mat);
+  mesh.scale.setScalar(2.2);
+  mesh.visible = false;
+  scene.add(mesh);
+  pulses.push({ mesh, source: null, target: null, t: 0, speed: 0 });
+}
+
+function spawnPulse(p) {
+  const link = graph.links[Math.floor(Math.random() * graph.links.length)];
+  const s = typeof link.source === 'object' ? link.source : graph.nodes[link.source];
+  const t = typeof link.target === 'object' ? link.target : graph.nodes[link.target];
+  if (!s || !t) return;
+  p.source = s;
+  p.target = t;
+  p.t = 0;
+  p.speed = 0.35 + Math.random() * 0.55;
+  p.mesh.visible = true;
+  p.mesh.material.color.setHex(s.color);
+}
+
+/* ============================================================
+ * 6. 3D FORCE SIMULATION
+ * ============================================================ */
+
+function clusterForce(strength) {
+  let nodes;
+  function force(alpha) {
+    const cents = new Map();
+    for (const n of nodes) {
+      let c = cents.get(n.cluster);
+      if (!c) { c = { x:0, y:0, z:0, n:0 }; cents.set(n.cluster, c); }
+      c.x += n.x; c.y += n.y; c.z += n.z; c.n++;
+    }
+    for (const c of cents.values()) { c.x/=c.n; c.y/=c.n; c.z/=c.n; }
+    for (const n of nodes) {
+      const c = cents.get(n.cluster);
+      n.vx += (c.x - n.x) * strength * alpha;
+      n.vy += (c.y - n.y) * strength * alpha;
+      n.vz += (c.z - n.z) * strength * alpha;
+    }
+  }
+  force.initialize = (n) => { nodes = n; };
+  return force;
+}
+
+const sim = forceSimulation(graph.nodes, 3)
+  .force('link', forceLink(graph.links).id(d => d.id).distance(45).strength(0.45))
+  .force('charge', forceManyBody().strength(-110).distanceMax(450))
+  .force('center', forceCenter(0, 0, 0))
+  .force('cluster', clusterForce(0.08))
+  .alphaDecay(0.012)
+  .velocityDecay(0.42);
+
+/* ============================================================
+ * 7. ADJACENCY (for highlighting)
+ * ============================================================ */
+
+const adj = new Map();
+for (const n of graph.nodes) adj.set(n.id, new Set());
+for (const l of graph.links) {
+  const s = typeof l.source === 'object' ? l.source.id : l.source;
+  const t = typeof l.target === 'object' ? l.target.id : l.target;
+  adj.get(s).add(t);
+  adj.get(t).add(s);
+}
+
+/* ============================================================
+ * 8. UI
+ * ============================================================ */
+
+const legendEl = document.getElementById('legend-items');
+for (const c of CLUSTERS) {
+  const el = document.createElement('div');
+  el.className = 'legend-item';
+  const hex = '#' + c.color.toString(16).padStart(6, '0');
+  el.innerHTML = `<span class="legend-dot" style="background:${hex};color:${hex}"></span>${c.name}`;
+  el.addEventListener('click', () => focusCluster(c.id));
+  legendEl.appendChild(el);
+}
+
+const tooltipEl = document.getElementById('tooltip');
+const infoEl = document.getElementById('info');
+const infoLabel = document.getElementById('info-label');
+const infoMeta = document.getElementById('info-meta');
+const infoBar = document.getElementById('info-bar');
+const searchEl = document.getElementById('search');
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2(-2, -2);
+let hoveredNode = null;
+let selectedNode = null;
+let pointerScreen = { x: 0, y: 0 };
+
+canvas.addEventListener('pointermove', (e) => {
+  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  pointerScreen.x = e.clientX;
+  pointerScreen.y = e.clientY;
+});
+
+canvas.addEventListener('pointerleave', () => {
+  pointer.set(-2, -2);
+});
+
+canvas.addEventListener('click', (e) => {
+  if (hoveredNode) {
+    selectedNode = hoveredNode;
+    focusNode(hoveredNode);
+    showInfo(hoveredNode);
+  } else {
+    selectedNode = null;
+    hideInfo();
+    resetHighlight();
+  }
+});
+
+function showInfo(n) {
+  infoLabel.textContent = n.label;
+  const cluster = CLUSTERS.find(c => c.id === n.cluster);
+  infoMeta.textContent = `${cluster.name} · ${n.degree} connessioni`;
+  const hex = '#' + n.color.toString(16).padStart(6, '0');
+  infoBar.style.background = hex;
+  infoBar.style.color = hex;
+  infoBar.style.width = (15 + (n.degree / maxDegree) * 85) + '%';
+  infoEl.classList.add('visible');
+}
+function hideInfo() { infoEl.classList.remove('visible'); }
+
+function focusNode(n) {
+  const target = new THREE.Vector3(n.x, n.y, n.z);
+  const dir = camera.position.clone().sub(controls.target).normalize();
+  const newPos = target.clone().add(dir.multiplyScalar(140));
+  animateCamera(newPos, target, 850);
+}
+
+function focusCluster(id) {
+  const ns = graph.nodes.filter(n => n.cluster === id);
+  if (!ns.length) return;
+  const c = new THREE.Vector3();
+  for (const n of ns) c.add(new THREE.Vector3(n.x, n.y, n.z));
+  c.divideScalar(ns.length);
+  const dir = camera.position.clone().sub(controls.target).normalize();
+  animateCamera(c.clone().add(dir.multiplyScalar(320)), c, 950);
+}
+
+function animateCamera(toPos, toTarget, duration) {
+  const fromPos = camera.position.clone();
+  const fromTarget = controls.target.clone();
+  const start = performance.now();
+  function step() {
+    const t = Math.min(1, (performance.now() - start) / duration);
+    const e = t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2;
+    camera.position.lerpVectors(fromPos, toPos, e);
+    controls.target.lerpVectors(fromTarget, toTarget, e);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  step();
+}
+
+searchEl.addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  if (!q) {
+    if (selectedNode) { resetHighlight(); selectedNode = null; hideInfo(); }
+    return;
+  }
+  const match = graph.nodes.find(n => n.label.toLowerCase().includes(q));
+  if (match) {
+    selectedNode = match;
+    focusNode(match);
+    showInfo(match);
+  }
+});
+
+function applyHighlight(node) {
+  const neighbors = adj.get(node.id);
+  for (const m of nodeMeshes) {
+    const mn = m.userData.node;
+    const isMe = mn === node;
+    const isN  = neighbors.has(mn.id);
+    if (isMe) {
+      m.material.opacity = 1;
+      m.scale.setScalar(m.userData.baseRadius * 1.7);
+    } else if (isN) {
+      m.material.opacity = 1;
+      m.scale.setScalar(m.userData.baseRadius * 1.1);
+    } else {
+      m.material.opacity = 0.13;
+      m.scale.setScalar(m.userData.baseRadius);
+    }
+  }
+  edgeMat.opacity = 0.10;
+}
+
+function resetHighlight() {
+  for (const m of nodeMeshes) {
+    m.material.opacity = 1;
+    m.scale.setScalar(m.userData.baseRadius);
+  }
+  edgeMat.opacity = 0.22;
+}
+
+/* ============================================================
+ * 9. RESIZE
+ * ============================================================ */
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  bloomPass.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ============================================================
+ * 10. LOOP
+ * ============================================================ */
+
+let lastPulseSpawn = 0;
+let frame = 0, fpsT = performance.now();
+const fpsEl = document.getElementById('fps');
+
+function tick(now) {
+  requestAnimationFrame(tick);
+  controls.update();
+  sim.tick(1);
+
+  // node positions
+  for (const n of graph.nodes) {
+    n.mesh.position.set(n.x, n.y, n.z);
+  }
+
+  // edges
+  let pi = 0, ci = 0;
+  for (const l of graph.links) {
+    const s = l.source, t = l.target;
+    edgePositions[pi++] = s.x; edgePositions[pi++] = s.y; edgePositions[pi++] = s.z;
+    edgePositions[pi++] = t.x; edgePositions[pi++] = t.y; edgePositions[pi++] = t.z;
+    const cs = s.mesh.userData.baseColor, ct = t.mesh.userData.baseColor;
+    edgeColors[ci++] = cs.r; edgeColors[ci++] = cs.g; edgeColors[ci++] = cs.b;
+    edgeColors[ci++] = ct.r; edgeColors[ci++] = ct.g; edgeColors[ci++] = ct.b;
+  }
+  edgeGeom.attributes.position.needsUpdate = true;
+  edgeGeom.attributes.color.needsUpdate = true;
+
+  // raycast hover
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(nodeMeshes, false);
+  const newHover = hits.length ? hits[0].object.userData.node : null;
+  if (newHover !== hoveredNode) {
+    hoveredNode = newHover;
+    canvas.style.cursor = hoveredNode ? 'pointer' : 'grab';
+    if (hoveredNode) {
+      tooltipEl.textContent = hoveredNode.label;
+      tooltipEl.classList.add('visible');
+      applyHighlight(hoveredNode);
+    } else {
+      tooltipEl.classList.remove('visible');
+      if (selectedNode) applyHighlight(selectedNode);
+      else resetHighlight();
+    }
+  }
+  if (hoveredNode) {
+    tooltipEl.style.left = pointerScreen.x + 'px';
+    tooltipEl.style.top = pointerScreen.y + 'px';
+  }
+
+  // spawn + advance pulses
+  if (now - lastPulseSpawn > 50) {
+    lastPulseSpawn = now;
+    for (const p of pulses) {
+      if (!p.mesh.visible) { spawnPulse(p); break; }
+    }
+  }
+  for (const p of pulses) {
+    if (!p.mesh.visible) continue;
+    p.t += 0.011 * p.speed;
+    if (p.t >= 1) { p.mesh.visible = false; p.mesh.material.opacity = 0; continue; }
+    p.mesh.position.set(
+      p.source.x + (p.target.x - p.source.x) * p.t,
+      p.source.y + (p.target.y - p.source.y) * p.t,
+      p.source.z + (p.target.z - p.source.z) * p.t
+    );
+    p.mesh.material.opacity = Math.sin(p.t * Math.PI) * 0.95;
+  }
+
+  composer.render();
+
+  // fps
+  frame++;
+  if (now - fpsT > 500) {
+    fpsEl.textContent = Math.round((frame * 1000) / (now - fpsT)) + ' fps';
+    frame = 0; fpsT = now;
+  }
+}
+
+canvas.style.cursor = 'grab';
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
